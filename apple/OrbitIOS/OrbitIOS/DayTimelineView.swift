@@ -161,7 +161,10 @@ struct DayTimelineView: View {
                     .fill(task.isCompleted ? Color(.systemGray4) : Color.orbitAccent.opacity(0.85))
                 if paintedHeight >= 24 {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(task.title)
+                        HStack(spacing: 3) {
+                            TaskDeadlineBadge(task: task, compact: true, preview: true)
+                            Text(task.title)
+                        }
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(task.isCompleted ? Color(.systemGray5) : .white)
                             .lineLimit(1)
@@ -219,7 +222,7 @@ struct DayTimelineView: View {
         .transaction { if editing?.taskID == task.id { $0.animation = nil } }
         .orbitMenuFeedback()
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(task.title), \(range)")
+        .accessibilityLabel("\(task.title), \(range)" + TaskDeadlineBadge.accessibilitySuffix(task))
         .accessibilityHint("Нажмите для меню; удерживайте для переноса и изменения границ")
         .accessibilityAddTraits(task.isCompleted ? [.isSelected] : [])
         // Position is outside the local gesture and popover source.

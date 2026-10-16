@@ -43,6 +43,7 @@ struct CalendarDayScreen: View {
     var referenceDay: String? = nil
 
     @State private var projectTask: OrbitTask?
+    @State private var deadlineTask: OrbitTask?
     @State private var presentation: InboxSheetPresentation?
     @State private var renamePresentation: TaskRenamePresentation?
     @State private var deletePresentation: TaskDeletePresentation?
@@ -139,6 +140,7 @@ struct CalendarDayScreen: View {
                         .onChange(of: proxy.size.height) { _, height in contentHeight = height }
                 }
             )
+            .sheet(item: $deadlineTask) { TaskDeadlineSheet(model: model, task: $0) }
             .sheet(item: $projectTask) { TaskProjectSheet(model: model, task: $0) }
             .sheet(item: $presentation) { item in
                 switch item {
@@ -443,7 +445,8 @@ struct CalendarDayScreen: View {
                                     onEditInterval: { presentation = .interval(timed) },
                                     onRename: { renamePresentation = TaskRenamePresentation(task: timed) },
                                     onDelete: { deletePresentation = TaskDeletePresentation(task: timed) },
-                                    onEditProject: { projectTask = timed }
+                                    onEditProject: { projectTask = timed },
+                                    onEditDeadline: { deadlineTask = timed }
                                 )
                             }
                         }

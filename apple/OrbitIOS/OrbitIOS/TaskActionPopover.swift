@@ -20,7 +20,11 @@ struct TaskActionPopoverButton<Content: View>: View {
     @State private var isPresented = false
     @State private var wantsProject = false
     @State private var showsProject = false
+    @State private var wantsDeadline = false
+    @State private var showsDeadline = false
     @State private var pendingAction: OrbitTaskAction?
+    @ScaledMetric(relativeTo: .body) private var menuRowHeight = 44.0
+    @ScaledMetric(relativeTo: .subheadline) private var previewHeight = 110.0
 
     var body: some View {
         Button {
@@ -32,7 +36,8 @@ struct TaskActionPopoverButton<Content: View>: View {
                 isPresented = true
             })
             .popover(isPresented: $isPresented, attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
-                VStack(spacing: 0) {
+                ScrollView {
+                  VStack(spacing: 0) {
                     TaskActionPreview(task: task, range: range)
                         .padding(10)
                     VStack(spacing: 0) {
@@ -43,19 +48,29 @@ struct TaskActionPopoverButton<Content: View>: View {
                             onEditInterval: { choose(.interval) },
                             onRename: { choose(.rename) },
                             onDelete: { choose(.delete) },
-                            onEditProject: { wantsProject = true; isPresented = false }
+                            onEditProject: { wantsProject = true; isPresented = false },
+                            onEditDeadline: { wantsDeadline = true; isPresented = false }
                         )
                     }
                     .buttonStyle(OrbitTaskActionStyle())
                     .padding(.bottom, 6)
+                  }
                 }
+                .scrollBounceBehavior(.basedOnSize)
                 .frame(width: previewWidth)
+                .frame(idealHeight: min(520, menuRowHeight * 7 + previewHeight + 20),
+                       maxHeight: min(520, menuRowHeight * 7 + previewHeight + 20))
                 .background(appearance.canvas)
                 .presentationBackground(appearance.canvas)
                 .presentationCompactAdaptation(.popover)
                 .onDisappear {
                     // Present editors/confirmation only after the popover is
                     // gone. Tapping outside leaves pendingAction nil.
+                    if wantsDeadline {
+                        wantsDeadline = false
+                        showsDeadline = true
+                        return
+                    }
                     if wantsProject {
                         wantsProject = false
                         showsProject = true
@@ -66,6 +81,7 @@ struct TaskActionPopoverButton<Content: View>: View {
                     onAction(action)
                 }
             }
+            .sheet(isPresented: $showsDeadline) { TaskDeadlineSheet(model: model, task: task) }
             .sheet(isPresented: $showsProject) { TaskProjectSheet(model: model, task: task) }
     }
 
@@ -83,6 +99,7 @@ struct TaskActionPreview: View {
             Text(task.title).font(.headline).lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
             Text(range).font(.subheadline.monospacedDigit())
+            TaskDeadlineBadge(task: task, preview: true)
         }
         .foregroundStyle(.white)
         .padding(14)
@@ -96,6 +113,7 @@ struct TaskActionPreview: View {
 private struct OrbitTaskActionStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
+            .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .padding(.horizontal, 16)
             .foregroundStyle(configuration.role == .destructive ? Color.red : Color.primary)

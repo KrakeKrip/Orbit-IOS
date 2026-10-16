@@ -60,7 +60,10 @@ struct CompactCalendarTaskRow: View {
                 case .delete: onDelete()
                 }
             } label: {
-                Text(task.title)
+                HStack(spacing: 4) {
+                    TaskDeadlineBadge(task: task, compact: true)
+                    Text(task.title)
+                }
                     .font(.subheadline)
                     .foregroundStyle(task.isCompleted ? Color.secondary : Color.primary)
                     .lineLimit(1)
@@ -71,7 +74,7 @@ struct CompactCalendarTaskRow: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(task.title)
+            .accessibilityLabel(task.title + TaskDeadlineBadge.accessibilitySuffix(task))
             .accessibilityHint("Открывает меню задачи")
             .orbitMenuFeedback()
         }

@@ -245,6 +245,7 @@ struct InboxRowView: View {
                     .foregroundStyle(task.isCompleted ? Color.secondary : Color.primary)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
+                TaskDeadlineBadge(task: task)
                 if showsDateLabel, let plannedDate = task.plannedDate {
                     Text(RussianDateCaption.label(plannedDate))
                         .font(.footnote)
@@ -262,7 +263,7 @@ struct InboxRowView: View {
             .contentShape(Rectangle())
         }
         .orbitMenuFeedback()
-        .accessibilityLabel(task.title)
+        .accessibilityLabel(task.title + TaskDeadlineBadge.accessibilitySuffix(task))
     }
 
 

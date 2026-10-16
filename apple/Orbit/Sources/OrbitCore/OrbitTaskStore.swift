@@ -88,7 +88,8 @@ public final class OrbitTaskStore {
         plannedDate: String? = nil,
         plannedTime: String? = nil,
         durationMinutes: Int? = nil,
-        projectID: UUID? = nil
+        projectID: UUID? = nil,
+        deadlineDate: String? = nil
     ) throws -> OrbitTask {
         let title = try TaskTitle.validated(rawTitle)
         if let plannedDate, !TaskPlannedDate.isValid(plannedDate) {
@@ -120,6 +121,7 @@ public final class OrbitTaskStore {
                 throw TaskTimeIntervalError.endOutOfRange
             }
         }
+        try TaskDeadline.validate(deadlineDate)
         try validateProject(projectID)
         let task = OrbitTask(
             title: title,
@@ -127,7 +129,8 @@ public final class OrbitTaskStore {
             plannedDate: plannedDate,
             plannedTime: plannedTime,
             durationMinutes: durationMinutes,
-            projectID: projectID
+            projectID: projectID,
+            deadlineDate: deadlineDate
         )
         context.insert(task)
         do {
@@ -137,6 +140,19 @@ public final class OrbitTaskStore {
             throw error
         }
         return task
+    }
+
+    /// Changes only the deadline. Validation before mutation; identical is a no-op.
+    public func setDeadlineDate(_ value: String?, for id: UUID) throws {
+        try TaskDeadline.validate(value)
+        let descriptor = FetchDescriptor<OrbitTask>(predicate: #Predicate { $0.id == id })
+        guard let task = try context.fetch(descriptor).first else {
+            throw OrbitStoreError.taskNotFound(id: id)
+        }
+        guard task.deadlineDate != value else { return }
+        task.setDeadlineDate(value)
+        do { try context.save() }
+        catch { context.rollback(); throw error }
     }
 
     private func validateProject(_ id: UUID?) throws {

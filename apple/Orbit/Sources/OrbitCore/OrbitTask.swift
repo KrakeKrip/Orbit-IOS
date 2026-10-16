@@ -5,6 +5,8 @@ import SwiftData
 public final class OrbitTask {
     public private(set) var id: UUID
     public private(set) var projectID: UUID?
+    /// Independent end-of-day civil deadline; optional for additive upgrades.
+    public private(set) var deadlineDate: String?
     public private(set) var title: String
     public private(set) var createdAt: Date
     public private(set) var completedAt: Date?
@@ -27,8 +29,10 @@ public final class OrbitTask {
         plannedDate: String? = nil,
         plannedTime: String? = nil,
         durationMinutes: Int? = nil,
-        projectID: UUID? = nil
+        projectID: UUID? = nil,
+        deadlineDate: String? = nil
     ) {
+        self.deadlineDate = deadlineDate
         self.projectID = projectID
         self.id = id
         self.title = title
@@ -38,6 +42,8 @@ public final class OrbitTask {
         self.plannedTime = plannedTime
         self.durationMinutes = durationMinutes
     }
+
+    func setDeadlineDate(_ value: String?) { deadlineDate = value }
 
     func setProject(_ id: UUID?) { projectID = id }
 

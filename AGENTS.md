@@ -1,3 +1,7 @@
+## Последний этап 2026-10-16 — независимый дедлайн
+
+NATIVE-DEADLINE-001 выполнен Codex по прямому «делаем»: optional civil deadlineDate, atomic create/edit/clear, shared UI и overdue со следующего дня только для open. Core104/104 с actual previous-source upgrade, iOS build и own Simulator GUI PASS; ограничения reports/NATIVE-DEADLINE-001-executor.md. Notifications/reminders следующим отдельным этапом. Личные данные/телефон в QA не используются, автоматический push/install этого этапа не выполняется.
+
 ## Текущая работа 2026-10-16 — папки проектов / общий Settings
 
 PRJ003/004 выполнены Codex (self-check): принадлежность задач, проектные List/Calendar, общий Settings и нижний «+». Core101/101, previous-source upgrade, финальная iOS-сборка и живой GUI PASS. CUA после восстановления окна снова доставляет действия; прежний блокер закрыт. Подробные сценарии и ограничения — reports/NATIVE-PRJ-003-004-executor.md. Вибрация на физическом устройстве ещё требует проверки владельца.

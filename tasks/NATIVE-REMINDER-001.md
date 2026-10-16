@@ -1,0 +1,3 @@
+# NATIVE-REMINDER-001 — план следующего этапа
+
+TODO, не назначен. Следующий этап после дедлайнов: одно локальное напоминание на задачу с явной датой/временем, создание/изменение/удаление, permission UX и уведомления iPhone. До реализации уточнить контракты civil/instant/timezone, complete/delete отмену, повторное открытие, restart reconciliation и лимит pending notifications. Дедлайн и planned interval не должны молча создавать уведомления. Сначала bounded core+planner, затем UI/system delivery; отдельный task scope перед запуском. Личные stores и уведомления не использовать для тестовых фикстур.
