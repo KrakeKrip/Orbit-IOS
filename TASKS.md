@@ -34,6 +34,7 @@
 | NATIVE-PRJ-001 | IMPLEMENTED / SELF-CHECK | core list/create/rename, 98/98 tests, previous-source disk upgrade и iOS build PASS; UI отдельно |
 | NATIVE-PRJ-002 | IMPLEMENTED / SELF-CHECK | вкладка, create/rename, dark/AXL/relaunch и store-сохранность PASS; swipe UNVERIFIED |
 | NATIVE-PRJ-003 | IMPLEMENTED / SELF-CHECK | membership, atomic create, 101/101, previous-source upgrade PASS |
+| NATIVE-DEADLINE-001 | IMPLEMENTED / SELF-CHECK | независимый civil-дедлайн, create/edit/clear, overdue и additive upgrade |
 | NATIVE-PRJ-004 | IMPLEMENTED / SELF-CHECK | папки List/Calendar, picker, единый gear/header, нижний FAB, GUI/store/relaunch PASS |
 | NATIVE-007D | TODO (план) | перенос из «Без времени» в сетку, отдельный scope перед выдачей |
 | NATIVE-007E | TODO (план) | изменение длительности жестом |

@@ -40,6 +40,8 @@ enum IOSInboxFormatting {
             return "Не удалось добавить задачу. \(intervalMessage(error))"
         case is TaskPlannedDateError:
             return "Не удалось добавить задачу. \(plannedDateMessage(error))"
+        case is TaskDeadlineError:
+            return "Не удалось добавить задачу. Некорректный дедлайн (1900–2199)."
         case is TaskTitleError:
             return addMessage(error)
         default:
@@ -132,6 +134,19 @@ final class IOSInboxModel {
         }
     }
 
+    func setDeadlineDate(_ value: String?, for task: OrbitTask) -> String? {
+        do {
+            try store.setDeadlineDate(value, for: task.id)
+            writeError = nil
+            reload()
+            return nil
+        } catch {
+            reload()
+            if error is TaskDeadlineError { return "Некорректный дедлайн (1900–2199)." }
+            return "Не удалось сохранить дедлайн. \(IOSInboxFormatting.storageMessage(error))"
+        }
+    }
+
     func assignProject(_ projectID: UUID?, to task: OrbitTask) -> String? {
         do {
             try store.setProject(projectID, for: task.id)
@@ -193,7 +208,8 @@ final class IOSInboxModel {
         plannedDate: String?,
         plannedTime: String? = nil,
         durationMinutes: Int? = nil,
-        projectID: UUID? = nil
+        projectID: UUID? = nil,
+        deadlineDate: String? = nil
     ) -> String? {
         do {
             _ = try store.addTask(
@@ -201,7 +217,8 @@ final class IOSInboxModel {
                 plannedDate: plannedDate,
                 plannedTime: plannedTime,
                 durationMinutes: durationMinutes,
-                projectID: projectID
+                projectID: projectID,
+                deadlineDate: deadlineDate
             )
             writeError = nil
             reload()

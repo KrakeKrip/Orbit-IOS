@@ -141,6 +141,7 @@ struct TaskCreateSheet: View {
 
     private enum ExpandedGroup: Equatable {
         case date
+        case deadline
         case start
         case duration
     }
@@ -155,6 +156,7 @@ struct TaskCreateSheet: View {
 
     /// Local draft: optional civil date `YYYY-MM-DD` (nil = undated).
     @State private var draftProjectID: UUID?
+    @State private var draftDeadline: String?
     @State private var draftDate: String?
     /// Resting position of the date wheel; only wheel writes touch the
     /// draft. An unset/invalid preset leaves the draft undated while the
@@ -198,6 +200,14 @@ struct TaskCreateSheet: View {
                     .accessibilityIdentifier("create-project-picker")
                 }
                 Section { dateSection }
+                Section {
+                    TaskDeadlineFields(value: $draftDeadline, expanded: Binding(
+                        get: { expandedGroup == .deadline },
+                        set: { value in
+                            titleFieldFocused = false
+                            expandedGroup = value ? .deadline : nil
+                        }))
+                }
                 Section { timeSection }
                 Section {
                     if let errorMessage {
@@ -499,7 +509,8 @@ struct TaskCreateSheet: View {
             plannedDate: draftDate,
             plannedTime: sendInterval ? startString : nil,
             durationMinutes: sendInterval ? draftDurationTotal : nil,
-            projectID: draftProjectID
+            projectID: draftProjectID,
+            deadlineDate: draftDeadline
         ) {
             // The sheet and every draft stay up for retry; the list itself
             // was rolled back to persisted truth by the model.

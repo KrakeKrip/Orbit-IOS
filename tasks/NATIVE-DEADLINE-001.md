@@ -1,0 +1,5 @@
+# NATIVE-DEADLINE-001 — независимый дедлайн
+
+IMPLEMENTED / SELF-CHECK. 104/104, actual old-schema upgrade, final iOS build, GUI create/edit/clear/Cancel/completion/calendar/relaunch/dark/AXL PASS; ограничения в reports/NATIVE-DEADLINE-001-executor.md. Прямое «делаем» после предложения дедлайна в создании/редактировании, списке и календаре. Base5ab4c55, отдельный worktree/ветка task/NATIVE-DEADLINE-001. Codex выполняет сам; GLM не назначен.
+
+Optional deadlineDate civil1900–2199, legacy nil; write validation до мутации/insert, single save/rollback/no-op. Не связан с plannedDate/time/project. Общий create local draft, существующая задача → меню «Дедлайн…» → редактор с Save/Cancel/clear. Дата/флажок на shared rows и Calendar, полный срок в preview/AX/tiny menu. Overdue для open и deadline < today; same day не overdue. Core tests valid/invalid/atomic/reopen/preservation/no-op/old actual schema. Build+GUI create/change/clear/Cancel/complete/calendar/relaunch/dark/AXL. Без notification permission, reminders, сортировки, новых buckets, push и personal install. Эти действия отдельно по запросу владельца.
