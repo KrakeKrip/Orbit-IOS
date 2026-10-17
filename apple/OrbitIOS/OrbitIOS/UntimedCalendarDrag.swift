@@ -23,7 +23,7 @@ struct UntimedCalendarDrag: Equatable {
 }
 
 /// The visible ScrollView is the drop target. Convert viewport coordinates
-/// using the measured content origin, including its current scroll offset.
+/// using the content-to-viewport offset measured in window coordinates.
 /// Native drag cancellation never calls commit.
 struct UntimedTimelineDropDelegate: DropDelegate {
     // Drag targets can be registered before onDrag populates the source.
@@ -33,7 +33,7 @@ struct UntimedTimelineDropDelegate: DropDelegate {
     let width: CGFloat
     let hourHeight: CGFloat
     let viewportHeight: CGFloat
-    @Binding var contentTop: CGFloat
+    @Binding var scrollOffset: CGFloat
     let acceptsSource: (UntimedCalendarDrag) -> Bool
     let preview: (TaskTimelineAdjustment.Candidate?) -> Void
     let commit: (UntimedCalendarDrag, TaskTimelineAdjustment.Candidate) -> Void
@@ -48,7 +48,7 @@ struct UntimedTimelineDropDelegate: DropDelegate {
         guard let source, source.day == day, acceptsSource(source), validateDrop(info: info),
               info.location.x >= 56, info.location.x <= width - 10,
               info.location.y >= 0, info.location.y < viewportHeight else { return nil }
-        let y = info.location.y - contentTop
+        let y = info.location.y + scrollOffset
         guard y >= 0, y < 24 * hourHeight else { return nil }
         return TaskTimelineAdjustment.candidate(date: day, time: "00:00", duration: 30,
             deltaMinutes: Double(y / hourHeight * 60), edge: .move)

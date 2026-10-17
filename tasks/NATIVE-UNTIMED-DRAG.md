@@ -10,3 +10,5 @@ REVIEW (GUI gate открыт), Codex самостоятельно по «дав
 R1: physical screenshot показал forbidden drop. Delegate.source заменён snapshot→live Binding, phase cancel только background. Device build PASS, исправленная сборка установлена владельцу; успешный touch drop ещё ожидает проверки. Main не merge.
 
 R2: стандартный opaque NSString nonce, viewport target + измеренный scroll origin; R1 не прошёл touch QA владельца. По новому запросу добавлено сохранение List/Calendar отдельно Today/Upcoming/каждый project через AppStorage. REVIEW до успешного native drop.
+
+R3: после подтверждённого native lift/drop владелец выявил неверный час при scroll. Offset теперь из global frames viewport/content через onGeometryChange; build PASS, physical scroll/drop QA ожидается.

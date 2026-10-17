@@ -1,3 +1,11 @@
+# R3 — позиция на прокрученной сетке (2026-10-17)
+
+Владелец подтвердил native drag после R2, но ghost/вибрация начинались с полуночи при прокрутке к 12–21. Named coordinate space на ScrollView не дал нужного смещения. Удалены PreferenceKey и замер в этой системе координат. Теперь content и внешний viewport измеряются в одной `.global` системе; offset = viewport.minY − content.minY, candidateY = drop.location.y + offset. Offset читается через live binding на каждом dropUpdated/performDrop. Например, при viewport=200/content=-568 (12 часов ×64pt) dropY=192 даёт15:00, а не03:00. Ghost/haptic и окончательный commit используют один candidate.
+
+Сначала проверен onScrollGeometryChange, но compiler выявил iOS18-only при deployment17; заменён на back-deployed onGeometryChange без повышения target. Финальный device build BUILD SUCCEEDED (`/private/tmp/orbit-untimed-device-r3.log`). Core/schema/store/snap5/30min/сохранение вида не менялись; unit core повторно не запускались. Touch QA на прокрученной сетке после этого изменения пока UNVERIFIED, gate REVIEW остаётся. Ниже история предыдущих попыток.
+
+---
+
 # R2 — повторный отказ и сохранение вида (2026-10-17)
 
 R1 не решил перенос по фактической проверке владельца. Статус REVIEW: успешный touch drop не подтверждён, main не merge.
