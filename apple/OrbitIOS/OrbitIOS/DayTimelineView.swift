@@ -54,7 +54,7 @@ struct DayTimelineView: View {
                             }
                             .accessibilityHidden(true)
                         ruler.allowsHitTesting(false)
-                        blocks(containerSize: geometry.size)
+                        blocks(containerSize: geometry.size, viewport: geometry.frame(in: .global))
                             .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: displaySegments)
                         untimedPreview(containerWidth: geometry.size.width)
                     }
@@ -174,7 +174,7 @@ struct DayTimelineView: View {
 
     // MARK: - Blocks
 
-    private func blocks(containerSize: CGSize) -> some View {
+    private func blocks(containerSize: CGSize, viewport: CGRect) -> some View {
         let layout = laneLayout(for: displaySegments)
         return ForEach(layout, id: \.segment.taskID) { item in
             if let task = task(item.segment.taskID) {
@@ -184,7 +184,8 @@ struct DayTimelineView: View {
                     laneIndex: item.lane,
                     laneCount: item.laneCount,
                     containerWidth: containerSize.width,
-                    menuHeight: max(140, min(520, containerSize.height - 24))
+                    menuHeight: max(140, min(520, containerSize.height - 24)),
+                    menuViewport: viewport
                 )
             }
         }
@@ -196,7 +197,8 @@ struct DayTimelineView: View {
         laneIndex: Int,
         laneCount: Int,
         containerWidth: CGFloat,
-        menuHeight: CGFloat
+        menuHeight: CGFloat,
+        menuViewport: CGRect
     ) -> some View {
         let startOffset = CGFloat(segment.startMinute) / 60 * hourHeight
         // Exact painted geometry: one minute is 1.0667pt at 64pt/hour — no
@@ -210,6 +212,7 @@ struct DayTimelineView: View {
                                          previewWidth: min(300, max(160, containerWidth - 32)),
                                          maximumHeight: menuHeight,
                                          anchorsAtTap: true,
+                                         calendarViewport: menuViewport,
                                          opensOnHold: false,
                                          canOpen: { editing == nil && Date.now.timeIntervalSince(lastGestureFinish) > 0.25 }) { action in
             switch action {

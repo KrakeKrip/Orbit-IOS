@@ -14,6 +14,7 @@ struct TaskActionPopoverButton<Content: View>: View {
     let previewWidth: CGFloat
     var maximumHeight: CGFloat = 520
     var anchorsAtTap = false
+    var calendarViewport: CGRect? = nil
     var opensOnHold = true
     var canOpen: () -> Bool = { true }
     let onAction: (OrbitTaskAction) -> Void
@@ -22,6 +23,7 @@ struct TaskActionPopoverButton<Content: View>: View {
     @State private var isPresented = false
     @State private var sourceSize = CGSize(width: 1, height: 1)
     @State private var tapAnchor = UnitPoint.center
+    @State private var sourceFrame: CGRect = .zero
     @State private var wantsProject = false
     @State private var showsProject = false
     @State private var wantsReminder = false
@@ -43,7 +45,10 @@ struct TaskActionPopoverButton<Content: View>: View {
                 isPresented = true
             }
         } label: { label() }
-            .onGeometryChange(for: CGSize.self) { $0.size } action: { sourceSize = $0 }
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: {
+                sourceFrame = $0
+                sourceSize = $0.size
+            }
             .simultaneousGesture(SpatialTapGesture().onEnded { value in
                 guard anchorsAtTap, canOpen() else { return }
                 tapAnchor = UnitPoint(
@@ -54,7 +59,7 @@ struct TaskActionPopoverButton<Content: View>: View {
                 OrbitHaptics.longPress()
                 isPresented = true
             })
-            .popover(isPresented: $isPresented, attachmentAnchor: anchorsAtTap ? .point(tapAnchor) : .rect(.bounds), arrowEdge: anchorsAtTap ? nil : .top) {
+            .popover(isPresented: $isPresented, attachmentAnchor: anchorsAtTap ? .point(tapAnchor) : .rect(.bounds), arrowEdge: preferredArrowEdge) {
                 ScrollView {
                   VStack(spacing: 0) {
                     TaskActionPreview(task: task, range: range, reminders: model.reminders)
@@ -77,8 +82,8 @@ struct TaskActionPopoverButton<Content: View>: View {
                   }
                 }
                 .scrollBounceBehavior(.basedOnSize)
-                .frame(width: previewWidth)
-                .frame(height: min(maximumHeight, menuRowHeight * 8 + previewHeight + 20))
+                .frame(minWidth: 0, idealWidth: previewWidth, maxWidth: previewWidth, alignment: .leading)
+                .frame(height: min(availableMenuHeight, menuRowHeight * 8 + previewHeight + 20))
                 .background(appearance.canvas)
                 .presentationBackground(appearance.canvas)
                 .presentationCompactAdaptation(.popover)
@@ -108,6 +113,20 @@ struct TaskActionPopoverButton<Content: View>: View {
             .sheet(isPresented: $showsReminder) { TaskReminderSheet(model: model, task: task) }
             .sheet(isPresented: $showsDeadline) { TaskDeadlineSheet(model: model, task: task) }
             .sheet(isPresented: $showsProject) { TaskProjectSheet(model: model, task: task) }
+    }
+
+    // A vertical arrow keeps the menu out of narrow side gutters. Choose
+    // the half with more room and let the ScrollView fit that real space.
+    private var preferredArrowEdge: Edge {
+        guard anchorsAtTap, let viewport = calendarViewport else { return .top }
+        return sourceFrame.minY + sourceSize.height * tapAnchor.y > viewport.midY ? .bottom : .top
+    }
+
+    private var availableMenuHeight: CGFloat {
+        guard anchorsAtTap, let viewport = calendarViewport else { return maximumHeight }
+        let y = min(viewport.maxY, max(viewport.minY, sourceFrame.minY + sourceSize.height * tapAnchor.y))
+        let room = preferredArrowEdge == .bottom ? y - viewport.minY : viewport.maxY - y
+        return min(maximumHeight, max(44, room - 24))
     }
 
     private func choose(_ action: OrbitTaskAction) {
@@ -141,6 +160,7 @@ private struct OrbitTaskActionStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .fixedSize(horizontal: false, vertical: true)
+            .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .padding(.horizontal, 16)
             .foregroundStyle(configuration.role == .destructive ? Color.red : Color.primary)
