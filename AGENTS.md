@@ -1,3 +1,7 @@
+## Текущий этап 2026-10-17 — перенос из «Без времени»
+
+NATIVE-UNTIMED-DRAG REVIEW в отдельной task-ветке от6b346ae. Код4iOSfiles/build/4snapchecks PASS; short tap menu GUI PASS. CUA не доставляет drag и возвращает noWindowsAvailable; end-to-end drop/scroll/cancel НЕ проверены. Main не менять до touch QA. reports/NATIVE-UNTIMED-DRAG-executor.md. Phone/push/install не выполнены.
+
 ## Итог 2026-10-17 — общий звук
 
 NATIVE-SOUND-001 DONE self-check:5общих вариантов/preview/persistence/pending replacement,112tests/iOSbuild PASS; real delivery после silent→drop с закрытым процессом и system playback именно orbit-drop.wav. Schema не менялась. iPhone sound QA/AXL/VoiceOver отдельно. reports/NATIVE-SOUND-001-executor.md. User подтвердил работу предыдущей установленной версии; новый sound build не устанавливался/push не выполнялся.

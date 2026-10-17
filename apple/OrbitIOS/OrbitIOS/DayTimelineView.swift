@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import OrbitCore
 
 /// Civil day timeline: tap for actions, hold-and-drag to move, handles to resize.
@@ -7,6 +8,9 @@ struct DayTimelineView: View {
     @Environment(\.orbitAppearance) private var appearance
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let model: IOSInboxModel
+    let day: String
+    @Binding var untimedDrag: UntimedCalendarDrag?
+    let onCommitUntimed: (UntimedCalendarDrag, TaskTimelineAdjustment.Candidate) -> String?
     let segments: [TaskDayIntervalSegment]
     /// Resolves a projected task UUID to the live shared-model task object.
     let task: (UUID) -> OrbitTask?
@@ -17,6 +21,7 @@ struct DayTimelineView: View {
     let onRename: (OrbitTask) -> Void
     let onDelete: (OrbitTask) -> Void
     let onCommitInterval: (OrbitTask, String, Int) -> String?
+    @State private var untimedCandidate: TaskTimelineAdjustment.Candidate?
     @State private var selectedTaskID: UUID?
     @State private var editing: TimelineGestureEdit?
     @State private var gestureError: String?
@@ -47,10 +52,28 @@ struct DayTimelineView: View {
                         ruler.allowsHitTesting(false)
                         blocks(containerWidth: geometry.size.width)
                             .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: displaySegments)
+                        untimedPreview(containerWidth: geometry.size.width)
                     }
                     .frame(width: geometry.size.width, height: 24 * hourHeight + 24)
                     .background(appearance.canvas)
                     .coordinateSpace(name: "orbit-timeline")
+                    .onDrop(of: [UTType.orbitUntimedTask.identifier], delegate: UntimedTimelineDropDelegate(
+                        source: untimedDrag, day: day, width: geometry.size.width, hourHeight: hourHeight,
+                        acceptsSource: { source in
+                            guard editing == nil, let current = task(source.taskID) else { return false }
+                            return current.plannedDate == source.day && current.plannedTime == nil &&
+                                current.durationMinutes == nil && current.projectID == source.projectID &&
+                                current.isCompleted == source.completed
+                        }, preview: { candidate in
+                            if candidate?.time != untimedCandidate?.time, candidate != nil { OrbitHaptics.timelineStep() }
+                            untimedCandidate = candidate
+                        }, commit: { source, candidate in
+                            selectedTaskID = nil
+                            gestureError = onCommitUntimed(source, candidate)
+                        }, failure: {
+                            untimedDrag = nil
+                            gestureError = "Не удалось перенести задачу. Повторите действие."
+                        }))
                 }
                 .scrollDisabled(editing != nil)
                 .overlay(alignment: .top) {
@@ -71,7 +94,32 @@ struct DayTimelineView: View {
                 DispatchQueue.main.async { if !gestureActive { editing = nil } }
             }
         }
-        .onDisappear { editing = nil; selectedTaskID = nil }
+        .onChange(of: untimedDrag?.token) { _, _ in untimedCandidate = nil }
+        .onDisappear { editing = nil; selectedTaskID = nil; untimedCandidate = nil }
+    }
+
+    /// The source remains in «Без времени» until the validated store commit.
+    /// The target is a noninteractive 30-minute ghost at its exact snapped time.
+    @ViewBuilder private func untimedPreview(containerWidth: CGFloat) -> some View {
+        if let source = untimedDrag, source.day == day, let candidate = untimedCandidate {
+            let end = candidate.startMinute + candidate.duration
+            let height = CGFloat(min(1440, end) - candidate.startMinute) / 60 * hourHeight
+            VStack(alignment: .leading, spacing: 1) {
+                Text(source.title).font(.caption.weight(.semibold)).lineLimit(1)
+                Text("\(candidate.time)–\(clockString(end % 1440))\(end >= 1440 ? " (+1 день)" : "")")
+                    .font(.caption2.monospacedDigit()).lineLimit(1)
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 6)
+            .frame(width: max(1, containerWidth - Self.laneInset - Self.laneTrailing), height: height, alignment: .topLeading)
+            .background(Color.orbitAccent.opacity(0.75), in: RoundedRectangle(cornerRadius: 3))
+            .overlay(RoundedRectangle(cornerRadius: 3).stroke(.white, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])))
+            .clipped()
+            .position(x: Self.laneInset + (containerWidth - Self.laneInset - Self.laneTrailing) / 2,
+                      y: CGFloat(candidate.startMinute) / 60 * hourHeight + height / 2)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
     }
 
     // MARK: - Hour ruler

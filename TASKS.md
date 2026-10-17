@@ -147,3 +147,6 @@ Review2026-10-15: ADD004867a0a1 independentiOSbuild/diffcheckPASS. SourceR1optio
 
 
 2026-10-17: NATIVE-SOUND-001 DONE self-check — общий звук/preview/pending update,112core/iOSbuild/real-systemdropdelivery PASS. Индивидуальный sound исключён пользователем. Report reports/NATIVE-SOUND-001-executor.md. Физический sound QA отдельно.
+
+
+2026-10-17: NATIVE-UNTIMED-DRAG REVIEW (реализация NATIVE-007D) —4iOSfiles/native own-process drag/drop, snap5/default30, guarded atomic save. Builds/4snaptests PASS; shorttap GUI PASS. Full drag GUI gate открыт (CUA noWindowsAvailable). Не merge до touch QA. reports/NATIVE-UNTIMED-DRAG-executor.md.

@@ -17,6 +17,7 @@ struct CompactCalendarTaskRow: View {
     let onEditInterval: () -> Void
     let onRename: () -> Void
     let onDelete: () -> Void
+    let onBeginDrag: () -> NSItemProvider
 
     var body: some View {
         HStack(spacing: 0) {
@@ -51,7 +52,7 @@ struct CompactCalendarTaskRow: View {
 
             TaskActionPopoverButton(model: model, task: task,
                                     range: task.plannedDate.map(RussianDateCaption.label) ?? "Без даты",
-                                    previewWidth: 300) { action in
+                                    previewWidth: 300, opensOnHold: false) { action in
                 switch action {
                 case .toggle: model.setCompleted(!task.isCompleted, for: task)
                 case .date: onEditDate()
@@ -75,8 +76,13 @@ struct CompactCalendarTaskRow: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .onDrag(onBeginDrag) {
+                Text(task.title).font(.subheadline).lineLimit(1)
+                    .padding(8).background(Color.orbitAccent, in: RoundedRectangle(cornerRadius: 7))
+                    .foregroundStyle(.white)
+            }
             .accessibilityLabel(task.title + TaskDeadlineBadge.accessibilitySuffix(task) + TaskReminderBadge.accessibilitySuffix(task))
-            .accessibilityHint("Открывает меню задачи")
+            .accessibilityHint("Нажмите для меню; удерживайте и перенесите на временную сетку")
             .orbitMenuFeedback()
         }
         .background(

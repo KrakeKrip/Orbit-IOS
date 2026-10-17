@@ -20,6 +20,7 @@ import OrbitCore
 /// through to the owner's binding — this screen never keeps a second
 /// selection owner.
 struct CalendarDayScreen: View {
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.orbitAppearance) private var appearance
     let model: IOSInboxModel
     var projectID: UUID? = nil
@@ -59,6 +60,7 @@ struct CalendarDayScreen: View {
         fromCivilDateString: TaskDaySelection.currentDay()
     ) ?? Date()
     @State private var untimedExpanded = false
+    @State private var untimedDrag: UntimedCalendarDrag?
     /// Measured height of the whole calendar content area (date controls +
     /// untimed region + timeline); the expanded untimed viewport derives from
     /// it instead of fixed screen math, so rotation and window changes adapt.
@@ -112,6 +114,9 @@ struct CalendarDayScreen: View {
                     untimedSection
                     DayTimelineView(
                         model: model,
+                        day: selectedDay,
+                        untimedDrag: $untimedDrag,
+                        onCommitUntimed: commitUntimedDrag,
                         segments: projection.timedSegments,
                         task: { taskID in model.tasks.first { $0.id == taskID } },
                         onEditInterval: { task in presentation = .interval(task) },
@@ -173,11 +178,46 @@ struct CalendarDayScreen: View {
                 // state; the timeline subtree keeps its identity and offset.
                 // The picker follows the shown day in every context (writes
                 // of the same value are no-ops, so no feedback loop).
+                untimedDrag = nil
                 untimedExpanded = false
                 expandedContentHeight = nil
                 syncPicker(to: newDay)
             }
+            .onDisappear { untimedDrag = nil }
+            .onChange(of: scenePhase) { _, phase in
+                if phase != .active { untimedDrag = nil }
+            }
+            .onChange(of: projectID) { _, _ in untimedDrag = nil }
         }
+    }
+
+    private func beginUntimedDrag(_ task: OrbitTask) -> NSItemProvider {
+        guard task.plannedDate == selectedDay, task.plannedTime == nil, task.durationMinutes == nil else {
+            return NSItemProvider()
+        }
+        let source = UntimedCalendarDrag(token: UUID(), taskID: task.id, day: selectedDay,
+                                        projectID: task.projectID, completed: task.isCompleted, title: task.title)
+        guard let provider = source.provider() else { return NSItemProvider() }
+        untimedDrag = source
+        OrbitHaptics.longPress()
+        OrbitHaptics.prepareTimeline()
+        return provider
+    }
+
+    private func commitUntimedDrag(_ source: UntimedCalendarDrag,
+                                   _ candidate: TaskTimelineAdjustment.Candidate) -> String? {
+        guard untimedDrag?.token == source.token else { return "Перенос отменён. Повторите действие." }
+        // Consume once. A duplicate/delayed provider callback cannot save twice.
+        untimedDrag = nil
+        guard selectedDay == source.day, let current = task(withID: source.taskID),
+              current.plannedDate == source.day, current.plannedTime == nil, current.durationMinutes == nil,
+              current.projectID == source.projectID, current.isCompleted == source.completed,
+              projectID == nil || current.projectID == projectID else {
+            return "Задача или выбранный день изменились. Повторите перенос."
+        }
+        let error = model.setPlannedInterval(plannedTime: candidate.time, durationMinutes: candidate.duration, for: current)
+        if error == nil { OrbitHaptics.selection() }
+        return error
     }
 
     private var isFixedDayMode: Bool {
@@ -597,6 +637,8 @@ struct CalendarDayScreen: View {
                     renamePresentation = TaskRenamePresentation(task: task)
                 } onDelete: {
                     deletePresentation = TaskDeletePresentation(task: task)
+                } onBeginDrag: {
+                    beginUntimedDrag(task)
                 }
             }
         }
