@@ -24,7 +24,7 @@ final class OrbitCompletionFeedback {
                     throw CocoaError(.fileNoSuchFile)
                 }
                 player = try AVAudioPlayer(contentsOf: url)
-                player?.volume = 0.75
+                player?.volume = 0.85
             }
             player?.currentTime = 0
             let started = player?.play() == true

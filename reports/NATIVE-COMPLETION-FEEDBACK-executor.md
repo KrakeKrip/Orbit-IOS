@@ -19,3 +19,11 @@ Own simulator1A3DE04B-CFDB-4DB4-BC3D-CB429529DF7A обновлён и запущ
 Установка update-in-place на iPhone запрошена, результат ниже после devicectl. Личные данные/store не считывались.
 
 Device update-in-place SUCCESS: local.orbit.ios, sequence2532. Фактическое ощущение звука/вибрации на iPhone пока UNVERIFIED.
+
+## R1 — выразительность completion sound
+
+Владелец услышал первую версию на iPhone и оценил как невыразительную. Звук пересинтезирован: короткая smooth transient атака, lower660Hz затем consonant990/1320Hz, больше гармоник и медленнее начальный decay. Duration0.365s вместо0.4, normalizedpeak0.55 вместо0.174; player gain0.85 вместо0.75. Это waveform/gain измерения, не доказательство субъективного качества или dBA на телефоне. Клипа нет (peak<1), хвост последние1000sampleszero; mono44.1k16bit. Notifications3WAV снова bit-identical по gitstatus. Haptic/settings/commit guards не менялись.
+
+Signed iOS BUILD SUCCEEDED /private/tmp/orbit-completion-sound-r1.log, diff --check PASS. Физическая оценка нового тембра/громкости и Silent QA ожидаются. Установка запрошена, результат ниже после devicectl.
+
+R1 update-in-place devicectl SUCCESS: local.orbit.ios, sequence2540. Acoustic preference нового варианта требует оценки владельца.
