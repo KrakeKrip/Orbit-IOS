@@ -250,11 +250,14 @@ struct InboxRowView: View {
                 TaskDeadlineBadge(task: task)
                 TaskReminderBadge(task: task, service: model.reminders)
                 if showsDateLabel, let plannedDate = task.plannedDate {
-                    Text(RussianDateCaption.label(plannedDate))
-                        .font(.footnote)
-                        // Semantic colors survive the Menu label tint;
-                        // hierarchical styles would render coral.
-                        .foregroundStyle(Color.secondary)
+                    TimelineView(.periodic(from: .now, by: 60)) { context in
+                        let today = TaskDaySelection.currentDay(from: context.date)
+                        let missed = !task.isCompleted && TaskPlannedDate.isValid(plannedDate) && plannedDate < today
+                        Text(RussianDateCaption.label(plannedDate))
+                            .font(.footnote)
+                            .foregroundStyle(missed ? Color.red : Color.secondary)
+                            .accessibilityLabel(RussianDateCaption.label(plannedDate) + (missed ? ", запланированная дата прошла" : ""))
+                    }
                 }
                 if let interval = Self.intervalLabel(task) {
                     Text(interval)

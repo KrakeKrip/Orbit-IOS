@@ -3,10 +3,9 @@ import SwiftUI
 import OrbitCore
 
 /// The «Предстоящее» section (NATIVE-NAV-002): one shared model/store with
-/// two switchable presentations over an independently selected civil day —
-/// the large-row list (`UpcomingListScreen`, an inclusive 7-day window from
-/// the selected day) and the accepted day calendar (`CalendarDayScreen` in
-/// its browsing context). This view is the single Upcoming selection owner:
+/// three switchable presentations over an independently selected civil day:
+/// a single-day list, day timeline, and multi-day agenda. This view is the
+/// single Upcoming selection owner:
 /// the selected day starts at the local Gregorian today and the mode at
 /// «Список» initially; mode is persisted independently in UserDefaults.
 /// The selected day is session state, never persisted into tasks/store, and
@@ -50,7 +49,7 @@ struct UpcomingWorkspaceScreen: View {
                 )
             }
         }
-        // NATIVE-ADD-002: one shared «+»/create sheet for both presentations.
+        // NATIVE-ADD-002: one shared «+»/create sheet for all presentations.
         // The preset is the section's existing selected day — the one
         // selection owner is never duplicated, and creating never resets the
         // selection or the mode.

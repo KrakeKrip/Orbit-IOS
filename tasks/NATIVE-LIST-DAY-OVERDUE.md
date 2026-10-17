@@ -1,0 +1,3 @@
+# NATIVE-LIST-DAY-OVERDUE
+
+REVIEW. Владелец2026-10-18: прошедшая plannedDate открытой задачи красная; Upcoming List только выбранный день, без недельного диапазона; существующее свайп/arrow navigation. Codex самостоятельно, task/NATIVE-LIST-DAY-OVERDUE от837f23e (накопленные UI/agenda/icon правки ещё не main). Без schema/core/store/deadline semantics changes. Build и6targeted day-selection tests PASS, update-in-place iPhone PASS sequence2524. Физическая визуальная проверка, midnight/timezone и VoiceOver остаются UNVERIFIED. Меню «⋯/Задачи дня» только объяснено по вопросу пользователя, не изменялось. reports/NATIVE-LIST-DAY-OVERDUE-executor.md.

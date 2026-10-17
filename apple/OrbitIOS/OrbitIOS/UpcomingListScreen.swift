@@ -1,14 +1,9 @@
 import SwiftUI
 import OrbitCore
 
-/// The «Предстоящее» list (NATIVE-NAV-002): an inclusive 7-day civil window
-/// from the selected day, tasks grouped by their own valid plannedDate as the
-/// large existing rows. Read-only slice over the shared model — the same
-/// rows, editors and sheets as Today/Inbox; creation stays in the Inbox
-/// composer. Open and completed tasks both stay inside their day group in
-/// within-day model order — no new list rules; undated and invalid dates are
-/// never part of the window. At the 2199-12-31 upper bound the window is
-/// clipped to the last valid day and the caption shows the actual range.
+/// The Upcoming list shows exactly its selected civil day. Arrow/swipe
+/// navigation is owned by UpcomingWorkspaceScreen; the agenda is the
+/// separate multi-day presentation. Rows share the same store and editors.
 struct UpcomingListScreen: View {
     @Environment(\.orbitAppearance) private var appearance
     let model: IOSInboxModel
@@ -32,9 +27,6 @@ struct UpcomingListScreen: View {
         return calendar
     }()
 
-    private static let windowLength = 7
-    private static let rangeLowerBound = TaskPlannedDate.date(fromCivilDateString: "1900-01-01") ?? Date.distantPast
-    private static let rangeUpperBound = TaskPlannedDate.date(fromCivilDateString: "2199-12-31") ?? Date.distantFuture
 
     var body: some View {
         NavigationStack {
@@ -50,7 +42,7 @@ struct UpcomingListScreen: View {
                 Group {
                     if model.listError != nil {
                         listErrorView
-                    } else if dayGroups.isEmpty {
+                    } else if selectedTasks.isEmpty {
                         emptyView
                     } else {
                         taskList
@@ -84,92 +76,30 @@ struct UpcomingListScreen: View {
         }
     }
 
-    // MARK: - Window
-
-    /// The window's civil days: the selected day plus the following days in
-    /// ascending order, seven days long at most and clipped at 2199-12-31 —
-    /// no day beyond the accepted range is ever added. Day arithmetic goes
-    /// through the accepted Gregorian/noon adapters with the explicit
-    /// calendar, never UTC instants or string seconds.
-    private var windowDays: [String] {
-        guard TaskPlannedDate.isValid(selectedDay) else { return [] }
-        var days = [selectedDay]
-        while days.count < Self.windowLength, let last = days.last {
-            guard let anchor = TaskPlannedDate.date(fromCivilDateString: last, calendar: gregorianNoon),
-                let next = gregorianNoon.date(byAdding: .day, value: 1, to: anchor)
-            else { break }
-            let candidate = TaskPlannedDate.civilDateString(from: next, calendar: gregorianNoon)
-            guard TaskPlannedDate.isValid(candidate) else { break }
-            days.append(candidate)
-        }
-        return days
+    private var selectedTasks: [OrbitTask] {
+        TaskDaySelection.tasks(onDay: selectedDay, in: model.tasks)
     }
-
-    /// Non-empty day groups in window order; every row keeps its source task
-    /// (same UUID) and the within-day model order — no re-ranking, no new
-    /// business rules.
-    private var dayGroups: [(day: String, tasks: [OrbitTask])] {
-        windowDays.compactMap { day in
-            let tasks = TaskDaySelection.tasks(onDay: day, in: model.tasks)
-            return tasks.isEmpty ? nil : (day, tasks)
-        }
-    }
-
-    /// The actual shown range in Russian («14 окт. 2026 г. – 20 окт. 2026 г.»),
-    /// including a clipped upper bound.
-    private var rangeCaption: String {
-        guard let first = windowDays.first, let last = windowDays.last else {
-            return RussianDateCaption.label(selectedDay)
-        }
-        guard first != last else { return RussianDateCaption.label(first) }
-        return "\(RussianDateCaption.label(first)) – \(RussianDateCaption.label(last))"
-    }
-
-    // MARK: - Content
 
     private var taskList: some View {
         List {
-            Section {
-                Text(rangeCaption)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(appearance.canvas)
-            }
-            ForEach(dayGroups, id: \.day) { group in
-                Section(RussianDateCaption.label(group.day)) {
-                    ForEach(group.tasks) { task in
-                        // NATIVE-LIST-001: the day-section header already
-                        // shows the date — no repeated subtitle in the row.
-                        InboxRowView(task: task, model: model, showsDateLabel: false) {
-                            presentation = .date(task)
-                        } onEditInterval: {
-                            presentation = .interval(task)
-                        }
-                    }
+            ForEach(selectedTasks) { task in
+                InboxRowView(task: task, model: model, showsDateLabel: false) {
+                    presentation = .date(task)
+                } onEditInterval: {
+                    presentation = .interval(task)
                 }
             }
         }
+        .id(selectedDay)
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
     }
 
-    /// Honest empty window: the message plus the actual range; the date and
-    /// mode controls above stay available.
     private var emptyView: some View {
-        VStack(spacing: 0) {
-            Text(rangeCaption)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.top, 4)
-            ContentUnavailableView {
-                Label("В выбранном диапазоне задач нет", systemImage: "calendar")
-            } description: {
-                Text("Выберите другую дату или добавьте задачу кнопкой «+».")
-            }
-            Spacer(minLength: 0)
+        ContentUnavailableView {
+            Label("На этот день задач нет", systemImage: "calendar")
+        } description: {
+            Text("Выберите другой день свайпом или стрелками — либо добавьте задачу кнопкой «+».")
         }
     }
 
