@@ -1,0 +1,5 @@
+# Заливка блока при отпускании — 2026-10-17
+
+REVIEW. Владелец уточнил: задача и белая рамка остаются на выбранном месте, подпрыгивает красная область внутри. Изменён только DayTimelineView: отдельный TimelineTaskButtonStyle игнорирует pressed state и подавляет inherited animation внутри label. Transaction для выбранного блока перенесён после position, охватывает label/frame/outline/handles и остаётся отключённым на release (selectedTaskID живёт после editing). Остальные блоки сохраняют прежнюю анимацию расстановки lane. Core/store/геометрия snap/commit/даты не менялись; finish не переписывался.
+
+Targeted iPhone build BUILD SUCCEEDED: /private/tmp/orbit-timeline-release.log. Diff --check PASS. Это устранение двух возможных animation/press механизмов по коду, не доказанная точная первопричина физического эффекта. Touch QA заполнения/рамки после move и resize пока UNVERIFIED; CUA coordinate input в прошлой проверке недоступен. Core suites не повторялись: нет core изменений. Main/push не выполнялись.

@@ -255,7 +255,7 @@ struct DayTimelineView: View {
                 }
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(TimelineTaskButtonStyle())
         .frame(
             width: laneWidth(laneCount: laneCount, containerWidth: containerWidth),
             height: paintedHeight,
@@ -280,7 +280,6 @@ struct DayTimelineView: View {
             }
         }
         .zIndex(selectedTaskID == task.id ? 2 : 0)
-        .transaction { if editing?.taskID == task.id { $0.animation = nil } }
         .orbitMenuFeedback()
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(task.title), \(range)" + TaskDeadlineBadge.accessibilitySuffix(task) + TaskReminderBadge.accessibilitySuffix(task))
@@ -292,6 +291,14 @@ struct DayTimelineView: View {
                 + laneWidth(laneCount: laneCount, containerWidth: containerWidth) / 2,
             y: startOffset + paintedHeight / 2
         )
+        .transaction { transaction in
+            // Keep the entire selected block (label, bounds and handles) in
+            // one nonanimated transaction, including the release frame.
+            if selectedTaskID == task.id || editing?.taskID == task.id {
+                transaction.animation = nil
+                transaction.disablesAnimations = true
+            }
+        }
     }
 
     private func laneWidth(laneCount: Int, containerWidth: CGFloat) -> CGFloat {
@@ -518,5 +525,17 @@ struct DayTimelineView: View {
         return assigned.map { item in
             LaidOutSegment(segment: item.segment, lane: item.lane, laneCount: lanesPerCluster[item.cluster] ?? 1)
         }
+    }
+}
+
+/// Calendar blocks are directly manipulated shapes. Press state must not
+/// transform/dim their label independently of the selection outline.
+private struct TimelineTaskButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .transaction { transaction in
+                transaction.animation = nil
+                transaction.disablesAnimations = true
+            }
     }
 }
