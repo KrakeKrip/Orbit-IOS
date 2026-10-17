@@ -16,6 +16,8 @@ struct UpcomingListScreen: View {
     let referenceDay: String
     var agendaMode: Binding<Bool>? = nil
 
+    @State private var movesForward = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var presentation: InboxSheetPresentation?
     @State private var pickerDate: Date = TaskPlannedDate.date(
         fromCivilDateString: TaskDaySelection.currentDay()
@@ -39,15 +41,35 @@ struct UpcomingListScreen: View {
                 if let writeError = model.writeError {
                     writeErrorBanner(writeError)
                 }
-                Group {
-                    if model.listError != nil {
-                        listErrorView
-                    } else if selectedTasks.isEmpty {
-                        emptyView
-                    } else {
-                        taskList
+                ZStack {
+                    Group {
+                        if model.listError != nil {
+                            listErrorView
+                        } else if selectedTasks.isEmpty {
+                            emptyView
+                        } else {
+                            taskList
+                        }
                     }
+                    .id(selectedDay)
+                    .transition(reduceMotion ? .opacity : .asymmetric(
+                        insertion: .move(edge: movesForward ? .trailing : .leading).combined(with: .opacity),
+                        removal: .move(edge: movesForward ? .leading : .trailing).combined(with: .opacity)))
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+                .contentShape(Rectangle())
+                .simultaneousGesture(DragGesture(minimumDistance: 30).onEnded { value in
+                    guard !model.isSelecting, presentation == nil else { return }
+                    let dx = value.translation.width
+                    let dy = value.translation.height
+                    // Require a deliberate horizontal stroke, not a vertical
+                    // scroll with a little sideways drift; never use momentum
+                    // to skip more than one day.
+                    guard abs(dx) >= 70, abs(dx) > abs(dy) * 1.6,
+                          let day = shiftedDay(dx < 0 ? 1 : -1) else { return }
+                    select(day, animated: true)
+                })
             }
             // NATIVE-UI-MODE/R1: the same no-title/no-bar policy as the
             // calendar presentation and Today — the common mode row is the
@@ -201,6 +223,7 @@ struct UpcomingListScreen: View {
     private var datePickerField: some View {
         MarkedDatePicker(selection: $pickerDate,
                          taskDays: Set(model.tasks.compactMap(\.plannedDate)))
+        .accessibilityValue(RussianDateCaption.label(selectedDay))
         .onChange(of: pickerDate) { _, newDate in
             select(TaskPlannedDate.civilDateString(from: newDate, calendar: gregorianNoon))
         }
@@ -227,9 +250,16 @@ struct UpcomingListScreen: View {
 
     /// Guarded selection of the section's day; an invalid candidate never
     /// changes the state.
-    private func select(_ day: String) {
-        guard TaskPlannedDate.isValid(day) else { return }
-        selectedDay = day
+    private func select(_ day: String, animated: Bool = false) {
+        guard TaskPlannedDate.isValid(day), day != selectedDay else { return }
+        movesForward = day > selectedDay
+        if animated {
+            withAnimation(.easeInOut(duration: reduceMotion ? 0.12 : 0.22)) {
+                selectedDay = day
+            }
+        } else {
+            selectedDay = day
+        }
     }
 
     /// The wheel always shows the currently selected civil day; writes of an

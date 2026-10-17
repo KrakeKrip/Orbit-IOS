@@ -58,6 +58,9 @@ struct UpcomingWorkspaceScreen: View {
         .onChange(of: selectedDay) { _, _ in model.endSelection(); OrbitHaptics.selection() }
         .simultaneousGesture(
             DragGesture(minimumDistance: 40).onEnded { value in
+                // List owns its content-only swipe. Preserve the other
+                // presentations' existing navigation, except during selection.
+                guard showsCalendar || showsAgenda, !model.isSelecting else { return }
                 let dx = value.translation.width
                 let dy = value.translation.height
                 guard abs(dx) > 70, abs(dx) > abs(dy) * 1.6 else { return }
