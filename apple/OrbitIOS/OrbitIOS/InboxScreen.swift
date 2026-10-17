@@ -145,7 +145,7 @@ struct InboxScreen: View {
 /// existing date and time/duration editors, while the circle stays an
 /// independent complete/reopen control that never opens the menu. Titles
 /// wrap instead of being truncated; hit areas are ≥ 44pt; rows are lower
-/// through tighter vertical padding only.
+/// through explicit compact vertical List insets.
 struct InboxRowView: View {
     @Environment(\.orbitAppearance) private var appearance
     let task: OrbitTask
@@ -206,7 +206,9 @@ struct InboxRowView: View {
             )
             taskBodyMenu
         }
-        .padding(.vertical, 2)
+        // Keep natural multiline/metadata height and 44pt controls, while
+        // replacing List's default top/bottom insets with a compact gap.
+        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
         .listRowBackground(appearance.canvas)
         .alignmentGuide(.listRowSeparatorLeading) { dimensions in
             dimensions[.leading] + 44 + 14

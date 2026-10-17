@@ -133,6 +133,7 @@ struct UpcomingListScreen: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .listRowSeparator(.hidden)
+                    .listRowBackground(appearance.canvas)
             }
             ForEach(dayGroups, id: \.day) { group in
                 Section(RussianDateCaption.label(group.day)) {
