@@ -191,6 +191,7 @@ struct OrbitSettingsSheet: View {
     @Environment(\.colorScheme) private var inheritedColorScheme
     @AppStorage("orbit.ui.appearance") private var appearanceRaw = OrbitAppearance.system.rawValue
     @AppStorage("orbit.ui.haptics") private var haptics = true
+    @AppStorage("orbit.ui.completionSound") private var completionSound = true
     private var selectedAppearance: OrbitAppearance {
         OrbitAppearance(rawValue: appearanceRaw) ?? .system
     }
@@ -230,6 +231,8 @@ struct OrbitSettingsSheet: View {
                 }
                 Section("Отклик") {
                     Toggle("Виброотклик", isOn: $haptics)
+                    Toggle("Звук выполнения", isOn: $completionSound)
+                        .accessibilityIdentifier("completion-sound-toggle")
                 }
             }
             .orbitEditorSurface()

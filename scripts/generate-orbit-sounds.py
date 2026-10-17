@@ -1,4 +1,4 @@
-"""Original Orbit notification tones: mono 44.1kHz 16-bit PCM, <2 seconds.
+"""Original Orbit notification and completion tones: mono 44.1kHz 16-bit PCM, <2 seconds.
 Regenerate from repository root. No downloaded or platform audio assets.
 """
 import math
@@ -8,6 +8,7 @@ import wave
 
 RATE = 44100
 TONES = {
+    'complete': [(0.0, 1046.5, .16, .22), (.08, 1567.98, .24, .15)],
     'chime': [(0.0, 880, .85, .34), (.18, 1320, .95, .23)],
     'drop': [(0.0, 660, .45, .40), (.13, 990, .65, .24)],
     'signal': [(0.0, 740, .24, .34), (.32, 740, .24, .34), (.64, 988, .42, .30)],

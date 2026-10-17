@@ -294,10 +294,12 @@ final class IOSInboxModel {
     }
 
     func setCompleted(_ isCompleted: Bool, for task: OrbitTask) {
+        let newlyCompleted = isCompleted && !task.isCompleted
         do {
             try store.setCompleted(isCompleted, for: task.id)
             writeError = nil
             reload()
+            if newlyCompleted { OrbitCompletionFeedback.shared.completed() }
         } catch {
             writeError = IOSInboxFormatting.completionMessage(error)
             reload()
