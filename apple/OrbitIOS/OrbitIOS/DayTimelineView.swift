@@ -58,7 +58,7 @@ struct DayTimelineView: View {
                     .background(appearance.canvas)
                     .coordinateSpace(name: "orbit-timeline")
                     .onDrop(of: [UTType.orbitUntimedTask.identifier], delegate: UntimedTimelineDropDelegate(
-                        source: untimedDrag, day: day, width: geometry.size.width, hourHeight: hourHeight,
+                        source: $untimedDrag, day: day, width: geometry.size.width, hourHeight: hourHeight,
                         acceptsSource: { source in
                             guard editing == nil, let current = task(source.taskID) else { return false }
                             return current.plannedDate == source.day && current.plannedTime == nil &&

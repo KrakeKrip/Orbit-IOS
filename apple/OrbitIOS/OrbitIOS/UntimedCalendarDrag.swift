@@ -35,7 +35,9 @@ struct UntimedCalendarDrag: Codable, Equatable {
 /// therefore already includes the ScrollView's offset. The hour gutter is
 /// not a scheduling target. Native drag cancellation never calls commit.
 struct UntimedTimelineDropDelegate: DropDelegate {
-    let source: UntimedCalendarDrag?
+    // Drag targets can be registered before onDrag populates the source.
+    // Read the live binding even if SwiftUI retains an earlier delegate.
+    @Binding var source: UntimedCalendarDrag?
     let day: String
     let width: CGFloat
     let hourHeight: CGFloat

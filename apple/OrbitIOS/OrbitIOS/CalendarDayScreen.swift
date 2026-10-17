@@ -185,7 +185,9 @@ struct CalendarDayScreen: View {
             }
             .onDisappear { untimedDrag = nil }
             .onChange(of: scenePhase) { _, phase in
-                if phase != .active { untimedDrag = nil }
+                // System drag UI may temporarily make the scene inactive.
+                // Only leaving the app invalidates an in-flight local drag.
+                if phase == .background { untimedDrag = nil }
             }
             .onChange(of: projectID) { _, _ in untimedDrag = nil }
         }

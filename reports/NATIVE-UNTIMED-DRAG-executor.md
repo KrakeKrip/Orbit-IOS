@@ -1,3 +1,11 @@
+# R1 — отказ приёма на iPhone (2026-10-17)
+
+Владелец прислал физический скрин: native lift работает, над сеткой знак запрета. Успешного drop в R0 нет — GUI gate остаётся открытым. Исправлены два lifecycle риска: delegate хранит live Binding к transient source (раньше let source снимался до onDrag и мог остаться nil в зарегистрированном target); transient scene inactive не отменяет token, background/day/project/disappear по-прежнему отменяют. Payload/дата/UUID/project/completion и одноразовая проверка перед save не ослаблены.
+
+Device build BUILD SUCCEEDED (/private/tmp/orbit-untimed-device-r1.log), diff check PASS; core не менялся и4snap tests не повторялись. Исправление установлено update in place на iPhone по продолжающейся проверке ранее запрошенной сборки; личные данные не считывались. Фактическая причина отказа/успешный drop после R1 требуют повторного touch QA владельца — source исправления не подменяет физическую проверку. Main остаётся6b346ae, task не merge/push.
+
+---
+
 # NATIVE-UNTIMED-DRAG — реализация / открытый GUI gate
 
 Статус REVIEW, не DONE. Ветка task/NATIVE-UNTIMED-DRAG, база6b346ae. Codex самостоятельно по прямому «давай». Main не меняется до проверки настоящего drag/drop. Phone/install/push не выполнялись.

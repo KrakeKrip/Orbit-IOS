@@ -6,3 +6,5 @@ REVIEW (GUI gate открыт), Codex самостоятельно по «дав
 
 
 Реализация/сборка и4targeted core checks PASS; CUA drag не доставляется, затем noWindowsAvailable. Успешный drop/scroll/cancel остаются UNVERIFIED. Не merge как accepted до touch QA. reports/NATIVE-UNTIMED-DRAG-executor.md.
+
+R1: physical screenshot показал forbidden drop. Delegate.source заменён snapshot→live Binding, phase cancel только background. Device build PASS, исправленная сборка установлена владельцу; успешный touch drop ещё ожидает проверки. Main не merge.
