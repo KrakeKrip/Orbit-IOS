@@ -1,3 +1,7 @@
+## Итог 2026-10-17 — локальные напоминания
+
+NATIVE-REMINDER-001 DONE по Codex self-check на own Simulator: core110/upgrade/build PASS; real notification при завершённом процессе подтверждён AX/screenshot. Прежний системный отказ не повторился после reboot Simulator, точная причина не установлена. iPhone/звук/VoiceOver ещё не проверены. reports/NATIVE-REMINDER-001-executor.md заменяет прежний runtime-blocked статус ниже. Push/install не выполнялись.
+
 ## Сохранённый этап 2026-10-17 — напоминания
 
 NATIVE-REMINDER-001: NEEDS_FIXES, task branch от 7971d3f. Core110/110 и iOS build PASS; реальная доставка отклоняется системным API на двух own Simulator. Причина не установлена. Пользователь попросил завершить проход; main не менять до runtime gate. reports/NATIVE-REMINDER-001-executor.md.

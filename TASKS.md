@@ -141,3 +141,6 @@ Review2026-10-15: ADD004867a0a1 independentiOSbuild/diffcheckPASS. SourceR1optio
 
 
 2026-10-17: NATIVE-REMINDER-001 NEEDS_FIXES — core/UI/scheduler сохранены в task branch; 110 tests/build PASS, real delivery failure unresolved. См. reports/NATIVE-REMINDER-001-executor.md.
+
+
+2026-10-17 продолжение: NATIVE-REMINDER-001 DONE по self-check, real delivery при завершённом процессе PASS (04-delivered-process-terminated.png). Прежний runtime gate закрыт после reboot own Simulator; причина исходного отказа не установлена. Core110/build прежние PASS, продуктовый код не менялся. Физическая проверка и ограничения — в отчёте.
