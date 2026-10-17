@@ -87,6 +87,9 @@ struct ProjectWorkspaceScreen: View {
         .sheet(isPresented: $create) {
             TaskCreateSheet(model: model, datePreset: showsCalendar ? selectedDay : nil, projectPreset: project.id)
         }
+        .onChange(of: showsCalendar) { _, _ in model.endSelection() }
+        .onChange(of: selectedDay) { _, _ in model.endSelection() }
+        .onDisappear { model.endSelection() }
         .onAppear { model.reload(); referenceDay = TaskDaySelection.currentDay() }
         .onReceive(timer) { _ in referenceDay = TaskDaySelection.currentDay() }
         .onChange(of: phase) { _, value in

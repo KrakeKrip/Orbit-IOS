@@ -94,6 +94,7 @@ struct ProjectsScreen: View {
             editor = ProjectEditorPresentation()
         }
         .onAppear { model.reloadProjects() }
+        .environment(\.orbitAllowsTaskSelection, false)
     }
 }
 

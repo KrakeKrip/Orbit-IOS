@@ -186,6 +186,7 @@ struct CalendarDayScreen: View {
                 applyFixedDay()
             }
             .onChange(of: selectedDay) { _, newDay in
+                model.endSelection()
                 // Day switch collapses the untimed area and drops its scroll
                 // state; the timeline subtree keeps its identity and offset.
                 // The picker follows the shown day in every context (writes
@@ -201,12 +202,12 @@ struct CalendarDayScreen: View {
                 // Only leaving the app invalidates an in-flight local drag.
                 if phase == .background { untimedDrag = nil }
             }
-            .onChange(of: projectID) { _, _ in untimedDrag = nil }
+            .onChange(of: projectID) { _, _ in untimedDrag = nil; model.endSelection() }
         }
     }
 
     private func beginUntimedDrag(_ task: OrbitTask) -> NSItemProvider {
-        guard task.plannedDate == selectedDay, task.plannedTime == nil, task.durationMinutes == nil else {
+        guard !model.isSelecting, task.plannedDate == selectedDay, task.plannedTime == nil, task.durationMinutes == nil else {
             return NSItemProvider()
         }
         let source = UntimedCalendarDrag(token: UUID(), taskID: task.id, day: selectedDay,

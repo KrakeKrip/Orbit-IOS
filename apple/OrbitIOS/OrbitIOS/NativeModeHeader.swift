@@ -4,6 +4,7 @@ import SwiftUI
 /// trailing. The row stays in the same safe-area position in either view.
 struct NativeModeHeader<Switcher: View, Trailing: View>: View {
     @Environment(\.orbitAppearance) private var appearance
+    @Environment(IOSInboxModel.self) private var model
     private let switcher: Switcher
     private let trailing: Trailing
 
@@ -13,11 +14,17 @@ struct NativeModeHeader<Switcher: View, Trailing: View>: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
-            trailing
-            Spacer(minLength: 8)
-            switcher
-            OrbitSettingsButton()
+        Group {
+            if model.isSelecting {
+                OrbitTaskSelectionHeader(model: model)
+            } else {
+                HStack(spacing: 8) {
+                    trailing
+                    Spacer(minLength: 8)
+                    switcher
+                    OrbitSettingsButton()
+                }
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 6)

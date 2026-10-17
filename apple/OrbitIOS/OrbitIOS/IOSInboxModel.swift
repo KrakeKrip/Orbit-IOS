@@ -122,6 +122,45 @@ final class IOSInboxModel {
     private(set) var tasks: [OrbitTask] = []
     private(set) var listError: String?
     private(set) var writeError: String?
+    private(set) var isSelecting = false
+    private(set) var selectedTaskIDs: Set<UUID> = []
+    private(set) var selectionError: String?
+
+    func beginSelection() {
+        selectedTaskIDs = []; selectionError = nil; isSelecting = true
+    }
+    func endSelection() {
+        isSelecting = false; selectedTaskIDs = []; selectionError = nil
+    }
+    func toggleSelection(_ task: OrbitTask) {
+        guard isSelecting, tasks.contains(where: { $0.id == task.id }) else { return }
+        if !selectedTaskIDs.insert(task.id).inserted { selectedTaskIDs.remove(task.id) }
+        OrbitHaptics.timelineStep()
+    }
+    func completeSelection() {
+        let ids = Array(selectedTaskIDs)
+        guard !ids.isEmpty else { return }
+        let newlyCompleted = tasks.contains { selectedTaskIDs.contains($0.id) && !$0.isCompleted }
+        do {
+            try store.setCompleted(true, for: ids)
+            writeError = nil; endSelection(); reload()
+            if newlyCompleted { OrbitCompletionFeedback.shared.completed() }
+        } catch {
+            selectionError = IOSInboxFormatting.completionMessage(error)
+            reload()
+        }
+    }
+    func deleteSelection() {
+        let ids = Array(selectedTaskIDs)
+        guard !ids.isEmpty else { return }
+        do {
+            try store.deleteTasks(for: ids)
+            writeError = nil; endSelection(); reload()
+        } catch {
+            selectionError = "Не удалось удалить выбранные задачи. " + IOSInboxFormatting.storageMessage(error)
+            reload()
+        }
+    }
 
     init(store: OrbitTaskStore) {
         self.store = store
@@ -140,6 +179,7 @@ final class IOSInboxModel {
         reloadProjects()
         do {
             tasks = try store.tasks()
+            selectedTaskIDs.formIntersection(Set(tasks.map(\.id)))
             listError = nil
             reminders.update(tasks)
         } catch {

@@ -167,19 +167,37 @@ struct OrbitViewModeMenu: View {
     }
 }
 
+private struct OrbitAllowsTaskSelectionKey: EnvironmentKey {
+    static let defaultValue = true
+}
+extension EnvironmentValues {
+    var orbitAllowsTaskSelection: Bool {
+        get { self[OrbitAllowsTaskSelectionKey.self] }
+        set { self[OrbitAllowsTaskSelectionKey.self] = newValue }
+    }
+}
+
 struct OrbitSettingsButton: View {
+    @Environment(IOSInboxModel.self) private var model
+    @Environment(\.orbitAllowsTaskSelection) private var allowsSelection
     @State private var showsSettings = false
     var body: some View {
-        Button {
-            OrbitHaptics.selection()
-            showsSettings = true
+        Menu {
+            Button("Выбрать", systemImage: "checkmark.circle") { model.beginSelection() }
+                .disabled(!allowsSelection || model.tasks.isEmpty)
+            Button("Настройки", systemImage: "gearshape") { showsSettings = true }
         } label: {
-            Image(systemName: "gearshape")
-                .font(.system(size: 18, weight: .medium))
-                .frame(width: 28, height: 28)
+            VStack(spacing: 4) {
+                ForEach(0..<3) { _ in
+                    Capsule().fill(Color.orbitAccent).frame(width: 19, height: 1.8)
+                }
+            }
+            .frame(width: 28, height: 28)
+            .accessibilityHidden(true)
         }
         .orbitIconStyle()
-        .accessibilityLabel("Настройки")
+        .orbitMenuFeedback()
+        .accessibilityLabel("Действия")
         .accessibilityIdentifier("orbit-settings")
         .sheet(isPresented: $showsSettings) { OrbitSettingsSheet() }
     }

@@ -74,6 +74,7 @@ private struct OrbitCreateHostModifier: ViewModifier {
 
 /// One safe-area placement shared by task and project creation.
 private struct OrbitFloatingActionModifier: ViewModifier {
+    @Environment(IOSInboxModel.self) private var model
     let label: String
     let identifier: String
     let enabled: Bool
@@ -83,8 +84,9 @@ private struct OrbitFloatingActionModifier: ViewModifier {
             Color.clear.frame(height: 0)
                 .overlay(alignment: .bottomTrailing) {
                     OrbitCreateButton(action: action, label: label, identifier: identifier)
-                        .allowsHitTesting(enabled)
-                        .accessibilityHidden(!enabled)
+                        .allowsHitTesting(enabled && !model.isSelecting)
+                        .accessibilityHidden(!enabled || model.isSelecting)
+                        .opacity(model.isSelecting ? 0 : 1)
                         .padding(.trailing, 16)
                         .padding(.bottom, 16)
                 }

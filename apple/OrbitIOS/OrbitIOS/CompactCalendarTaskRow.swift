@@ -22,17 +22,18 @@ struct CompactCalendarTaskRow: View {
     var body: some View {
         HStack(spacing: 0) {
             Button {
-                model.setCompleted(!task.isCompleted, for: task)
+                if model.isSelecting { model.toggleSelection(task) }
+                else { model.setCompleted(!task.isCompleted, for: task) }
             } label: {
                 ZStack {
                     Circle()
-                        .fill(task.isCompleted ? Color.orbitAccent : Color.clear)
+                        .fill((model.isSelecting ? model.selectedTaskIDs.contains(task.id) : task.isCompleted) ? Color.orbitAccent : Color.clear)
                     Circle()
                         .strokeBorder(
-                            task.isCompleted ? Color.orbitAccent : Color(.systemGray3),
+                            (model.isSelecting ? model.selectedTaskIDs.contains(task.id) : task.isCompleted) ? Color.orbitAccent : Color(.systemGray3),
                             lineWidth: 1.25
                         )
-                    if task.isCompleted {
+                    if model.isSelecting ? model.selectedTaskIDs.contains(task.id) : task.isCompleted {
                         Image(systemName: "checkmark")
                             .font(.system(size: 7, weight: .bold))
                             .foregroundStyle(Color.white)
@@ -47,7 +48,7 @@ struct CompactCalendarTaskRow: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(
-                task.isCompleted ? "Снова открыть: \(task.title)" : "Отметить выполненной: \(task.title)"
+                model.isSelecting ? "Выбрать задачу: \(task.title)" : (task.isCompleted ? "Снова открыть: \(task.title)" : "Отметить выполненной: \(task.title)")
             )
 
             TaskActionPopoverButton(model: model, task: task,
@@ -90,6 +91,7 @@ struct CompactCalendarTaskRow: View {
                 task.isCompleted ? Color(.tertiarySystemFill) : Color(.secondarySystemBackground)
             )
         )
+        .overlay(RoundedRectangle(cornerRadius: 7).stroke(model.isSelecting && model.selectedTaskIDs.contains(task.id) ? Color.orbitAccent : .clear, lineWidth: 2))
         .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 7))
     }
 

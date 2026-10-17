@@ -36,6 +36,7 @@ struct TaskActionPopoverButton<Content: View>: View {
 
     var body: some View {
         Button {
+            if model.isSelecting { model.toggleSelection(task); return }
             guard canOpen() else { return }
             if anchorsAtTap {
                 // SpatialTapGesture records the actual touch point in this
@@ -50,12 +51,12 @@ struct TaskActionPopoverButton<Content: View>: View {
                 sourceSize = $0.size
             }
             .simultaneousGesture(SpatialTapGesture().onEnded { value in
-                guard anchorsAtTap, canOpen() else { return }
+                guard !model.isSelecting, anchorsAtTap, canOpen() else { return }
                 tapAnchor = UnitPoint(
                     x: min(1, max(0, value.location.x / max(1, sourceSize.width))),
                     y: min(1, max(0, value.location.y / max(1, sourceSize.height))))
             })
-            .modifier(TaskPopoverHoldModifier(enabled: opensOnHold) {
+            .modifier(TaskPopoverHoldModifier(enabled: opensOnHold && !model.isSelecting) {
                 OrbitHaptics.longPress()
                 isPresented = true
             })
@@ -110,6 +111,10 @@ struct TaskActionPopoverButton<Content: View>: View {
                     onAction(action)
                 }
             }
+            .onChange(of: model.isSelecting) { _, selecting in
+                if selecting { isPresented = false }
+            }
+            .accessibilityAddTraits(model.isSelecting && model.selectedTaskIDs.contains(task.id) ? [.isSelected] : [])
             .sheet(isPresented: $showsReminder) { TaskReminderSheet(model: model, task: task) }
             .sheet(isPresented: $showsDeadline) { TaskDeadlineSheet(model: model, task: task) }
             .sheet(isPresented: $showsProject) { TaskProjectSheet(model: model, task: task) }

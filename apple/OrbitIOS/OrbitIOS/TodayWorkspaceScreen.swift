@@ -31,10 +31,10 @@ struct TodayWorkspaceScreen: View {
         // of opening — never this workspace's possibly stale `currentDay` and
         // never a UTC-derived value.
         .orbitCreateAction(model: model, datePreset: { TaskDaySelection.currentDay() })
-        .onChange(of: showsCalendar) { _, _ in OrbitHaptics.selection() }
+        .onChange(of: showsCalendar) { _, _ in model.endSelection(); OrbitHaptics.selection() }
         .onAppear { refreshDay() }
         .onReceive(dayRefreshTimer) { _ in refreshDay(reloadTasks: false) }
-        .onChange(of: currentDay) { _, _ in model.reload() }
+        .onChange(of: currentDay) { _, _ in model.endSelection(); model.reload() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 refreshDay()

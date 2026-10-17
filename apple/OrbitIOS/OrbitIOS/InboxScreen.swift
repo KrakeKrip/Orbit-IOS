@@ -198,18 +198,19 @@ struct InboxRowView: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 14) {
-            CompletionButton(isCompleted: task.isCompleted) {
-                model.setCompleted(!task.isCompleted, for: task)
+            CompletionButton(isCompleted: model.isSelecting ? model.selectedTaskIDs.contains(task.id) : task.isCompleted) {
+                if model.isSelecting { model.toggleSelection(task) }
+                else { model.setCompleted(!task.isCompleted, for: task) }
             }
             .accessibilityLabel(
-                task.isCompleted ? "Снова открыть: \(task.title)" : "Отметить выполненной: \(task.title)"
+                model.isSelecting ? "Выбрать задачу: \(task.title)" : (task.isCompleted ? "Снова открыть: \(task.title)" : "Отметить выполненной: \(task.title)")
             )
             taskBodyMenu
         }
         // Keep natural multiline/metadata height and 44pt controls, while
         // replacing List's default top/bottom insets with a compact gap.
         .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-        .listRowBackground(appearance.canvas)
+        .listRowBackground(model.isSelecting && model.selectedTaskIDs.contains(task.id) ? Color.orbitAccent.opacity(0.12) : appearance.canvas)
         .alignmentGuide(.listRowSeparatorLeading) { dimensions in
             dimensions[.leading] + 44 + 14
         }

@@ -48,21 +48,33 @@ struct OrbitIOSApp: App {
                         .tabItem {
                             Label("Сегодня", systemImage: "sun.max")
                         }
+                        .toolbar(model.isSelecting ? .hidden : .visible, for: .tabBar)
                         .tag(Tab.today)
                     InboxScreen(model: model)
                         .tabItem {
                             Label("Входящие", systemImage: "tray")
                         }
+                        .toolbar(model.isSelecting ? .hidden : .visible, for: .tabBar)
                         .tag(Tab.inbox)
                     UpcomingWorkspaceScreen(model: model)
                         .tabItem {
                             Label("Предстоящее", systemImage: "calendar")
                         }
+                        .toolbar(model.isSelecting ? .hidden : .visible, for: .tabBar)
                         .tag(Tab.upcoming)
                     ProjectsScreen(model: model)
                         .tabItem { Label("Проекты", systemImage: "folder") }
+                        .toolbar(model.isSelecting ? .hidden : .visible, for: .tabBar)
                         .tag(Tab.projects)
                 }
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    if model.isSelecting {
+                        OrbitTaskSelectionActions(model: model)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
+                .animation(.easeInOut(duration: 0.25), value: model.isSelecting)
+                .environment(model)
                 .environment(model.reminders)
                 .onAppear { model.reminders.start() }
                 .onReceive(reminderTimer) { _ in
@@ -71,7 +83,7 @@ struct OrbitIOSApp: App {
                 .tint(.orbitAccent)
                 .environment(\.orbitAppearance, appearance)
                 .preferredColorScheme(appearance.colorScheme)
-                .onChange(of: selectedTab) { _, _ in OrbitHaptics.selection() }
+                .onChange(of: selectedTab) { _, _ in model.endSelection(); OrbitHaptics.selection() }
                 .onChange(of: scenePhase) { _, phase in
                     // Returning to the foreground re-reads the shared store so
                     // all tabs reflect persisted truth.

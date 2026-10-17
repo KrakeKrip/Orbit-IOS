@@ -54,8 +54,8 @@ struct UpcomingWorkspaceScreen: View {
         // selection owner is never duplicated, and creating never resets the
         // selection or the mode.
         .orbitCreateAction(model: model, datePreset: { selectedDay })
-        .onChange(of: showsAgenda ? 2 : (showsCalendar ? 1 : 0)) { _, _ in OrbitHaptics.selection() }
-        .onChange(of: selectedDay) { _, _ in OrbitHaptics.selection() }
+        .onChange(of: showsAgenda ? 2 : (showsCalendar ? 1 : 0)) { _, _ in model.endSelection(); OrbitHaptics.selection() }
+        .onChange(of: selectedDay) { _, _ in model.endSelection(); OrbitHaptics.selection() }
         .simultaneousGesture(
             DragGesture(minimumDistance: 40).onEnded { value in
                 let dx = value.translation.width

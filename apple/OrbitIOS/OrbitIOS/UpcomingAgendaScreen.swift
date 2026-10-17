@@ -73,6 +73,7 @@ struct UpcomingAgendaScreen: View {
                                             .frame(width: 44, height: 44)
                                     }
                                     .buttonStyle(.borderless)
+                                    .disabled(model.isSelecting)
                                     .accessibilityLabel("Добавить задачу на \(RussianDateCaption.label(day))")
                                 }
                                 .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 2, trailing: 16))

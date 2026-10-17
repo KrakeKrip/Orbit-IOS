@@ -73,7 +73,7 @@ struct DayTimelineView: View {
                         source: $untimedDrag, day: day, width: geometry.size.width, hourHeight: hourHeight,
                         viewportHeight: geometry.size.height, scrollOffset: $timelineScrollOffset,
                         acceptsSource: { source in
-                            guard editing == nil, let current = task(source.taskID) else { return false }
+                            guard !model.isSelecting, editing == nil, let current = task(source.taskID) else { return false }
                             return current.plannedDate == source.day && current.plannedTime == nil &&
                                 current.durationMinutes == nil && current.projectID == source.projectID &&
                                 current.isCompleted == source.completed
@@ -105,6 +105,9 @@ struct DayTimelineView: View {
                 // Also clears drafts for recognizer cancellation, after onEnded.
                 DispatchQueue.main.async { if !gestureActive { editing = nil; returningUntimed = false; _ = onReturnHover(nil) } }
             }
+        }
+        .onChange(of: model.isSelecting) { _, selecting in
+            if selecting { editing = nil; selectedTaskID = nil; untimedDrag = nil; untimedCandidate = nil }
         }
         .onChange(of: untimedDrag?.token) { _, _ in untimedCandidate = nil }
         .onDisappear { editing = nil; selectedTaskID = nil; untimedCandidate = nil; returningUntimed = false; _ = onReturnHover(nil) }
@@ -271,18 +274,18 @@ struct DayTimelineView: View {
         .clipped()
         .simultaneousGesture(moveGesture(task: task, segment: segment))
         .overlay {
-            if selectedTaskID == task.id {
-                RoundedRectangle(cornerRadius: 3).stroke(.white, lineWidth: 2)
+            if model.isSelecting ? model.selectedTaskIDs.contains(task.id) : selectedTaskID == task.id {
+                RoundedRectangle(cornerRadius: 3).stroke(model.isSelecting ? Color.primary : .white, lineWidth: 2)
                     .allowsHitTesting(false)
             }
         }
         .overlay(alignment: .topTrailing) {
-            if selectedTaskID == task.id && !segment.continuesFromPreviousDay {
+            if !model.isSelecting && selectedTaskID == task.id && !segment.continuesFromPreviousDay {
                 resizeHandle(.start, task: task, segment: segment).offset(x: 8, y: -16)
             }
         }
         .overlay(alignment: .bottomLeading) {
-            if selectedTaskID == task.id && !segment.continuesIntoNextDay {
+            if !model.isSelecting && selectedTaskID == task.id && !segment.continuesIntoNextDay {
                 resizeHandle(.end, task: task, segment: segment).offset(x: -8, y: 16)
             }
         }
@@ -375,7 +378,7 @@ struct DayTimelineView: View {
     }
 
     private func begin(_ edge: TaskTimelineAdjustment.Edge, task: OrbitTask, segment: TimelineSegment) {
-        guard editing == nil, let date = task.plannedDate,
+        guard !model.isSelecting, editing == nil, let date = task.plannedDate,
               let time = task.plannedTime, let duration = task.durationMinutes else { return }
         let directMove = selectedTaskID == task.id
         selectedTaskID = task.id

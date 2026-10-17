@@ -208,6 +208,33 @@ public final class OrbitTaskStore {
         }
     }
 
+    /// Validate every UUID before mutation, then save the whole selection once.
+    public func setCompleted(_ isCompleted: Bool, for ids: [UUID], at date: Date = .now) throws {
+        let targets = try selectedTasks(ids).filter { $0.isCompleted != isCompleted }
+        guard !targets.isEmpty else { return }
+        for task in targets {
+            if isCompleted { task.complete(at: date) } else { task.reopen() }
+        }
+        do { try context.save() }
+        catch { context.rollback(); throw error }
+    }
+
+    public func deleteTasks(for ids: [UUID]) throws {
+        let targets = try selectedTasks(ids)
+        guard !targets.isEmpty else { return }
+        for task in targets { context.delete(task) }
+        do { try context.save() }
+        catch { context.rollback(); throw error }
+    }
+
+    private func selectedTasks(_ ids: [UUID]) throws -> [OrbitTask] {
+        try Set(ids).sorted { $0.uuidString < $1.uuidString }.map { id in
+            let descriptor = FetchDescriptor<OrbitTask>(predicate: #Predicate { $0.id == id })
+            guard let task = try context.fetch(descriptor).first else { throw OrbitStoreError.taskNotFound(id: id) }
+            return task
+        }
+    }
+
     /// NATIVE-EDIT-001: renames one task in a single explicit save. The
     /// accepted `TaskTitle.validated` check runs before any mutation; an
     /// unknown UUID throws the existing `OrbitStoreError.taskNotFound`. Only
