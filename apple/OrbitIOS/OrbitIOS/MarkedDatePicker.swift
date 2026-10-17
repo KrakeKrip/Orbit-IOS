@@ -18,7 +18,9 @@ struct MarkedDatePicker: View {
         .accessibilityLabel("Выбрать дату")
         .popover(isPresented: $presented) {
             MarkedMonthCalendar(selection: $selection, taskDays: taskDays) { presented = false }
-                .frame(minWidth: 300, idealWidth: 340, minHeight: 350)
+                // A finite proposal is essential for UIKit's calendar: a minimum
+                // height lets it expand to the whole available popover height.
+                .frame(width: 320, height: 360)
                 .padding(8)
                 .presentationCompactAdaptation(.popover)
         }
@@ -34,7 +36,11 @@ private struct MarkedMonthCalendar: UIViewRepresentable {
 
     func makeUIView(context: Context) -> UICalendarView {
         let view = UICalendarView()
-        view.calendar = Calendar.orbitCivil
+        var calendar = Calendar.orbitCivil
+        calendar.firstWeekday = 2
+        view.calendar = calendar
+        view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        view.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
         view.locale = Locale(identifier: "ru_RU")
         view.timeZone = .current
         view.tintColor = UIColor(Color.orbitAccent)
@@ -47,6 +53,12 @@ private struct MarkedMonthCalendar: UIViewRepresentable {
         (view.selectionBehavior as? UICalendarSelectionSingleDate)?.setSelected(components, animated: false)
         view.setVisibleDateComponents(components, animated: false)
         return view
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UICalendarView, context: Context) -> CGSize? {
+        // Honor SwiftUI's finite bounds instead of UIKit's unconstrained
+        // intrinsic size, which can otherwise overflow the popover edges.
+        CGSize(width: proposal.width ?? 320, height: proposal.height ?? 360)
     }
 
     func updateUIView(_ view: UICalendarView, context: Context) {
