@@ -1,8 +1,7 @@
 import SwiftUI
-import UIKit
 import OrbitCore
 
-/// Native month calendar with one task-presence marker per planned civil day.
+/// A bounded month grid with one task-presence marker per planned civil day.
 struct MarkedDatePicker: View {
     @Binding var selection: Date
     let taskDays: Set<String>
@@ -18,77 +17,146 @@ struct MarkedDatePicker: View {
         .accessibilityLabel("Выбрать дату")
         .popover(isPresented: $presented) {
             MarkedMonthCalendar(selection: $selection, taskDays: taskDays) { presented = false }
-                // A finite proposal is essential for UIKit's calendar: a minimum
-                // height lets it expand to the whole available popover height.
-                .frame(width: 320, height: 360)
-                .padding(8)
+                .frame(width: 308)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(12)
                 .presentationCompactAdaptation(.popover)
         }
     }
 }
 
-private struct MarkedMonthCalendar: UIViewRepresentable {
+/// Intrinsic height is header + weekday labels + 4/5/6 complete week rows.
+/// No UIKit intrinsic-size negotiation or fixed outer height can clip a week.
+private struct MarkedMonthCalendar: View {
     @Binding var selection: Date
     let taskDays: Set<String>
     let onSelect: () -> Void
+    @State private var month: Date
+    @State private var choosingMonth = false
+    @State private var jumpYear: Int
+    @State private var jumpMonth: Int
+    private var calendar: Calendar {
+        var value = Calendar.orbitCivil
+        value.locale = Locale(identifier: "ru_RU")
+        return value
+    }
+    private let columns = Array(repeating: GridItem(.flexible(minimum: 0), spacing: 0), count: 7)
+    private let weekdays = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "ВС"]
 
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
-
-    func makeUIView(context: Context) -> UICalendarView {
-        let view = UICalendarView()
-        var calendar = Calendar.orbitCivil
-        calendar.firstWeekday = 2
-        view.calendar = calendar
-        view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        view.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
-        view.locale = Locale(identifier: "ru_RU")
-        view.timeZone = .current
-        view.tintColor = UIColor(Color.orbitAccent)
-        view.availableDateRange = DateInterval(
-            start: TaskPlannedDate.date(fromCivilDateString: "1900-01-01")!,
-            end: TaskPlannedDate.date(fromCivilDateString: "2199-12-31")!)
-        view.delegate = context.coordinator
-        view.selectionBehavior = UICalendarSelectionSingleDate(delegate: context.coordinator)
-        let components = view.calendar.dateComponents([.year, .month, .day], from: selection)
-        (view.selectionBehavior as? UICalendarSelectionSingleDate)?.setSelected(components, animated: false)
-        view.setVisibleDateComponents(components, animated: false)
-        return view
+    init(selection: Binding<Date>, taskDays: Set<String>, onSelect: @escaping () -> Void) {
+        _selection = selection
+        self.taskDays = taskDays
+        self.onSelect = onSelect
+        let calendar = Calendar.orbitCivil
+        let date = selection.wrappedValue
+        _month = State(initialValue: calendar.dateInterval(of: .month, for: date)!.start)
+        _jumpYear = State(initialValue: calendar.component(.year, from: date))
+        _jumpMonth = State(initialValue: calendar.component(.month, from: date))
     }
 
-    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UICalendarView, context: Context) -> CGSize? {
-        // Honor SwiftUI's finite bounds instead of UIKit's unconstrained
-        // intrinsic size, which can otherwise overflow the popover edges.
-        CGSize(width: proposal.width ?? 320, height: proposal.height ?? 360)
+    private var days: [Date?] {
+        let leading = (calendar.component(.weekday, from: month) + 5) % 7
+        let count = calendar.range(of: .day, in: .month, for: month)!.count
+        let noon = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: month)!
+        let dates = (0..<count).map { calendar.date(byAdding: .day, value: $0, to: noon) }
+        let trailing = (7 - (leading + count) % 7) % 7
+        return Array(repeating: nil, count: leading) + dates + Array(repeating: nil, count: trailing)
     }
 
-    func updateUIView(_ view: UICalendarView, context: Context) {
-        let oldDays = context.coordinator.parent.taskDays
-        context.coordinator.parent = self
-        if oldDays != taskDays {
-            let dates = oldDays.union(taskDays).compactMap { TaskPlannedDate.date(fromCivilDateString: $0) }
-                .map { view.calendar.dateComponents([.year, .month, .day], from: $0) }
-            view.reloadDecorations(forDateComponents: dates, animated: false)
-        }
-        let components = view.calendar.dateComponents([.year, .month, .day], from: selection)
-        let behavior = view.selectionBehavior as? UICalendarSelectionSingleDate
-        if behavior?.selectedDate != components {
-            behavior?.setSelected(components, animated: false)
-            view.setVisibleDateComponents(components, animated: false)
-        }
+    private func shiftedMonth(_ delta: Int) -> Date? {
+        guard let date = calendar.date(byAdding: .month, value: delta, to: month),
+              (1900...2199).contains(calendar.component(.year, from: date)) else { return nil }
+        return date
     }
 
-    final class Coordinator: NSObject, UICalendarViewDelegate, UICalendarSelectionSingleDateDelegate {
-        var parent: MarkedMonthCalendar
-        init(_ parent: MarkedMonthCalendar) { self.parent = parent }
-        func calendarView(_ calendarView: UICalendarView, decorationFor dateComponents: DateComponents) -> UICalendarView.Decoration? {
-            guard let date = calendarView.calendar.date(from: dateComponents) else { return nil }
-            let day = TaskPlannedDate.civilDateString(from: date, calendar: calendarView.calendar)
-            return parent.taskDays.contains(day) ? .default(color: UIColor(Color.orbitAccent), size: .small) : nil
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 0) {
+                Button {
+                    jumpYear = calendar.component(.year, from: month)
+                    jumpMonth = calendar.component(.month, from: month)
+                    choosingMonth.toggle()
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(month.formatted(.dateTime.month(.wide).year().locale(Locale(identifier: "ru_RU"))))
+                            .font(.headline).lineLimit(1).minimumScaleFactor(0.7)
+                        Image(systemName: choosingMonth ? "chevron.down" : "chevron.right")
+                            .font(.caption.weight(.semibold)).foregroundStyle(Color.orbitAccent)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                }
+                .accessibilityLabel("Выбрать месяц и год")
+                monthArrow(-1, label: "Предыдущий месяц", symbol: "chevron.left")
+                monthArrow(1, label: "Следующий месяц", symbol: "chevron.right")
+            }
+            if choosingMonth {
+                HStack(spacing: 0) {
+                    Picker("Месяц", selection: $jumpMonth) {
+                        ForEach(1...12, id: \.self) { value in
+                            Text(calendar.monthSymbols[value - 1].localizedCapitalized).tag(value)
+                        }
+                    }
+                    Picker("Год", selection: $jumpYear) {
+                        ForEach(1900...2199, id: \.self) { Text(String($0)).tag($0) }
+                    }
+                }
+                .pickerStyle(.wheel)
+                .environment(\.locale, Locale(identifier: "ru_RU"))
+                .frame(height: 180).clipped()
+                Button("Показать месяц") {
+                    var components = DateComponents()
+                    components.year = jumpYear; components.month = jumpMonth; components.day = 1; components.hour = 12
+                    if let date = calendar.date(from: components) { month = date }
+                    choosingMonth = false
+                }
+                .frame(minHeight: 44)
+            } else {
+                LazyVGrid(columns: columns, spacing: 0) {
+                    ForEach(weekdays, id: \.self) { weekday in
+                        Text(weekday).font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, minHeight: 24)
+                    }
+                    ForEach(Array(days.enumerated()), id: \.offset) { _, date in
+                        if let date { dayButton(date) }
+                        else { Color.clear.frame(height: 44).accessibilityHidden(true) }
+                    }
+                }
+            }
         }
-        func dateSelection(_ selection: UICalendarSelectionSingleDate, didSelectDate dateComponents: DateComponents?) {
-            guard let components = dateComponents, let date = Calendar.orbitCivil.date(from: components) else { return }
-            parent.selection = date
-            parent.onSelect()
+        .buttonStyle(.plain)
+        .environment(\.locale, Locale(identifier: "ru_RU"))
+    }
+
+    private func monthArrow(_ delta: Int, label: String, symbol: String) -> some View {
+        Button {
+            if let date = shiftedMonth(delta) { month = date }
+        } label: {
+            Image(systemName: symbol).font(.body.weight(.semibold)).frame(width: 44, height: 44)
         }
+        .disabled(shiftedMonth(delta) == nil)
+        .accessibilityLabel(label)
+    }
+
+    private func dayButton(_ date: Date) -> some View {
+        let selected = calendar.isDate(date, inSameDayAs: selection)
+        let marked = taskDays.contains(TaskPlannedDate.civilDateString(from: date, calendar: calendar))
+        return Button {
+            selection = date
+            onSelect()
+        } label: {
+            VStack(spacing: 2) {
+                Text(String(calendar.component(.day, from: date)))
+                    .font(.body.weight(selected ? .semibold : .regular))
+                    .lineLimit(1).minimumScaleFactor(0.6)
+                    .frame(width: 34, height: 34)
+                    .foregroundStyle(selected ? Color.white : Color.primary)
+                    .background(selected ? Color.orbitAccent : .clear, in: Circle())
+                Circle().fill(marked ? Color.orbitAccent : .clear).frame(width: 4, height: 4)
+            }
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .accessibilityLabel(date.formatted(.dateTime.day().month(.wide).year().locale(Locale(identifier: "ru_RU"))) + (marked ? ", есть задачи" : ""))
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 }
