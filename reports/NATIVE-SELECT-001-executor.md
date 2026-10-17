@@ -18,3 +18,6 @@
 Физическая плавность анимации, VoiceOver, AXL, тёмная тема и выбор timed-блоков жестами не проверены в этом GUI проходе. Save failure не fault-injected. Пользовательские данные iPhone не читались и не удалялись.
 
 Логи: /private/tmp/orbit-select-tests.log, /private/tmp/orbit-select-bottom-final.log. Синтетические evidence: /Users/atlhnv/Codex/orbit-outputs/NATIVE-SELECT-001/.
+
+## R1: выбор всей строки
+В InboxRowView и CompactCalendarTaskRow добавлен общий rectangular hit area и приоритетный tap только при isSelecting: область включает промежутки между контролами. Вне выбора прежние действия сохранены. Кружки выбора залиты коралловым без галочки; обычное завершение сохраняет галочку. iOS и Simulator build PASS. CUA tap по названию дал счётчик 0→1 и скриншот с полностью залитым кружком без галочки. Координатный клик по правому краю через Device Hub не дал изменения AX, поэтому физический tap по пустому краю остаётся UNVERIFIED. Установка на iPhone успешна, sequence 2572.

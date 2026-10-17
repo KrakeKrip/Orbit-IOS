@@ -198,7 +198,7 @@ struct InboxRowView: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 14) {
-            CompletionButton(isCompleted: model.isSelecting ? model.selectedTaskIDs.contains(task.id) : task.isCompleted) {
+            CompletionButton(isCompleted: model.isSelecting ? model.selectedTaskIDs.contains(task.id) : task.isCompleted, showsCheckmark: !model.isSelecting) {
                 if model.isSelecting { model.toggleSelection(task) }
                 else { model.setCompleted(!task.isCompleted, for: task) }
             }
@@ -207,6 +207,10 @@ struct InboxRowView: View {
             )
             taskBodyMenu
         }
+        .contentShape(Rectangle())
+        .highPriorityGesture(TapGesture().onEnded {
+            model.toggleSelection(task)
+        }, including: model.isSelecting ? .all : .none)
         // Keep natural multiline/metadata height and 44pt controls, while
         // replacing List's default top/bottom insets with a compact gap.
         .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
@@ -280,6 +284,7 @@ struct InboxRowView: View {
 /// white checkmark once completed; ≥ 44pt tappable.
 struct CompletionButton: View {
     let isCompleted: Bool
+    var showsCheckmark: Bool = true
     let action: () -> Void
 
     var body: some View {
@@ -289,7 +294,7 @@ struct CompletionButton: View {
                     .fill(isCompleted ? Color.orbitAccent : Color.clear)
                 Circle()
                     .strokeBorder(isCompleted ? Color.orbitAccent : Color(.systemGray3), lineWidth: 1.5)
-                if isCompleted {
+                if isCompleted && showsCheckmark {
                     Image(systemName: "checkmark")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(Color.white)

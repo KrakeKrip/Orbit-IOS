@@ -33,7 +33,7 @@ struct CompactCalendarTaskRow: View {
                             (model.isSelecting ? model.selectedTaskIDs.contains(task.id) : task.isCompleted) ? Color.orbitAccent : Color(.systemGray3),
                             lineWidth: 1.25
                         )
-                    if model.isSelecting ? model.selectedTaskIDs.contains(task.id) : task.isCompleted {
+                    if !model.isSelecting && task.isCompleted {
                         Image(systemName: "checkmark")
                             .font(.system(size: 7, weight: .bold))
                             .foregroundStyle(Color.white)
@@ -86,6 +86,10 @@ struct CompactCalendarTaskRow: View {
             .accessibilityHint("Нажмите для меню; удерживайте и перенесите на временную сетку")
             .orbitMenuFeedback()
         }
+        .contentShape(Rectangle())
+        .highPriorityGesture(TapGesture().onEnded {
+            model.toggleSelection(task)
+        }, including: model.isSelecting ? .all : .none)
         .background(
             RoundedRectangle(cornerRadius: 7).fill(
                 task.isCompleted ? Color(.tertiarySystemFill) : Color(.secondarySystemBackground)
