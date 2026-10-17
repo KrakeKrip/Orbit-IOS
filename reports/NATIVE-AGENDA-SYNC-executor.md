@@ -23,3 +23,6 @@ Workspace больше не обрабатывает горизонтальны�
 VoiceOver, AXL, тёмная тема, физический touch и GUI1900/2199 не проверены. Очень высокий день с множеством задач source-wired через full-group bounds, отдельной GUI-фикстурой не показан. Create/edit sheets используют прежние host/callbacks; полный CRUD повторно не прогонялся. Личные данные iPhone не читались/не удалялись. Main/push не менялись.
 
 Evidence: /Users/atlhnv/Codex/orbit-outputs/NATIVE-AGENDA-SYNC/. SQL dumps только синтетические, в Git не включены.
+
+## Установка
+Две попытки обновления iPhone не прошли: первая — CoreDevice4000 transport timeout, вторая — CoreDevice4016 trusted connectivity unavailable. Установка НЕ выполнена; подготовленная подписанная сборка сохранена в /private/tmp/orbit-untimed-device/Build/Products/Debug-iphoneos/OrbitIOS.app. Нужна доступность телефона для повторной установки.
