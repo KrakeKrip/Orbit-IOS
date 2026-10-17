@@ -144,3 +144,6 @@ Review2026-10-15: ADD004867a0a1 independentiOSbuild/diffcheckPASS. SourceR1optio
 
 
 2026-10-17 продолжение: NATIVE-REMINDER-001 DONE по self-check, real delivery при завершённом процессе PASS (04-delivered-process-terminated.png). Прежний runtime gate закрыт после reboot own Simulator; причина исходного отказа не установлена. Core110/build прежние PASS, продуктовый код не менялся. Физическая проверка и ограничения — в отчёте.
+
+
+2026-10-17: NATIVE-SOUND-001 DONE self-check — общий звук/preview/pending update,112core/iOSbuild/real-systemdropdelivery PASS. Индивидуальный sound исключён пользователем. Report reports/NATIVE-SOUND-001-executor.md. Физический sound QA отдельно.

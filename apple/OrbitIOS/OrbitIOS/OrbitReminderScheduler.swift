@@ -3,12 +3,15 @@ import Observation
 import UIKit
 import UserNotifications
 import OrbitCore
+import AVFAudio
 
 @MainActor
 final class IOSReminderNotificationClient: NSObject, ReminderNotificationClient, UNUserNotificationCenterDelegate {
     let center = UNUserNotificationCenter.current()
     var shouldPresent: (UNNotificationRequest) -> Bool = { _ in false }
     var didDeliver: () -> Void = {}
+    var soundPreviewIdentifier: String?
+    static let previewPrefix = "orbit.sound-preview."
     override init() { super.init(); center.delegate = self }
 
     func authorization() async -> ReminderAuthorization {
@@ -23,7 +26,8 @@ final class IOSReminderNotificationClient: NSObject, ReminderNotificationClient,
         await center.pendingNotificationRequests().map { request in
             ReminderRequest(identifier: request.identifier, title: request.content.body,
                             fireAt: (request.content.userInfo["fireAt"] as? Double)
-                                .map(Date.init(timeIntervalSince1970:)) ?? .distantPast)
+                                .map(Date.init(timeIntervalSince1970:)) ?? .distantPast,
+                            sound: (request.content.userInfo["sound"] as? String).flatMap(ReminderSound.init(rawValue:)) ?? .standard)
         }
     }
     func deliveredIDs() async -> [String] {
@@ -33,8 +37,8 @@ final class IOSReminderNotificationClient: NSObject, ReminderNotificationClient,
         let content = UNMutableNotificationContent()
         content.title = "Orbit"
         content.body = request.title
-        content.sound = .default
-        content.userInfo = ["fireAt": request.fireAt.timeIntervalSince1970]
+        content.sound = request.sound.notificationSound
+        content.userInfo = ["fireAt": request.fireAt.timeIntervalSince1970, "sound": request.sound.rawValue]
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         var components = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: request.fireAt)
@@ -54,6 +58,9 @@ final class IOSReminderNotificationClient: NSObject, ReminderNotificationClient,
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
                                             willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
         await MainActor.run {
+            if notification.request.identifier.hasPrefix(Self.previewPrefix) {
+                return notification.request.identifier == soundPreviewIdentifier ? [.sound] : []
+            }
             let visible = shouldPresent(notification.request)
             didDeliver()
             return visible ? [.banner, .list, .sound] : []
@@ -68,7 +75,77 @@ final class IOSReminderNotificationClient: NSObject, ReminderNotificationClient,
 final class OrbitReminderScheduler {
     @ObservationIgnored private lazy var client = IOSReminderNotificationClient()
     @ObservationIgnored private var started = false
+    @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private var previewPlayer: AVAudioPlayer?
+    @ObservationIgnored private var previewRevision = 0
+    @ObservationIgnored private var previewID: String?
+    private(set) var sound: ReminderSound
+    private(set) var soundPreviewError: String?
     private var entries: [ReminderEntry] = []
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        sound = defaults.string(forKey: "orbit.reminder.sound").flatMap(ReminderSound.init(rawValue:)) ?? .standard
+    }
+
+    func setSound(_ value: ReminderSound) {
+        guard value != sound else { return }
+        stopSoundPreview()
+        soundPreviewError = nil
+        sound = value
+        defaults.set(value.rawValue, forKey: "orbit.reminder.sound")
+        refresh()
+    }
+
+    func stopSoundPreview() {
+        previewRevision += 1
+        previewPlayer?.stop(); previewPlayer = nil
+        if started {
+            client.soundPreviewIdentifier = nil
+            if let previewID {
+                client.removePending([previewID])
+                client.removeDelivered([previewID])
+            }
+        }
+        previewID = nil
+    }
+
+    func previewSound(_ value: ReminderSound) async {
+        start()
+        stopSoundPreview()
+        soundPreviewError = nil
+        let revision = previewRevision
+        guard value != .silent else { return }
+        do {
+            if let file = value.fileName {
+                guard let url = Bundle.main.url(forResource: file, withExtension: "wav") else {
+                    throw CocoaError(.fileNoSuchFile)
+                }
+                try AVAudioSession.sharedInstance().setCategory(.ambient)
+                let player = try AVAudioPlayer(contentsOf: url)
+                previewPlayer = player
+                guard player.play() else { throw CocoaError(.fileReadUnknown) }
+            } else {
+                await requestAuthorization()
+                guard previewRevision == revision else { return }
+                let authorization = await client.authorization()
+                guard previewRevision == revision else { return }
+                guard authorization == .authorized else {
+                    soundPreviewError = "Разрешите уведомления, чтобы прослушать системный звук."
+                    return
+                }
+                let identifier = IOSReminderNotificationClient.previewPrefix + UUID().uuidString
+                previewID = identifier
+                client.soundPreviewIdentifier = identifier
+                try await client.add(ReminderRequest(identifier: identifier,
+                    title: "Проверка звука уведомлений", fireAt: Date(timeIntervalSince1970: ceil(Date.now.timeIntervalSince1970 + 1))))
+                if previewRevision != revision { client.removePending([identifier]) }
+            }
+        } catch {
+            guard previewRevision == revision else { return }
+            soundPreviewError = "Не удалось прослушать звук. \(error.localizedDescription)"
+        }
+    }
     private(set) var status = ReminderSyncStatus()
     private(set) var isRequesting = false
     private(set) var authorizationError: String?
@@ -96,7 +173,7 @@ final class OrbitReminderScheduler {
     }
     func refresh() {
         guard started else { return }
-        synchronizer.update(entries)
+        synchronizer.update(entries, sound: sound)
     }
     func requestAuthorization() async {
         start()

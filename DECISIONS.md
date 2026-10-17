@@ -97,3 +97,6 @@
 
 
 - ADR-052 — 2026-10-17: локальное напоминание хранится отдельным абсолютным reminderAt, не выводится автоматически из дедлайна/интервала. Одно напоминание на задачу; explicit permission и read-only статус очереди, clear/complete/delete отменяют, reopen только будущего. Pending budget64 консервативный, без фонового обещания пополнения. Личные stores не используются в QA; физическая доставка требует отдельной проверки владельца.
+
+
+- ADR-053 —2026-10-17: пользователь исключил индивидуальный звук задач. Только глобальная device-local настройка: standard/silent/3bundled sounds с preview и обновлением pending. Sound входит в request equality/revision, не в SwiftData entity. Acoustic QA на iPhone отдельно; simulator system playback log не подменяет физическое прослушивание.

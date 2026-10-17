@@ -29,12 +29,19 @@ public struct ReminderEntry: Equatable, Sendable {
     }
 }
 
+/// One device-wide preference, never stored on individual tasks.
+public enum ReminderSound: String, CaseIterable, Sendable {
+    case standard, silent, chime, drop, signal
+}
+
 public struct ReminderRequest: Equatable, Sendable {
     public static let prefix = "orbit.reminder."
     public let identifier: String
     public let title: String
     public let fireAt: Date
-    public init(identifier: String, title: String, fireAt: Date) {
+    public let sound: ReminderSound
+    public init(identifier: String, title: String, fireAt: Date, sound: ReminderSound = .standard) {
+        self.sound = sound
         self.identifier = identifier; self.title = title; self.fireAt = fireAt
     }
 }
@@ -54,12 +61,12 @@ public struct ReminderSyncStatus: Sendable {
 public enum ReminderPlanner {
     /// Conservative per-app budget; foreign notification identifiers are left alone.
     public static let maximumPending = 64
-    public static func requests(_ entries: [ReminderEntry], now: Date, capacity: Int) -> [ReminderRequest] {
+    public static func requests(_ entries: [ReminderEntry], now: Date, capacity: Int, sound: ReminderSound = .standard) -> [ReminderRequest] {
         entries.compactMap { entry -> ReminderRequest? in
             guard !entry.completed, let date = entry.fireAt,
                   (try? TaskReminder.validate(date, now: now)) != nil else { return nil }
             return ReminderRequest(identifier: ReminderRequest.prefix + entry.taskID.uuidString,
-                                   title: entry.title, fireAt: date)
+                                   title: entry.title, fireAt: date, sound: sound)
         }
         .sorted { ($0.fireAt, $0.identifier) < ($1.fireAt, $1.identifier) }
         .prefix(max(0, capacity)).map { $0 }
@@ -84,6 +91,7 @@ public final class ReminderSynchronizer {
     private let clock: () -> Date
     private let publish: (ReminderSyncStatus) -> Void
     private var entries: [ReminderEntry] = []
+    private var sound: ReminderSound = .standard
     private var revision = 0
     private var worker: Task<Void, Never>?
 
@@ -91,8 +99,8 @@ public final class ReminderSynchronizer {
                 publish: @escaping (ReminderSyncStatus) -> Void) {
         self.client = client; self.clock = clock; self.publish = publish
     }
-    public func update(_ entries: [ReminderEntry]) {
-        self.entries = entries; revision += 1
+    public func update(_ entries: [ReminderEntry], sound: ReminderSound = .standard) {
+        self.entries = entries; self.sound = sound; revision += 1
         if worker == nil { worker = Task { await drain() } }
     }
     public func waitUntilIdle() async { await worker?.value }
@@ -101,12 +109,13 @@ public final class ReminderSynchronizer {
         while true {
             let version = revision
             let snapshot = entries
+            let snapshotSound = sound
             let authorization = await client.authorization()
             let pending = await client.pending()
             let delivered = await client.deliveredIDs()
             guard revision == version else { continue }
             let foreign = pending.filter { !$0.identifier.hasPrefix(ReminderRequest.prefix) }.count
-            let all = ReminderPlanner.requests(snapshot, now: clock(), capacity: snapshot.count)
+            let all = ReminderPlanner.requests(snapshot, now: clock(), capacity: snapshot.count, sound: snapshotSound)
             let desired = authorization == .authorized
                 ? Array(all.prefix(max(0, ReminderPlanner.maximumPending - foreign))) : []
             let desiredIDs = Set(desired.map(\.identifier))

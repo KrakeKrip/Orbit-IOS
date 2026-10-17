@@ -213,6 +213,11 @@ struct OrbitSettingsSheet: View {
                 }
                 Section("Уведомления") {
                     ReminderPermissionView(service: reminders)
+                    NavigationLink {
+                        OrbitSoundSettings()
+                    } label: {
+                        LabeledContent("Звук", value: reminders.sound.title)
+                    }.accessibilityIdentifier("reminder-sound-settings")
                 }
                 Section("Отклик") {
                     Toggle("Виброотклик", isOn: $haptics)

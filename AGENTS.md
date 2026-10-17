@@ -1,3 +1,7 @@
+## Итог 2026-10-17 — общий звук
+
+NATIVE-SOUND-001 DONE self-check:5общих вариантов/preview/persistence/pending replacement,112tests/iOSbuild PASS; real delivery после silent→drop с закрытым процессом и system playback именно orbit-drop.wav. Schema не менялась. iPhone sound QA/AXL/VoiceOver отдельно. reports/NATIVE-SOUND-001-executor.md. User подтвердил работу предыдущей установленной версии; новый sound build не устанавливался/push не выполнялся.
+
 ## Итог 2026-10-17 — локальные напоминания
 
 NATIVE-REMINDER-001 DONE по Codex self-check на own Simulator: core110/upgrade/build PASS; real notification при завершённом процессе подтверждён AX/screenshot. Прежний системный отказ не повторился после reboot Simulator, точная причина не установлена. iPhone/звук/VoiceOver ещё не проверены. reports/NATIVE-REMINDER-001-executor.md заменяет прежний runtime-blocked статус ниже. Push/install не выполнялись.
