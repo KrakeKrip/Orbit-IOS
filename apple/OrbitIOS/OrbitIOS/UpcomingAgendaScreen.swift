@@ -59,22 +59,8 @@ struct UpcomingAgendaScreen: View {
                     List {
                         ForEach(days, id: \.self) { day in
                             Section {
-                                let tasks = TaskDaySelection.tasks(onDay: day, in: model.tasks)
-                                if tasks.isEmpty {
-                                    Color.clear.frame(height: 4)
-                                        .listRowBackground(appearance.canvas)
-                                        .listRowSeparator(.hidden)
-                                        .accessibilityHidden(true)
-                                } else {
-                                    ForEach(tasks) { task in
-                                        InboxRowView(task: task, model: model, showsDateLabel: false) {
-                                            editor = .date(task)
-                                        } onEditInterval: {
-                                            editor = .interval(task)
-                                        }
-                                    }
-                                }
-                            } header: {
+                                // A regular header row avoids native Section
+                                // header + empty-row minimums around empty days.
                                 HStack(spacing: 4) {
                                     Text(dayCaption(day)).font(.subheadline.weight(.semibold))
                                         .foregroundStyle(day == referenceDay ? Color.primary : .secondary)
@@ -89,10 +75,19 @@ struct UpcomingAgendaScreen: View {
                                     .buttonStyle(.borderless)
                                     .accessibilityLabel("Добавить задачу на \(RussianDateCaption.label(day))")
                                 }
-                                .textCase(nil)
+                                .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 2, trailing: 16))
+                                .listRowBackground(appearance.canvas)
+                                .listRowSeparator(.hidden)
                                 .onAppear {
                                     if day == days.last, let last = days.last, shift(last, by: 1) != nil {
                                         dayCount += 28
+                                    }
+                                }
+                                ForEach(TaskDaySelection.tasks(onDay: day, in: model.tasks)) { task in
+                                    InboxRowView(task: task, model: model, showsDateLabel: false) {
+                                        editor = .date(task)
+                                    } onEditInterval: {
+                                        editor = .interval(task)
                                     }
                                 }
                             }
@@ -100,6 +95,8 @@ struct UpcomingAgendaScreen: View {
                         }
                     }
                     .listStyle(.plain)
+                    .listSectionSpacing(0)
+                    .contentMargins(.top, 4, for: .scrollContent)
                     .scrollContentBackground(.hidden)
                     .onChange(of: selectedDay) { _, day in
                         if !days.contains(day) { anchorDay = day; dayCount = 56 }

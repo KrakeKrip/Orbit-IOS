@@ -31,3 +31,11 @@ iPhone доступен paired после прежнего unavailable, поэт
 V2 installation failed: CoreDevice tunnel connection timeout (Network error60), despite available(paired). No V2 install success claimed. Owner supplied a sketch clarifying an interior red quarter sector (V3), then explicitly removed arrowhead (active V4). V2/V3/V4 original PNGs saved design/orbit-icon; active AppIcon is V4 smooth black ring/red interior quarter/ivory. Imagegen edit output visually inspected inline, exact final prompt in design README. Code/agenda unchanged from7036a34. V4 build and installation results recorded below after commands complete.
 
 V4 result: targeted signed iOS BUILD SUCCEEDED (/private/tmp/orbit-icon-v4.log), production1024×1024/noalpha, diff --check PASS. Повторная установка devicectl SUCCESS: bundle local.orbit.ios, databaseSequenceNumber2508, update-in-place без удаления. Таким образом, на iPhone теперь сборка с Повесткой7036a34 и финальной V4 иконкой без стрелки. Home icon rendering/cache и новая agenda GUI ещё требуют владельческого QA; факт установки не подменяет эту проверку.
+
+## R1 — пустые дни и порядок меню
+
+По physical screenshot владельца пустые дни заняли чрезмерную высоту. Удалены fake empty Color row и native Section header; заголовок дня теперь обычная row внутри секции с insets2pt сверху/снизу и44pt плюсом, естественный multiline height при AXL. Межсекционный spacing0, верхний content margin4. Непустые дни используют прежние InboxRowView, id/scroll target/day callbacks/pagination сохранены. Header теперь обычная строка, не pinned section header. Порядок Picker: Список(tag0), Повестка(tag2), Календарь(tag1); значения/persistence не менялись, Today/projects с двумя пунктами остаются Список/Календарь.
+
+Signed generic iOS BUILD SUCCEEDED (/private/tmp/orbit-agenda-compact.log), diff --check PASS. Только обратимый UI layout/menu change, новые core tests не нужны и не запускались. Фактическая плотность на iPhone и AXL после этой правки ещё UNVERIFIED. Установка update-in-place запрошена, её результат ниже.
+
+R1 update-in-place devicectl SUCCESS, bundle local.orbit.ios, sequence2516. Личные stores не читались.

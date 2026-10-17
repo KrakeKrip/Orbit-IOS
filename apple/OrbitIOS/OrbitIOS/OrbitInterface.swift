@@ -151,8 +151,8 @@ struct OrbitViewModeMenu: View {
         Menu {
             Picker("Вид отображения", selection: mode) {
                 Label("Список", systemImage: "list.bullet").tag(0)
-                Label("Календарь", systemImage: "calendar").tag(1)
                 if agendaMode != nil { Label("Повестка", systemImage: "calendar.badge.clock").tag(2) }
+                Label("Календарь", systemImage: "calendar").tag(1)
             }
         } label: {
             Image(systemName: mode.wrappedValue == 2 ? "calendar.badge.clock" : (showsCalendar ? "calendar" : "list.bullet"))
