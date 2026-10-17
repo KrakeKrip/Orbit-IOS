@@ -207,10 +207,21 @@ struct InboxRowView: View {
             )
             taskBodyMenu
         }
-        .contentShape(Rectangle())
-        .highPriorityGesture(TapGesture().onEnded {
-            model.toggleSelection(task)
-        }, including: model.isSelecting ? .all : .none)
+        .frame(maxWidth: .infinity)
+        .allowsHitTesting(!model.isSelecting)
+        .accessibilityHidden(model.isSelecting)
+        .overlay {
+            if model.isSelecting {
+                Button { model.toggleSelection(task) } label: {
+                    Color.clear
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Выбрать задачу: \(task.title)")
+                .accessibilityAddTraits(model.selectedTaskIDs.contains(task.id) ? [.isSelected] : [])
+            }
+        }
         // Keep natural multiline/metadata height and 44pt controls, while
         // replacing List's default top/bottom insets with a compact gap.
         .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))

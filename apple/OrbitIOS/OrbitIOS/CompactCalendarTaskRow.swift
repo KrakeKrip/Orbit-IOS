@@ -86,10 +86,21 @@ struct CompactCalendarTaskRow: View {
             .accessibilityHint("Нажмите для меню; удерживайте и перенесите на временную сетку")
             .orbitMenuFeedback()
         }
-        .contentShape(Rectangle())
-        .highPriorityGesture(TapGesture().onEnded {
-            model.toggleSelection(task)
-        }, including: model.isSelecting ? .all : .none)
+        .frame(maxWidth: .infinity)
+        .allowsHitTesting(!model.isSelecting)
+        .accessibilityHidden(model.isSelecting)
+        .overlay {
+            if model.isSelecting {
+                Button { model.toggleSelection(task) } label: {
+                    Color.clear
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Выбрать задачу: \(task.title)")
+                .accessibilityAddTraits(model.selectedTaskIDs.contains(task.id) ? [.isSelected] : [])
+            }
+        }
         .background(
             RoundedRectangle(cornerRadius: 7).fill(
                 task.isCompleted ? Color(.tertiarySystemFill) : Color(.secondarySystemBackground)
