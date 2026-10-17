@@ -19,3 +19,15 @@ Generic signed iOS и Simulator BUILD SUCCEEDED: /private/tmp/orbit-agenda-icon.
 Own simulator1A3DE04B-CFDB-4DB4-BC3D-CB429529DF7A обновлён/запущен с синтетической старой fixture; Today AX/screenshot доступны. Coordinate click по Upcoming снова noWindowsAvailable, Tab Bar children не доступны в AX. Поэтому выбор Agenda/menu/week/inline create/pagination/relaunch/AXL/VoiceOver/иконка на Home — GUI UNVERIFIED. Обходные UI injectors не использовались. Предыдущие UI задачи также остаются pending physical QA отдельно.
 
 iPhoneAtl (00008140-000E70281E0A801C) unavailable в devicectl, новая версия на личный iPhone НЕ установлена. Личные данные не читались; тестовая fixture не изменялась операциями UI.
+
+## Иконка V2 и установка по прямому запросу
+
+Первая иконка отвергнута владельцем. Новый built-in imagegen original: design/orbit-icon/orbit-icon-v2-original.png, ivory background/black hollow ring/coral quarter arrow; точный prompt в design/orbit-icon/README.md. V1 source сохранён исторически, active AppIcon заменён по прямому запросу. Production1024×1024, alpha=no; targeted signed generic iOS BUILD SUCCEEDED (/private/tmp/orbit-icon-v2.log). Никаких code/core изменений относительно7036a34.
+
+iPhone доступен paired после прежнего unavailable, поэтому выполняется запрошенный update-in-place этой сборкой (включает Повестку). Прежнее «НЕ установлена» выше относится к состоянию до этого подключения; результат установки фиксируется после devicectl. GUI Повестки/appearance icon/Home/cancel/pagination/AXL пока не подтверждены.
+
+### V2 install failure / V4 final icon
+
+V2 installation failed: CoreDevice tunnel connection timeout (Network error60), despite available(paired). No V2 install success claimed. Owner supplied a sketch clarifying an interior red quarter sector (V3), then explicitly removed arrowhead (active V4). V2/V3/V4 original PNGs saved design/orbit-icon; active AppIcon is V4 smooth black ring/red interior quarter/ivory. Imagegen edit output visually inspected inline, exact final prompt in design README. Code/agenda unchanged from7036a34. V4 build and installation results recorded below after commands complete.
+
+V4 result: targeted signed iOS BUILD SUCCEEDED (/private/tmp/orbit-icon-v4.log), production1024×1024/noalpha, diff --check PASS. Повторная установка devicectl SUCCESS: bundle local.orbit.ios, databaseSequenceNumber2508, update-in-place без удаления. Таким образом, на iPhone теперь сборка с Повесткой7036a34 и финальной V4 иконкой без стрелки. Home icon rendering/cache и новая agenda GUI ещё требуют владельческого QA; факт установки не подменяет эту проверку.
