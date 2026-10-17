@@ -146,6 +146,42 @@ struct TaskReminderTests {
         #expect(client.requests.count == 1 && client.requests.first?.title == "New" && client.requests.first?.fireAt == changed.fireAt)
     }
 
+    @Test("Global sound replaces existing pending without changing task identity or schedule")
+    @MainActor func globalSound() async {
+        let client = FakeNotifications()
+        let entry = ReminderEntry(taskID: UUID(), title: "Same task", fireAt: now.addingTimeInterval(600), completed: false)
+        var status = ReminderSyncStatus()
+        let sync = ReminderSynchronizer(client: client, clock: { now }) { status = $0 }
+        sync.update([entry]); await sync.waitUntilIdle()
+        let original = client.requests[0]
+        #expect(original.sound == .standard)
+        for sound in [ReminderSound.chime, .silent, .signal, .drop, .standard] {
+            sync.update([entry], sound: sound); await sync.waitUntilIdle()
+            #expect(client.requests.count == 1 && status.scheduledIDs == [original.identifier])
+            let request = client.requests[0]
+            #expect(request.identifier == original.identifier && request.title == original.title && request.fireAt == original.fireAt)
+            #expect(request.sound == sound)
+            let adds = client.addCount
+            sync.update([entry], sound: sound); await sync.waitUntilIdle()
+            #expect(client.addCount == adds)
+        }
+        let restarted = ReminderSynchronizer(client: client, clock: { now }) { _ in }
+        restarted.update([entry], sound: .standard); await restarted.waitUntilIdle()
+        #expect(client.addCount == 6)
+    }
+
+    @Test("Sound change during in-flight add retains only the latest sound")
+    @MainActor func staleSound() async {
+        let client = FakeNotifications(); client.holdAdd = true
+        let entry = ReminderEntry(taskID: UUID(), title: "Task", fireAt: now.addingTimeInterval(600), completed: false)
+        let sync = ReminderSynchronizer(client: client, clock: { now }) { _ in }
+        sync.update([entry], sound: .chime)
+        await client.waitForAdd()
+        sync.update([entry], sound: .silent)
+        client.releaseAdd(); await sync.waitUntilIdle()
+        #expect(client.requests.count == 1 && client.requests[0].sound == .silent)
+    }
+
     @Test("Actual previous deadline/project binary upgrades with nil reminder", .enabled(if: ProcessInfo.processInfo.environment["ORBIT_REMINDER_FIXTURE"] != nil))
     @MainActor func upgrade() throws {
         let path = try #require(ProcessInfo.processInfo.environment["ORBIT_REMINDER_FIXTURE"])

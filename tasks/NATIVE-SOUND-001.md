@@ -1,0 +1,5 @@
+# NATIVE-SOUND-001 — общий звук напоминаний
+
+DONE по Codex self-check. Прямое «делаем» пользователя, Codex самостоятельно, база d621656. Один общий device-local выбор: Стандартный / Без звука / три оригинальных bundled PCM WAV. Индивидуальный звук задач исключён по уточнению пользователя. Без изменения SwiftData schema.
+
+Настройки с выбором/прослушиванием, persisted defaults и обновлением уже pending напоминаний через serial revision synchronizer. Стабильные task IDs/fireAt/title сохраняются; старая pending metadata считается standard. Standard preview через public UN API, bundled через AVAudioPlayer; отмена preview при уходе. Не использовать private/system sound paths/IDs. Core regression reschedule/race тесты, iOS build/resource format и own Simulator GUI. Проверки:112/112core/iOSbuild PASS, GUI persistence/preview и real-system silent→drop delivery при закрытом процессе PASS. Отчёт reports/NATIVE-SOUND-001-executor.md. Физическая оценка звука отдельно; автоматический push/install не входит.

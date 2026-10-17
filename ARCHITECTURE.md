@@ -63,3 +63,8 @@ OrbitTask.reminderAt — optional Date, абсолютный whole-second instan
 ReminderPlanner/ReminderSynchronizer работают с value snapshots без SwiftData объектов через await. Serial revision worker удаляет stale async add, обновляет стабильный orbit.reminder.UUID по title/fireAt, не затрагивает чужие identifiers. Консервативный pending budget64 включает чужие запросы; хвост очереди требует последующего открытия Orbit для пополнения. Это не обещание неограниченного background scheduling.
 
 IOSReminderNotificationClient — public UserNotifications API: native permission, UTC calendar trigger, default sound, foreground delegate. Permission только по явному reminder control; denied ведёт в Settings. Store commit не откатывается при ошибке системной очереди: UI отдельно показывает статус/retry и считает только реально возвращённые pending requests. Lifecycle/30s active refresh сверяет очередь, после relaunch читает persisted tasks. Нет сервера/APNs/background entitlement.
+
+
+## Общий звук напоминаний — NATIVE-SOUND-001
+
+Device-local UserDefaults orbit.reminder.sound; standard по умолчанию/для неизвестного значения. SwiftData/task schema неизменна. ReminderRequest.sound — часть value snapshot/equality, worker получает общий sound с revision: меняется payload стабильного request ID без изменения расписания. Legacy pending без sound metadata = standard. Preview IDs orbit.sound-preview.UUID вне task namespace, уникальны для защиты async cancellation. Bundled оригинальные PCM WAV в main bundle; AVAudioPlayer для preview, UNNotificationSound для доставки; standard preview только public UN API/foreground sound. Никаких private system sound paths/IDs.
