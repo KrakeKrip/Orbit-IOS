@@ -12,12 +12,16 @@ struct TaskActionPopoverButton<Content: View>: View {
     let task: OrbitTask
     let range: String
     let previewWidth: CGFloat
+    var maximumHeight: CGFloat = 520
+    var anchorsAtTap = false
     var opensOnHold = true
     var canOpen: () -> Bool = { true }
     let onAction: (OrbitTaskAction) -> Void
     @ViewBuilder let label: () -> Content
     @Environment(\.orbitAppearance) private var appearance
     @State private var isPresented = false
+    @State private var sourceSize = CGSize(width: 1, height: 1)
+    @State private var tapAnchor = UnitPoint.center
     @State private var wantsProject = false
     @State private var showsProject = false
     @State private var wantsReminder = false
@@ -31,13 +35,26 @@ struct TaskActionPopoverButton<Content: View>: View {
     var body: some View {
         Button {
             guard canOpen() else { return }
-            isPresented = true
+            if anchorsAtTap {
+                // SpatialTapGesture records the actual touch point in this
+                // event before presentation reads its attachment anchor.
+                DispatchQueue.main.async { if canOpen() { isPresented = true } }
+            } else {
+                isPresented = true
+            }
         } label: { label() }
+            .onGeometryChange(for: CGSize.self) { $0.size } action: { sourceSize = $0 }
+            .simultaneousGesture(SpatialTapGesture().onEnded { value in
+                guard anchorsAtTap, canOpen() else { return }
+                tapAnchor = UnitPoint(
+                    x: min(1, max(0, value.location.x / max(1, sourceSize.width))),
+                    y: min(1, max(0, value.location.y / max(1, sourceSize.height))))
+            })
             .modifier(TaskPopoverHoldModifier(enabled: opensOnHold) {
                 OrbitHaptics.longPress()
                 isPresented = true
             })
-            .popover(isPresented: $isPresented, attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
+            .popover(isPresented: $isPresented, attachmentAnchor: anchorsAtTap ? .point(tapAnchor) : .rect(.bounds), arrowEdge: anchorsAtTap ? nil : .top) {
                 ScrollView {
                   VStack(spacing: 0) {
                     TaskActionPreview(task: task, range: range, reminders: model.reminders)
@@ -61,8 +78,7 @@ struct TaskActionPopoverButton<Content: View>: View {
                 }
                 .scrollBounceBehavior(.basedOnSize)
                 .frame(width: previewWidth)
-                .frame(idealHeight: min(520, menuRowHeight * 8 + previewHeight + 20),
-                       maxHeight: min(520, menuRowHeight * 8 + previewHeight + 20))
+                .frame(height: min(maximumHeight, menuRowHeight * 8 + previewHeight + 20))
                 .background(appearance.canvas)
                 .presentationBackground(appearance.canvas)
                 .presentationCompactAdaptation(.popover)

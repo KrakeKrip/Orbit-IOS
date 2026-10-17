@@ -54,7 +54,7 @@ struct DayTimelineView: View {
                             }
                             .accessibilityHidden(true)
                         ruler.allowsHitTesting(false)
-                        blocks(containerWidth: geometry.size.width)
+                        blocks(containerSize: geometry.size)
                             .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: displaySegments)
                         untimedPreview(containerWidth: geometry.size.width)
                     }
@@ -174,7 +174,7 @@ struct DayTimelineView: View {
 
     // MARK: - Blocks
 
-    private func blocks(containerWidth: CGFloat) -> some View {
+    private func blocks(containerSize: CGSize) -> some View {
         let layout = laneLayout(for: displaySegments)
         return ForEach(layout, id: \.segment.taskID) { item in
             if let task = task(item.segment.taskID) {
@@ -183,7 +183,8 @@ struct DayTimelineView: View {
                     task: task,
                     laneIndex: item.lane,
                     laneCount: item.laneCount,
-                    containerWidth: containerWidth
+                    containerWidth: containerSize.width,
+                    menuHeight: max(140, min(520, containerSize.height - 24))
                 )
             }
         }
@@ -194,7 +195,8 @@ struct DayTimelineView: View {
         task: OrbitTask,
         laneIndex: Int,
         laneCount: Int,
-        containerWidth: CGFloat
+        containerWidth: CGFloat,
+        menuHeight: CGFloat
     ) -> some View {
         let startOffset = CGFloat(segment.startMinute) / 60 * hourHeight
         // Exact painted geometry: one minute is 1.0667pt at 64pt/hour — no
@@ -206,6 +208,8 @@ struct DayTimelineView: View {
 
         return TaskActionPopoverButton(model: model, task: task, range: range,
                                          previewWidth: min(300, max(160, containerWidth - 32)),
+                                         maximumHeight: menuHeight,
+                                         anchorsAtTap: true,
                                          opensOnHold: false,
                                          canOpen: { editing == nil && Date.now.timeIntervalSince(lastGestureFinish) > 0.25 }) { action in
             switch action {
