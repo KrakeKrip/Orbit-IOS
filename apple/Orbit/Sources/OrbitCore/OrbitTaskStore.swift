@@ -89,7 +89,8 @@ public final class OrbitTaskStore {
         plannedTime: String? = nil,
         durationMinutes: Int? = nil,
         projectID: UUID? = nil,
-        deadlineDate: String? = nil
+        deadlineDate: String? = nil,
+        reminderAt: Date? = nil
     ) throws -> OrbitTask {
         let title = try TaskTitle.validated(rawTitle)
         if let plannedDate, !TaskPlannedDate.isValid(plannedDate) {
@@ -121,6 +122,7 @@ public final class OrbitTaskStore {
                 throw TaskTimeIntervalError.endOutOfRange
             }
         }
+        try TaskReminder.validate(reminderAt, now: now)
         try TaskDeadline.validate(deadlineDate)
         try validateProject(projectID)
         let task = OrbitTask(
@@ -130,7 +132,8 @@ public final class OrbitTaskStore {
             plannedTime: plannedTime,
             durationMinutes: durationMinutes,
             projectID: projectID,
-            deadlineDate: deadlineDate
+            deadlineDate: deadlineDate,
+            reminderAt: reminderAt
         )
         context.insert(task)
         do {
@@ -140,6 +143,18 @@ public final class OrbitTaskStore {
             throw error
         }
         return task
+    }
+
+    /// A reminder is independent of scheduling. Past stored values remain readable.
+    public func setReminderAt(_ value: Date?, for id: UUID, now: Date = .now) throws {
+        let descriptor = FetchDescriptor<OrbitTask>(predicate: #Predicate { $0.id == id })
+        guard let task = try context.fetch(descriptor).first else { throw OrbitStoreError.taskNotFound(id: id) }
+        guard task.reminderAt != value else { return }
+        try TaskReminder.validate(value, now: now)
+        if value != nil && task.isCompleted { throw TaskReminderError.completedTask }
+        task.setReminderAt(value)
+        do { try context.save() }
+        catch { context.rollback(); throw error }
     }
 
     /// Changes only the deadline. Validation before mutation; identical is a no-op.

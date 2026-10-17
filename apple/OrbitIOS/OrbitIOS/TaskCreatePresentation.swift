@@ -142,6 +142,7 @@ struct TaskCreateSheet: View {
     private enum ExpandedGroup: Equatable {
         case date
         case deadline
+        case reminder
         case start
         case duration
     }
@@ -156,6 +157,7 @@ struct TaskCreateSheet: View {
 
     /// Local draft: optional civil date `YYYY-MM-DD` (nil = undated).
     @State private var draftProjectID: UUID?
+    @State private var draftReminder: Date?
     @State private var draftDeadline: String?
     @State private var draftDate: String?
     /// Resting position of the date wheel; only wheel writes touch the
@@ -209,6 +211,14 @@ struct TaskCreateSheet: View {
                         }))
                 }
                 Section { timeSection }
+                Section {
+                    TaskReminderFields(value: $draftReminder, expanded: Binding(
+                        get: { expandedGroup == .reminder },
+                        set: { flag in
+                            titleFieldFocused = false
+                            expandedGroup = flag ? .reminder : nil
+                        }), service: model.reminders)
+                }
                 Section {
                     if let errorMessage {
                         Text(errorMessage)
@@ -510,7 +520,8 @@ struct TaskCreateSheet: View {
             plannedTime: sendInterval ? startString : nil,
             durationMinutes: sendInterval ? draftDurationTotal : nil,
             projectID: draftProjectID,
-            deadlineDate: draftDeadline
+            deadlineDate: draftDeadline,
+            reminderAt: draftReminder
         ) {
             // The sheet and every draft stay up for retry; the list itself
             // was rolled back to persisted truth by the model.

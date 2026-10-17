@@ -246,6 +246,7 @@ struct InboxRowView: View {
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
                 TaskDeadlineBadge(task: task)
+                TaskReminderBadge(task: task, service: model.reminders)
                 if showsDateLabel, let plannedDate = task.plannedDate {
                     Text(RussianDateCaption.label(plannedDate))
                         .font(.footnote)
@@ -263,7 +264,7 @@ struct InboxRowView: View {
             .contentShape(Rectangle())
         }
         .orbitMenuFeedback()
-        .accessibilityLabel(task.title + TaskDeadlineBadge.accessibilitySuffix(task))
+        .accessibilityLabel(task.title + TaskDeadlineBadge.accessibilitySuffix(task) + TaskReminderBadge.accessibilitySuffix(task))
     }
 
 

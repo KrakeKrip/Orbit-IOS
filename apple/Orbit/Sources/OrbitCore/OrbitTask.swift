@@ -7,6 +7,8 @@ public final class OrbitTask {
     public private(set) var projectID: UUID?
     /// Independent end-of-day civil deadline; optional for additive upgrades.
     public private(set) var deadlineDate: String?
+    /// One explicit absolute reminder instant, independent of civil scheduling.
+    public private(set) var reminderAt: Date?
     public private(set) var title: String
     public private(set) var createdAt: Date
     public private(set) var completedAt: Date?
@@ -30,8 +32,10 @@ public final class OrbitTask {
         plannedTime: String? = nil,
         durationMinutes: Int? = nil,
         projectID: UUID? = nil,
-        deadlineDate: String? = nil
+        deadlineDate: String? = nil,
+        reminderAt: Date? = nil
     ) {
+        self.reminderAt = reminderAt
         self.deadlineDate = deadlineDate
         self.projectID = projectID
         self.id = id
@@ -42,6 +46,8 @@ public final class OrbitTask {
         self.plannedTime = plannedTime
         self.durationMinutes = durationMinutes
     }
+
+    func setReminderAt(_ value: Date?) { reminderAt = value }
 
     func setDeadlineDate(_ value: String?) { deadlineDate = value }
 

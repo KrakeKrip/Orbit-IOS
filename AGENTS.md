@@ -1,3 +1,7 @@
+## Сохранённый этап 2026-10-17 — напоминания
+
+NATIVE-REMINDER-001: NEEDS_FIXES, task branch от 7971d3f. Core110/110 и iOS build PASS; реальная доставка отклоняется системным API на двух own Simulator. Причина не установлена. Пользователь попросил завершить проход; main не менять до runtime gate. reports/NATIVE-REMINDER-001-executor.md.
+
 ## Последний этап 2026-10-16 — независимый дедлайн
 
 NATIVE-DEADLINE-001 выполнен Codex по прямому «делаем»: optional civil deadlineDate, atomic create/edit/clear, shared UI и overdue со следующего дня только для open. Core104/104 с actual previous-source upgrade, iOS build и own Simulator GUI PASS; ограничения reports/NATIVE-DEADLINE-001-executor.md. Notifications/reminders следующим отдельным этапом. Личные данные/телефон в QA не используются, автоматический push/install этого этапа не выполняется.

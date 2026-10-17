@@ -169,6 +169,7 @@ struct OrbitTaskMenuActions: View {
     let onDelete: () -> Void
     var onEditProject: (() -> Void)? = nil
     var onEditDeadline: (() -> Void)? = nil
+    var onEditReminder: (() -> Void)? = nil
     var body: some View {
         Button(action: onToggle) {
             Label(task.isCompleted ? "Снова открыть" : "Завершить",
@@ -179,6 +180,7 @@ struct OrbitTaskMenuActions: View {
             .disabled(task.plannedDate == nil)
         if let onEditProject { Button(action: onEditProject) { Label("Проект…", systemImage: "folder") } }
         if let onEditDeadline { Button(action: onEditDeadline) { Label("Дедлайн…", systemImage: "flag") } }
+        if let onEditReminder { Button(action: onEditReminder) { Label("Напоминание…", systemImage: "bell") } }
         Divider()
         Button(action: onRename) { Label("Переименовать…", systemImage: "pencil") }
         Button(role: .destructive, action: onDelete) { Label("Удалить…", systemImage: "trash") }

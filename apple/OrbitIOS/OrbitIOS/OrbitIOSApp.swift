@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import OrbitCore
 
 @main
@@ -19,6 +20,7 @@ struct OrbitIOSApp: App {
     @State private var launch: Launch
     @AppStorage("orbit.ui.appearance") private var appearanceRaw = OrbitAppearance.system.rawValue
     private var appearance: OrbitAppearance { OrbitAppearance(rawValue: appearanceRaw) ?? .system }
+    private let reminderTimer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
     @State private var selectedTab: Tab = .today
 
     init() {
@@ -60,6 +62,11 @@ struct OrbitIOSApp: App {
                     ProjectsScreen(model: model)
                         .tabItem { Label("Проекты", systemImage: "folder") }
                         .tag(Tab.projects)
+                }
+                .environment(model.reminders)
+                .onAppear { model.reminders.start() }
+                .onReceive(reminderTimer) { _ in
+                    if scenePhase == .active { model.reminders.refresh() }
                 }
                 .tint(.orbitAccent)
                 .environment(\.orbitAppearance, appearance)

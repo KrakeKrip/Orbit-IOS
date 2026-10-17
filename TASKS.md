@@ -138,3 +138,6 @@ Review2026-10-15: ADD004867a0a1 independentiOSbuild/diffcheckPASS. SourceR1optio
 Итог2026-10-15: ADD004591396faccepted/mainmerge9a16ea0041601eb12c15be040493453e8fd074d1. IndependentR1buildPASS/sourceidentityPASS; dateconfirmGUIexecutorreviewed/softwarekeyboardunverified. Назначен EDIT002sharedlistrowrename/deleteconfirmation, sourcebase9a16ea; CalendareditчерезList, безcontextmenuscope. ПослеacceptancefirstiPhoneQA, deadlines/remindersпозже.
 
 Итог2026-10-15: EDIT00279e180faccepted/mainmerge4c97c6da5e9e8726dc7d5edf5194ff69704f618f; independentiOSbuild/appleidentityPASS, executorGUIreviewed. НазначенDEVICE001docs/preflight/owner-assisteddeviceQA, sourcebase4c97c6da. Currentphysical0/projectTeamnone; noautomaticAppleID/signingsetup/appwipe. Перваяреальнаяустановкаещёнесостоялась.
+
+
+2026-10-17: NATIVE-REMINDER-001 NEEDS_FIXES — core/UI/scheduler сохранены в task branch; 110 tests/build PASS, real delivery failure unresolved. См. reports/NATIVE-REMINDER-001-executor.md.

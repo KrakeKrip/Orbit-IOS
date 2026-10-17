@@ -62,6 +62,7 @@ struct CompactCalendarTaskRow: View {
             } label: {
                 HStack(spacing: 4) {
                     TaskDeadlineBadge(task: task, compact: true)
+                    TaskReminderBadge(task: task, service: model.reminders, compact: true)
                     Text(task.title)
                 }
                     .font(.subheadline)
@@ -74,7 +75,7 @@ struct CompactCalendarTaskRow: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(task.title + TaskDeadlineBadge.accessibilitySuffix(task))
+            .accessibilityLabel(task.title + TaskDeadlineBadge.accessibilitySuffix(task) + TaskReminderBadge.accessibilitySuffix(task))
             .accessibilityHint("Открывает меню задачи")
             .orbitMenuFeedback()
         }
