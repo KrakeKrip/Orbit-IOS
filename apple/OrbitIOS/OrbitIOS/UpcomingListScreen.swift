@@ -267,17 +267,8 @@ struct UpcomingListScreen: View {
     }
 
     private var datePickerField: some View {
-        DatePicker(
-            "Дата",
-            selection: $pickerDate,
-            in: Self.rangeLowerBound...Self.rangeUpperBound,
-            displayedComponents: [.date]
-        )
-        .labelsHidden()
-        // View-local Russian date only for this control; the device/system
-        // locale is never changed.
-        .environment(\.locale, Locale(identifier: "ru_RU"))
-        .environment(\.calendar, Calendar.orbitCivil)
+        MarkedDatePicker(selection: $pickerDate,
+                         taskDays: Set(model.tasks.compactMap(\.plannedDate)))
         .onChange(of: pickerDate) { _, newDate in
             select(TaskPlannedDate.civilDateString(from: newDate, calendar: gregorianNoon))
         }

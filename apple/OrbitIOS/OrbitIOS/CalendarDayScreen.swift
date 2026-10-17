@@ -60,6 +60,8 @@ struct CalendarDayScreen: View {
         fromCivilDateString: TaskDaySelection.currentDay()
     ) ?? Date()
     @State private var untimedExpanded = false
+    @State private var untimedFrame: CGRect = .zero
+    @State private var returnHover = false
     @State private var untimedDrag: UntimedCalendarDrag?
     /// Measured height of the whole calendar content area (date controls +
     /// untimed region + timeline); the expanded untimed viewport derives from
@@ -117,6 +119,15 @@ struct CalendarDayScreen: View {
                         day: selectedDay,
                         untimedDrag: $untimedDrag,
                         onCommitUntimed: commitUntimedDrag,
+                        onReturnHover: { point in
+                            let inside = point.map { untimedFrame.contains($0) } ?? false
+                            if inside && !returnHover { OrbitHaptics.timelineStep() }
+                            returnHover = inside
+                            return inside
+                        },
+                        onReturnUntimed: { task in
+                            model.setPlannedInterval(plannedTime: nil, durationMinutes: nil, for: task)
+                        },
                         segments: projection.timedSegments,
                         task: { taskID in model.tasks.first { $0.id == taskID } },
                         onEditInterval: { task in presentation = .interval(task) },
@@ -442,17 +453,8 @@ struct CalendarDayScreen: View {
     }
 
     private var datePickerField: some View {
-        DatePicker(
-            "Дата",
-            selection: $pickerDate,
-            in: Self.rangeLowerBound...Self.rangeUpperBound,
-            displayedComponents: [.date]
-        )
-        .labelsHidden()
-        // View-local Russian date only for this control («14 окт. 2026 г.»
-        // instead of «Oct»); the device/system locale is never changed.
-        .environment(\.locale, Locale(identifier: "ru_RU"))
-        .environment(\.calendar, Calendar.orbitCivil)
+        MarkedDatePicker(selection: $pickerDate,
+                         taskDays: Set(model.tasks.filter { projectID == nil || $0.projectID == projectID }.compactMap(\.plannedDate)))
         .onChange(of: pickerDate) { _, newDate in
             select(TaskPlannedDate.civilDateString(from: newDate, calendar: gregorianNoon))
         }
@@ -625,7 +627,10 @@ struct CalendarDayScreen: View {
             }
             Divider()
         }
-        .background(appearance.canvas)
+        .frame(minHeight: 44)
+        .background(returnHover ? Color.orbitAccent.opacity(0.18) : appearance.canvas)
+        .overlay(RoundedRectangle(cornerRadius: 7).stroke(returnHover ? Color.orbitAccent : .clear, lineWidth: 2))
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { untimedFrame = $0 }
     }
 
     private func untimedRow(_ id: UUID) -> some View {

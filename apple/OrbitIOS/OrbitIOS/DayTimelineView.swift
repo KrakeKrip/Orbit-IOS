@@ -11,6 +11,8 @@ struct DayTimelineView: View {
     let day: String
     @Binding var untimedDrag: UntimedCalendarDrag?
     let onCommitUntimed: (UntimedCalendarDrag, TaskTimelineAdjustment.Candidate) -> String?
+    let onReturnHover: (CGPoint?) -> Bool
+    let onReturnUntimed: (OrbitTask) -> String?
     let segments: [TaskDayIntervalSegment]
     /// Resolves a projected task UUID to the live shared-model task object.
     let task: (UUID) -> OrbitTask?
@@ -23,6 +25,7 @@ struct DayTimelineView: View {
     let onCommitInterval: (OrbitTask, String, Int) -> String?
     @State private var timelineScrollOffset: CGFloat = 0
     @State private var untimedCandidate: TaskTimelineAdjustment.Candidate?
+    @State private var returningUntimed = false
     @State private var selectedTaskID: UUID?
     @State private var editing: TimelineGestureEdit?
     @State private var gestureError: String?
@@ -100,11 +103,11 @@ struct DayTimelineView: View {
         .onChange(of: gestureActive) { _, active in
             if !active {
                 // Also clears drafts for recognizer cancellation, after onEnded.
-                DispatchQueue.main.async { if !gestureActive { editing = nil } }
+                DispatchQueue.main.async { if !gestureActive { editing = nil; returningUntimed = false; _ = onReturnHover(nil) } }
             }
         }
         .onChange(of: untimedDrag?.token) { _, _ in untimedCandidate = nil }
-        .onDisappear { editing = nil; selectedTaskID = nil; untimedCandidate = nil }
+        .onDisappear { editing = nil; selectedTaskID = nil; untimedCandidate = nil; returningUntimed = false; _ = onReturnHover(nil) }
     }
 
     /// The source remains in «Без времени» until the validated store commit.
@@ -397,6 +400,20 @@ struct DayTimelineView: View {
         // Ordinary taps never begin an edit and remain available.
         lastGestureFinish = .now
         editing = nil
+        let returnToUntimed = returningUntimed
+        returningUntimed = false
+        _ = onReturnHover(nil)
+        if returnToUntimed {
+            guard let current = task(edit.taskID), current.plannedDate == edit.date,
+                  current.plannedTime == edit.time, current.durationMinutes == edit.duration else {
+                gestureError = "Задача изменилась. Повторите действие."
+                return
+            }
+            gestureError = onReturnUntimed(current)
+            selectedTaskID = nil
+            if gestureError == nil { OrbitHaptics.selection() }
+            return
+        }
         guard let candidate = edit.candidate,
               candidate.time != edit.time || candidate.duration != edit.duration else { return }
         guard let current = task(edit.taskID), current.plannedDate == edit.date,
@@ -413,18 +430,19 @@ struct DayTimelineView: View {
     private func moveGesture(task: OrbitTask, segment: TimelineSegment) -> AnyGesture<Void> {
         if editing?.taskID == task.id ? editing?.directMove == true : selectedTaskID == task.id {
             return AnyGesture(
-                DragGesture(minimumDistance: 3, coordinateSpace: .named("orbit-timeline"))
+                DragGesture(minimumDistance: 3, coordinateSpace: .global)
                     .updating($gestureActive) { _, state, _ in state = true }
                     .onChanged { value in
                         begin(.move, task: task, segment: segment)
-                        update(value.translation.height)
+                        returningUntimed = onReturnHover(value.location)
+                        if !returningUntimed { update(value.translation.height) }
                     }
                     .onEnded { _ in finish() }
                     .map { _ in () }
             )
         }
         return AnyGesture(LongPressGesture(minimumDuration: 0.4, maximumDistance: 10)
-            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .named("orbit-timeline")))
+            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
             .updating($gestureActive) { _, state, _ in state = true }
             .onChanged { value in
                 switch value {
@@ -432,7 +450,10 @@ struct DayTimelineView: View {
                 // threshold. Only the second phase may enter edit mode.
                 case .second(true, let drag):
                     begin(.move, task: task, segment: segment)
-                    if let drag { update(drag.translation.height) }
+                    if let drag {
+                        returningUntimed = onReturnHover(drag.location)
+                        if !returningUntimed { update(drag.translation.height) }
+                    }
                 default: break
                 }
             }

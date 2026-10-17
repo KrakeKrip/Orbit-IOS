@@ -12,3 +12,5 @@ R1: physical screenshot показал forbidden drop. Delegate.source заме�
 R2: стандартный opaque NSString nonce, viewport target + измеренный scroll origin; R1 не прошёл touch QA владельца. По новому запросу добавлено сохранение List/Calendar отдельно Today/Upcoming/каждый project через AppStorage. REVIEW до успешного native drop.
 
 R3: после подтверждённого native lift/drop владелец выявил неверный час при scroll. Offset теперь из global frames viewport/content через onGeometryChange; build PASS, physical scroll/drop QA ожидается.
+
+2026-10-17 расширение по прямому запросу: hold/move timed блока в верхнюю область очищает interval без смены даты; общий date picker Upcoming List/Calendar с маркерами plannedDate. Детали и GUI ограничения reports/NATIVE-CALENDAR-RETURN-MARKERS.md. REVIEW до touch QA.
