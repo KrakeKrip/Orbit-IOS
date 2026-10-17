@@ -139,21 +139,30 @@ extension View {
 struct OrbitViewModeMenu: View {
     @Binding var showsCalendar: Bool
     let identifier: String
+    var agendaMode: Binding<Bool>? = nil
+    private var mode: Binding<Int> {
+        Binding(get: { agendaMode?.wrappedValue == true ? 2 : (showsCalendar ? 1 : 0) }, set: { value in
+            agendaMode?.wrappedValue = value == 2
+            showsCalendar = value == 1
+        })
+    }
+    private var title: String { mode.wrappedValue == 2 ? "Повестка" : (showsCalendar ? "Календарь" : "Список") }
     var body: some View {
         Menu {
-            Picker("Вид отображения", selection: $showsCalendar) {
-                Label("Список", systemImage: "list.bullet").tag(false)
-                Label("Календарь", systemImage: "calendar").tag(true)
+            Picker("Вид отображения", selection: mode) {
+                Label("Список", systemImage: "list.bullet").tag(0)
+                Label("Календарь", systemImage: "calendar").tag(1)
+                if agendaMode != nil { Label("Повестка", systemImage: "calendar.badge.clock").tag(2) }
             }
         } label: {
-            Image(systemName: showsCalendar ? "calendar" : "list.bullet")
+            Image(systemName: mode.wrappedValue == 2 ? "calendar.badge.clock" : (showsCalendar ? "calendar" : "list.bullet"))
                 .font(.system(size: 18, weight: .medium))
                 .contentTransition(.symbolEffect(.replace))
                 .frame(width: 28, height: 28)
         }
         .orbitIconStyle()
         .orbitMenuFeedback()
-        .accessibilityLabel("Вид: \(showsCalendar ? "Календарь" : "Список")")
+        .accessibilityLabel("Вид: \(title)")
         .accessibilityIdentifier(identifier)
     }
 }

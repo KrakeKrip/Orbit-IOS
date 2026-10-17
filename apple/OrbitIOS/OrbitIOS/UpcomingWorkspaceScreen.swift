@@ -21,25 +21,32 @@ struct UpcomingWorkspaceScreen: View {
 
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("orbit.ui.upcoming.calendar") private var showsCalendar = false
+    @AppStorage("orbit.ui.upcoming.agenda") private var showsAgenda = false
     @State private var selectedDay: String = TaskDaySelection.currentDay()
     @State private var referenceDay: String = TaskDaySelection.currentDay()
     private let dayRefreshTimer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
     var body: some View {
         Group {
-            if showsCalendar {
+            if showsAgenda {
+                UpcomingAgendaScreen(model: model, selectedDay: $selectedDay,
+                                     showsCalendar: $showsCalendar, showsAgenda: $showsAgenda,
+                                     referenceDay: referenceDay)
+            } else if showsCalendar {
                 CalendarDayScreen(
                     model: model,
                     todayMode: $showsCalendar,
                     browsingDay: $selectedDay,
-                    referenceDay: referenceDay
+                    referenceDay: referenceDay,
+                    agendaMode: $showsAgenda
                 )
             } else {
                 UpcomingListScreen(
                     model: model,
                     selectedDay: $selectedDay,
                     showsCalendar: $showsCalendar,
-                    referenceDay: referenceDay
+                    referenceDay: referenceDay,
+                    agendaMode: $showsAgenda
                 )
             }
         }
@@ -48,7 +55,7 @@ struct UpcomingWorkspaceScreen: View {
         // selection owner is never duplicated, and creating never resets the
         // selection or the mode.
         .orbitCreateAction(model: model, datePreset: { selectedDay })
-        .onChange(of: showsCalendar) { _, _ in OrbitHaptics.selection() }
+        .onChange(of: showsAgenda ? 2 : (showsCalendar ? 1 : 0)) { _, _ in OrbitHaptics.selection() }
         .onChange(of: selectedDay) { _, _ in OrbitHaptics.selection() }
         .simultaneousGesture(
             DragGesture(minimumDistance: 40).onEnded { value in
@@ -97,8 +104,9 @@ struct UpcomingWorkspaceScreen: View {
 /// Its binding remains owned by the section and survives tab changes.
 struct UpcomingModeSwitcher: View {
     @Binding var showsCalendar: Bool
+    var agendaMode: Binding<Bool>? = nil
 
     var body: some View {
-        OrbitViewModeMenu(showsCalendar: $showsCalendar, identifier: "upcoming-mode-switcher")
+        OrbitViewModeMenu(showsCalendar: $showsCalendar, identifier: "upcoming-mode-switcher", agendaMode: agendaMode)
     }
 }

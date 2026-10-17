@@ -19,6 +19,7 @@ struct UpcomingListScreen: View {
     /// The refreshed current local Gregorian day from the section owner
     /// (NATIVE-NAV-002-R1): gates the contextual «Сегодня» jump.
     let referenceDay: String
+    var agendaMode: Binding<Bool>? = nil
 
     @State private var presentation: InboxSheetPresentation?
     @State private var pickerDate: Date = TaskPlannedDate.date(
@@ -41,7 +42,7 @@ struct UpcomingListScreen: View {
                 // NATIVE-UI-MODE: the same leading top mode row as in the
                 // calendar presentation and the Today section, directly under
                 // the navigation bar — no toolbar item, no second contour.
-                NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: $showsCalendar))
+                NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: $showsCalendar, agendaMode: agendaMode))
                 dateControls
                 if let writeError = model.writeError {
                     writeErrorBanner(writeError)

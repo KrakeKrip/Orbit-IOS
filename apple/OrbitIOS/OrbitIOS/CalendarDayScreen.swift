@@ -42,6 +42,7 @@ struct CalendarDayScreen: View {
     /// «Сегодня» jump. The fixed-day Today context (default nil) never gets
     /// a jump.
     var referenceDay: String? = nil
+    var agendaMode: Binding<Bool>? = nil
 
     @State private var projectTask: OrbitTask?
     @State private var deadlineTask: OrbitTask?
@@ -387,7 +388,7 @@ struct CalendarDayScreen: View {
             if let projectHeader {
                 projectHeader
             } else if let todayMode {
-                NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: todayMode)) {
+                NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: todayMode, agendaMode: agendaMode)) {
                     calendarMenu
                 }
             } else {
