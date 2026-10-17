@@ -55,12 +55,16 @@ struct UpcomingWorkspaceScreen: View {
         // selection or the mode.
         .orbitCreateAction(model: model, datePreset: { selectedDay })
         .onChange(of: showsAgenda ? 2 : (showsCalendar ? 1 : 0)) { _, _ in model.endSelection(); OrbitHaptics.selection() }
-        .onChange(of: selectedDay) { _, _ in model.endSelection(); OrbitHaptics.selection() }
+        .onChange(of: selectedDay) { _, _ in
+            // Agenda scrolling updates the highlighted day continuously;
+            // it must neither clear bulk selection nor vibrate per section.
+            if !showsAgenda { model.endSelection(); OrbitHaptics.selection() }
+        }
         .simultaneousGesture(
             DragGesture(minimumDistance: 40).onEnded { value in
-                // List owns its content-only swipe. Preserve the other
-                // presentations' existing navigation, except during selection.
-                guard showsCalendar || showsAgenda, !model.isSelecting else { return }
+                // List owns its content-only swipe, Agenda its week-header
+                // paging. Only the day timeline uses this workspace gesture.
+                guard showsCalendar, !showsAgenda, !model.isSelecting else { return }
                 let dx = value.translation.width
                 let dy = value.translation.height
                 guard abs(dx) > 70, abs(dx) > abs(dy) * 1.6 else { return }

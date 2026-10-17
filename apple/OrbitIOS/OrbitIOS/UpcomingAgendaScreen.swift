@@ -10,6 +10,7 @@ struct UpcomingAgendaScreen: View {
     @Binding var showsAgenda: Bool
     let referenceDay: String
     @Environment(\.orbitAppearance) private var appearance
+    @State private var scrollRequest: AgendaScrollRequest?
     @State private var anchorDay: String
     @State private var dayCount = 56
     @State private var editor: InboxSheetPresentation?
@@ -21,6 +22,18 @@ struct UpcomingAgendaScreen: View {
         self.model = model; _selectedDay = selectedDay; _showsCalendar = showsCalendar
         _showsAgenda = showsAgenda; self.referenceDay = referenceDay
         _anchorDay = State(initialValue: selectedDay.wrappedValue)
+    }
+
+    private struct AgendaScrollRequest: Equatable {
+        let day: String
+        let token = UUID()
+    }
+
+    private struct AgendaDayFrames: PreferenceKey {
+        static var defaultValue: [String: CGRect] { [:] }
+        static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+            value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+        }
     }
 
     private struct AgendaCreateDay: Identifiable {
@@ -43,7 +56,7 @@ struct UpcomingAgendaScreen: View {
     }
     private var pickerDate: Binding<Date> {
         Binding(get: { TaskPlannedDate.date(fromCivilDateString: selectedDay, calendar: calendar)! },
-                set: { selectedDay = TaskPlannedDate.civilDateString(from: $0, calendar: calendar) })
+                set: { navigate(to: TaskPlannedDate.civilDateString(from: $0, calendar: calendar)) })
     }
 
     var body: some View {
@@ -56,54 +69,57 @@ struct UpcomingAgendaScreen: View {
                     Text(message).font(.footnote).foregroundStyle(.red).padding(8)
                 }
                 ScrollViewReader { proxy in
-                    List {
-                        ForEach(days, id: \.self) { day in
-                            Section {
-                                // A regular header row avoids native Section
-                                // header + empty-row minimums around empty days.
-                                HStack(spacing: 4) {
-                                    Text(dayCaption(day)).font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(day == referenceDay ? Color.primary : .secondary)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                    Spacer(minLength: 0)
-                                    Button {
-                                        createDay = AgendaCreateDay(day: day)
-                                    } label: {
-                                        Image(systemName: "plus").font(.body.weight(.medium))
-                                            .frame(width: 44, height: 44)
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            ForEach(days, id: \.self) { day in
+                                VStack(spacing: 0) {
+                                    dayHeader(day)
+                                    ForEach(TaskDaySelection.tasks(onDay: day, in: model.tasks)) { task in
+                                        InboxRowView(task: task, model: model, showsDateLabel: false) {
+                                            editor = .date(task)
+                                        } onEditInterval: {
+                                            editor = .interval(task)
+                                        }
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 4)
+                                        .background(model.isSelecting && model.selectedTaskIDs.contains(task.id)
+                                            ? Color.orbitAccent.opacity(0.12) : .clear)
+                                        Divider().padding(.leading, 74).padding(.trailing, 16)
                                     }
-                                    .buttonStyle(.borderless)
-                                    .disabled(model.isSelecting)
-                                    .accessibilityLabel("Добавить задачу на \(RussianDateCaption.label(day))")
                                 }
-                                .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 2, trailing: 16))
-                                .listRowBackground(appearance.canvas)
-                                .listRowSeparator(.hidden)
+                                .id(day)
+                                .background {
+                                    GeometryReader { geometry in
+                                        Color.clear.preference(key: AgendaDayFrames.self,
+                                            value: [day: geometry.frame(in: .named("agenda-viewport"))])
+                                    }
+                                }
                                 .onAppear {
                                     if day == days.last, let last = days.last, shift(last, by: 1) != nil {
                                         dayCount += 28
                                     }
                                 }
-                                ForEach(TaskDaySelection.tasks(onDay: day, in: model.tasks)) { task in
-                                    InboxRowView(task: task, model: model, showsDateLabel: false) {
-                                        editor = .date(task)
-                                    } onEditInterval: {
-                                        editor = .interval(task)
-                                    }
-                                }
                             }
-                            .id(day)
                         }
+                        .padding(.top, 4)
                     }
-                    .listStyle(.plain)
-                    .listSectionSpacing(0)
-                    .contentMargins(.top, 4, for: .scrollContent)
-                    .scrollContentBackground(.hidden)
-                    .onChange(of: selectedDay) { _, day in
-                        if !days.contains(day) { anchorDay = day; dayCount = 56 }
-                        DispatchQueue.main.async { proxy.scrollTo(day, anchor: .top) }
+                    .coordinateSpace(name: "agenda-viewport")
+                    .onPreferenceChange(AgendaDayFrames.self) { frames in
+                        // Observe the whole day group, including its tasks: a
+                        // tall day stays selected while its heading is offscreen.
+                        // Ignore the last half-row of a day slipping offscreen.
+                        guard let top = frames.filter({ $0.value.maxY > 22 })
+                        .min(by: { $0.value.minY < $1.value.minY })?.key,
+                          selectedDay != top else { return }
+                        // Observation only: never scroll in response to this.
+                        selectedDay = top
+                    }
+                    .onChange(of: scrollRequest) { _, request in
+                        guard let request else { return }
+                        proxy.scrollTo(request.day, anchor: .top)
                     }
                 }
+
             }
             .background(appearance.canvas)
             .toolbar(.hidden, for: .navigationBar)
@@ -125,17 +141,17 @@ struct UpcomingAgendaScreen: View {
                 MarkedDatePicker(selection: pickerDate, taskDays: Set(model.tasks.compactMap(\.plannedDate)))
                 Spacer(minLength: 0)
                 if selectedDay != referenceDay {
-                    Button("Сегодня") { selectedDay = referenceDay }.font(.footnote)
+                    Button("Сегодня") { navigate(to: referenceDay) }.font(.footnote)
                 }
-                Button { if let day = shift(selectedDay, by: -7) { selectedDay = day } } label: {
+                Button { if let day = adjacentWeek(-1) { navigate(to: day) } } label: {
                     Image(systemName: "chevron.left").frame(width: 36, height: 44)
                 }
-                .disabled(shift(selectedDay, by: -7) == nil)
+                .disabled(adjacentWeek(-1) == nil)
                 .accessibilityLabel("Предыдущая неделя")
-                Button { if let day = shift(selectedDay, by: 7) { selectedDay = day } } label: {
+                Button { if let day = adjacentWeek(1) { navigate(to: day) } } label: {
                     Image(systemName: "chevron.right").frame(width: 36, height: 44)
                 }
-                .disabled(shift(selectedDay, by: 7) == nil)
+                .disabled(adjacentWeek(1) == nil)
                 .accessibilityLabel("Следующая неделя")
             }
             HStack(spacing: 0) {
@@ -144,7 +160,7 @@ struct UpcomingAgendaScreen: View {
                         Text(["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "ВС"][index])
                             .font(.caption2.weight(.medium)).foregroundStyle(.secondary)
                         if let day, let date = TaskPlannedDate.date(fromCivilDateString: day, calendar: calendar) {
-                            Button { selectedDay = day } label: {
+                            Button { navigate(to: day) } label: {
                                 VStack(spacing: 2) {
                                     Text(String(calendar.component(.day, from: date)))
                                         .font(.body.weight(day == selectedDay ? .semibold : .regular))
@@ -166,8 +182,55 @@ struct UpcomingAgendaScreen: View {
             }
         }
         .buttonStyle(.plain)
+        .contentShape(Rectangle())
+        .simultaneousGesture(DragGesture(minimumDistance: 30).onEnded { value in
+            guard !model.isSelecting,
+                  abs(value.translation.width) >= 60,
+                  abs(value.translation.width) > abs(value.translation.height) * 1.6,
+                  let day = adjacentWeek(value.translation.width < 0 ? 1 : -1) else { return }
+            navigate(to: day)
+        })
         .padding(.horizontal, 12)
         .padding(.bottom, 6)
+    }
+
+    /// Week paging always lands on Monday, rather than preserving the
+    /// weekday of whichever section happens to be at the top of the agenda.
+    private func adjacentWeek(_ direction: Int) -> String? {
+        guard let date = TaskPlannedDate.date(fromCivilDateString: selectedDay, calendar: calendar) else { return nil }
+        let offset = (calendar.component(.weekday, from: date) + 5) % 7
+        return shift(selectedDay, by: direction * 7 - offset)
+    }
+
+    private func navigate(to day: String) {
+        guard TaskPlannedDate.isValid(day) else { return }
+        model.endSelection()
+        if !days.contains(day) { anchorDay = day; dayCount = 56 }
+        // Also works when tapping the already highlighted day: its section
+        // is aligned to the top without depending on a binding change.
+        scrollRequest = AgendaScrollRequest(day: day)
+        if selectedDay != day { selectedDay = day }
+        OrbitHaptics.selection()
+    }
+
+    private func dayHeader(_ day: String) -> some View {
+        HStack(spacing: 4) {
+            Text(dayCaption(day)).font(.subheadline.weight(.semibold))
+                .foregroundStyle(day == referenceDay ? Color.primary : .secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+            Spacer(minLength: 0)
+            Button { createDay = AgendaCreateDay(day: day) } label: {
+                Image(systemName: "plus").font(.body.weight(.medium))
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.borderless)
+            .disabled(model.isSelecting)
+            .accessibilityLabel("Добавить задачу на \(RussianDateCaption.label(day))")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 2)
+        .frame(maxWidth: .infinity)
     }
 
     private func dayCaption(_ day: String) -> String {
