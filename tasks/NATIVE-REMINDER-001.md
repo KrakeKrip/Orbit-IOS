@@ -1,3 +1,5 @@
-# NATIVE-REMINDER-001 — план следующего этапа
+# NATIVE-REMINDER-001
 
-TODO, не назначен. Следующий этап после дедлайнов: одно локальное напоминание на задачу с явной датой/временем, создание/изменение/удаление, permission UX и уведомления iPhone. До реализации уточнить контракты civil/instant/timezone, complete/delete отмену, повторное открытие, restart reconciliation и лимит pending notifications. Дедлайн и planned interval не должны молча создавать уведомления. Сначала bounded core+planner, затем UI/system delivery; отдельный task scope перед запуском. Личные stores и уведомления не использовать для тестовых фикстур.
+DONE по Codex self-check на Simulator,2026-10-17. База7971d3f, реализация69daf08. Core110/110, actual previous-source upgrade и iOS build PASS. Runtime gate закрыт реальной доставкой при завершённом процессе после reboot собственного Simulator; прежний системный отказ не воспроизводится, точная причина не установлена. Отдельного независимого review не было.
+
+Контракты: optional absolute reminderAt, independent planning/deadline, atomic writes, explicit permission, bounded serial reconciliation/cancel/retry; UI create/edit/clear/menu/badges/settings. Полный отчёт и ограничения: reports/NATIVE-REMINDER-001-executor.md. Физический iPhone/push/install не выполнены.

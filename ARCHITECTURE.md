@@ -54,3 +54,12 @@ OrbitTask.projectID — optional UUID с nil для upgrade; assignment чере
 ## Дедлайн (NATIVE-DEADLINE-001)
 
 OrbitTask.deadlineDate — optional Gregorian civil YYYY-MM-DD 1900–2199; добавляется без сброса старых записей. Валидация TaskDeadline перед insert/mutation, один save/rollback; setDeadlineDate identical no-op. Это независимый срок до конца дня: ни plannedDate/time, ни projectID, ни membership, projector, gestures не меняются. Просрочка: незавершённая задача с deadlineDate < local today. Сегодняшний срок ещё не просрочен; completed хранит срок без overdue. UI badge обновляется раз в минуту без записи. Общая create форма сохраняет целый candidate, редактор использует local draft и явные Save/Cancel/clear. Для tiny блоков полный срок доступен через меню, геометрия длительности прежняя.
+
+
+## Локальные напоминания — NATIVE-REMINDER-001
+
+OrbitTask.reminderAt — optional Date, абсолютный whole-second instant в UTC1900…2199. Nil при additive upgrade. Отображение/ввод в текущем часовом поясе; смена planned date/time, deadline или проекта не переносит reminder. Create валидирует whole candidate до insert, edit — до mutation, один save/rollback. Завершение сохраняет конфигурацию, но отменяет уведомление; reopen планирует только ещё будущее время.
+
+ReminderPlanner/ReminderSynchronizer работают с value snapshots без SwiftData объектов через await. Serial revision worker удаляет stale async add, обновляет стабильный orbit.reminder.UUID по title/fireAt, не затрагивает чужие identifiers. Консервативный pending budget64 включает чужие запросы; хвост очереди требует последующего открытия Orbit для пополнения. Это не обещание неограниченного background scheduling.
+
+IOSReminderNotificationClient — public UserNotifications API: native permission, UTC calendar trigger, default sound, foreground delegate. Permission только по явному reminder control; denied ведёт в Settings. Store commit не откатывается при ошибке системной очереди: UI отдельно показывает статус/retry и считает только реально возвращённые pending requests. Lifecycle/30s active refresh сверяет очередь, после relaunch читает persisted tasks. Нет сервера/APNs/background entitlement.

@@ -163,6 +163,7 @@ struct DayTimelineView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 3) {
                             TaskDeadlineBadge(task: task, compact: true, preview: true)
+                            TaskReminderBadge(task: task, service: model.reminders, compact: true, preview: true)
                             Text(task.title)
                         }
                             .font(.caption.weight(.semibold))
@@ -222,7 +223,7 @@ struct DayTimelineView: View {
         .transaction { if editing?.taskID == task.id { $0.animation = nil } }
         .orbitMenuFeedback()
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(task.title), \(range)" + TaskDeadlineBadge.accessibilitySuffix(task))
+        .accessibilityLabel("\(task.title), \(range)" + TaskDeadlineBadge.accessibilitySuffix(task) + TaskReminderBadge.accessibilitySuffix(task))
         .accessibilityHint("Нажмите для меню; удерживайте для переноса и изменения границ")
         .accessibilityAddTraits(task.isCompleted ? [.isSelected] : [])
         // Position is outside the local gesture and popover source.

@@ -40,12 +40,23 @@ enum IOSInboxFormatting {
             return "Не удалось добавить задачу. \(intervalMessage(error))"
         case is TaskPlannedDateError:
             return "Не удалось добавить задачу. \(plannedDateMessage(error))"
+        case is TaskReminderError:
+            return reminderMessage(error)
         case is TaskDeadlineError:
             return "Не удалось добавить задачу. Некорректный дедлайн (1900–2199)."
         case is TaskTitleError:
             return addMessage(error)
         default:
             return "Не удалось добавить задачу. \(storageMessage(error))"
+        }
+    }
+
+    static func reminderMessage(_ error: Error) -> String {
+        switch error {
+        case TaskReminderError.past: return "Выберите будущее время напоминания."
+        case TaskReminderError.invalidDate: return "Дата напоминания выходит за допустимый диапазон."
+        case TaskReminderError.completedTask: return "Сначала снова откройте завершённую задачу."
+        default: return "Не удалось сохранить напоминание. \(storageMessage(error))"
         }
     }
 
@@ -104,6 +115,7 @@ enum IOSInboxFormatting {
 @Observable
 final class IOSInboxModel {
     private let store: OrbitTaskStore
+    let reminders = OrbitReminderScheduler()
 
     private(set) var projects: [OrbitProject] = []
     private(set) var projectListError: String?
@@ -129,8 +141,21 @@ final class IOSInboxModel {
         do {
             tasks = try store.tasks()
             listError = nil
+            reminders.update(tasks)
         } catch {
             listError = IOSInboxFormatting.storageMessage(error)
+        }
+    }
+
+    func setReminderAt(_ value: Date?, for task: OrbitTask) -> String? {
+        do {
+            try store.setReminderAt(value, for: task.id)
+            writeError = nil
+            reload()
+            return nil
+        } catch {
+            reload()
+            return IOSInboxFormatting.reminderMessage(error)
         }
     }
 
@@ -209,7 +234,8 @@ final class IOSInboxModel {
         plannedTime: String? = nil,
         durationMinutes: Int? = nil,
         projectID: UUID? = nil,
-        deadlineDate: String? = nil
+        deadlineDate: String? = nil,
+        reminderAt: Date? = nil
     ) -> String? {
         do {
             _ = try store.addTask(
@@ -218,7 +244,8 @@ final class IOSInboxModel {
                 plannedTime: plannedTime,
                 durationMinutes: durationMinutes,
                 projectID: projectID,
-                deadlineDate: deadlineDate
+                deadlineDate: deadlineDate,
+                reminderAt: reminderAt
             )
             writeError = nil
             reload()

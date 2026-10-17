@@ -20,6 +20,8 @@ struct TaskActionPopoverButton<Content: View>: View {
     @State private var isPresented = false
     @State private var wantsProject = false
     @State private var showsProject = false
+    @State private var wantsReminder = false
+    @State private var showsReminder = false
     @State private var wantsDeadline = false
     @State private var showsDeadline = false
     @State private var pendingAction: OrbitTaskAction?
@@ -38,7 +40,7 @@ struct TaskActionPopoverButton<Content: View>: View {
             .popover(isPresented: $isPresented, attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
                 ScrollView {
                   VStack(spacing: 0) {
-                    TaskActionPreview(task: task, range: range)
+                    TaskActionPreview(task: task, range: range, reminders: model.reminders)
                         .padding(10)
                     VStack(spacing: 0) {
                         OrbitTaskMenuActions(
@@ -49,7 +51,8 @@ struct TaskActionPopoverButton<Content: View>: View {
                             onRename: { choose(.rename) },
                             onDelete: { choose(.delete) },
                             onEditProject: { wantsProject = true; isPresented = false },
-                            onEditDeadline: { wantsDeadline = true; isPresented = false }
+                            onEditDeadline: { wantsDeadline = true; isPresented = false },
+                            onEditReminder: { wantsReminder = true; isPresented = false }
                         )
                     }
                     .buttonStyle(OrbitTaskActionStyle())
@@ -58,14 +61,19 @@ struct TaskActionPopoverButton<Content: View>: View {
                 }
                 .scrollBounceBehavior(.basedOnSize)
                 .frame(width: previewWidth)
-                .frame(idealHeight: min(520, menuRowHeight * 7 + previewHeight + 20),
-                       maxHeight: min(520, menuRowHeight * 7 + previewHeight + 20))
+                .frame(idealHeight: min(520, menuRowHeight * 8 + previewHeight + 20),
+                       maxHeight: min(520, menuRowHeight * 8 + previewHeight + 20))
                 .background(appearance.canvas)
                 .presentationBackground(appearance.canvas)
                 .presentationCompactAdaptation(.popover)
                 .onDisappear {
                     // Present editors/confirmation only after the popover is
                     // gone. Tapping outside leaves pendingAction nil.
+                    if wantsReminder {
+                        wantsReminder = false
+                        showsReminder = true
+                        return
+                    }
                     if wantsDeadline {
                         wantsDeadline = false
                         showsDeadline = true
@@ -81,6 +89,7 @@ struct TaskActionPopoverButton<Content: View>: View {
                     onAction(action)
                 }
             }
+            .sheet(isPresented: $showsReminder) { TaskReminderSheet(model: model, task: task) }
             .sheet(isPresented: $showsDeadline) { TaskDeadlineSheet(model: model, task: task) }
             .sheet(isPresented: $showsProject) { TaskProjectSheet(model: model, task: task) }
     }
@@ -94,12 +103,14 @@ struct TaskActionPopoverButton<Content: View>: View {
 struct TaskActionPreview: View {
     let task: OrbitTask
     let range: String
+    let reminders: OrbitReminderScheduler
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(task.title).font(.headline).lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
             Text(range).font(.subheadline.monospacedDigit())
             TaskDeadlineBadge(task: task, preview: true)
+            TaskReminderBadge(task: task, service: reminders, preview: true)
         }
         .foregroundStyle(.white)
         .padding(14)

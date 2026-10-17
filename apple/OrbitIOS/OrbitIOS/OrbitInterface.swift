@@ -177,6 +177,7 @@ struct OrbitSettingsButton: View {
 }
 
 struct OrbitSettingsSheet: View {
+    @Environment(OrbitReminderScheduler.self) private var reminders
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var inheritedColorScheme
     @AppStorage("orbit.ui.appearance") private var appearanceRaw = OrbitAppearance.system.rawValue
@@ -209,6 +210,9 @@ struct OrbitSettingsSheet: View {
                         .buttonStyle(.plain)
                         .accessibilityAddTraits(appearanceRaw == option.rawValue ? [.isSelected] : [])
                     }
+                }
+                Section("Уведомления") {
+                    ReminderPermissionView(service: reminders)
                 }
                 Section("Отклик") {
                     Toggle("Виброотклик", isOn: $haptics)
