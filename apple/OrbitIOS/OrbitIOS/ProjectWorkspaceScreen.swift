@@ -9,12 +9,19 @@ struct ProjectWorkspaceScreen: View {
     let onBack: () -> Void
     @Environment(\.orbitAppearance) private var appearance
     @Environment(\.scenePhase) private var phase
-    @State private var showsCalendar = false
+    @AppStorage private var showsCalendar: Bool
     @State private var selectedDay = TaskDaySelection.currentDay()
     @State private var referenceDay = TaskDaySelection.currentDay()
     @State private var create = false
     @State private var editor: InboxSheetPresentation?
     private let timer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
+    init(model: IOSInboxModel, project: OrbitProject, onBack: @escaping () -> Void) {
+        self.model = model
+        self.project = project
+        self.onBack = onBack
+        _showsCalendar = AppStorage(wrappedValue: false, "orbit.ui.project.\(project.id.uuidString).calendar")
+    }
+
     private var tasks: [OrbitTask] { model.tasks.filter { $0.projectID == project.id } }
 
     private var header: some View {

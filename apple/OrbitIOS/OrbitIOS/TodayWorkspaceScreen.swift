@@ -9,12 +9,12 @@ import OrbitCore
 /// day is recomputed on appear, on scene activation and at least once a
 /// minute while the section is visible, and both presentations receive it as
 /// input. The chosen mode is presentation state only — it survives
-/// Today → Inbox → Today within the session and never writes tasks.
+/// tab switches and relaunch through a device-local preference; never writes tasks.
 struct TodayWorkspaceScreen: View {
     let model: IOSInboxModel
 
     @Environment(\.scenePhase) private var scenePhase
-    @State private var showsCalendar = false
+    @AppStorage("orbit.ui.today.calendar") private var showsCalendar = false
     @State private var currentDay: String = TaskDaySelection.currentDay()
     private let dayRefreshTimer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 

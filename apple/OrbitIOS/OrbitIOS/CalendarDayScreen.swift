@@ -199,7 +199,7 @@ struct CalendarDayScreen: View {
         }
         let source = UntimedCalendarDrag(token: UUID(), taskID: task.id, day: selectedDay,
                                         projectID: task.projectID, completed: task.isCompleted, title: task.title)
-        guard let provider = source.provider() else { return NSItemProvider() }
+        let provider = source.provider()
         untimedDrag = source
         OrbitHaptics.longPress()
         OrbitHaptics.prepareTimeline()

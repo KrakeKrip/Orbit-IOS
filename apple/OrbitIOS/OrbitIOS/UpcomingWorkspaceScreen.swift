@@ -8,8 +8,8 @@ import OrbitCore
 /// the selected day) and the accepted day calendar (`CalendarDayScreen` in
 /// its browsing context). This view is the single Upcoming selection owner:
 /// the selected day starts at the local Gregorian today and the mode at
-/// «Список»; both survive tab and mode switches within the session as
-/// presentation state — never persisted into tasks/store/UserDefaults — and
+/// «Список» initially; mode is persisted independently in UserDefaults.
+/// The selected day is session state, never persisted into tasks/store, and
 /// stay independent of the Today section's current day and mode.
 /// Appear/active reloads of the shared model never reset the manual
 /// selection. NATIVE-NAV-002-R1: this view also owns the refreshed
@@ -20,7 +20,7 @@ struct UpcomingWorkspaceScreen: View {
     let model: IOSInboxModel
 
     @Environment(\.scenePhase) private var scenePhase
-    @State private var showsCalendar = false
+    @AppStorage("orbit.ui.upcoming.calendar") private var showsCalendar = false
     @State private var selectedDay: String = TaskDaySelection.currentDay()
     @State private var referenceDay: String = TaskDaySelection.currentDay()
     private let dayRefreshTimer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()

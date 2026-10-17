@@ -1,3 +1,17 @@
+# R2 — повторный отказ и сохранение вида (2026-10-17)
+
+R1 не решил перенос по фактической проверке владельца. Статус REVIEW: успешный touch drop не подтверждён, main не merge.
+
+Транспорт заменён на стандартный NSString с одноразовым UUID. Данные задачи остаются только в памяти; внешний текст без совпадающего активного nonce не может изменить задачу. Регистрация target больше не зависит от source, который появляется позже при onDrag. Предложение copy относится только к передаче nonce: существующий UUID обновляется, новая задача не создаётся. Guard перед save сохранён.
+
+Drop target перенесён с длинного content на видимый ScrollView. Координата времени вычисляется из viewport location минус измеренный content origin (scroll offset), gutter/вне viewport отвергаются. Это новая попытка устранить отказ, не установленная по скриншоту первопричина.
+
+По новому запросу: Today/Upcoming используют отдельные AppStorage mode keys, проекты — ключ с UUID проекта. Сохраняется только List/Calendar, выбранный день/вкладка не меняются. Schema/core/store не тронуты.
+
+Device и Simulator builds BUILD SUCCEEDED (`/private/tmp/orbit-untimed-device-r2.log`, `/private/tmp/orbit-untimed-ios-r2.log`), diff --check PASS. R2 установлен update-in-place на iPhone, bundle local.orbit.ios; личный store не читался. Единственный build warning — AppIntents metadata extraction skipped (нет зависимости AppIntents). Persistence через relaunch и успешный drop на реальном устройстве пока UNVERIFIED; предыдущие 4 core snap tests не доказывают native gesture. Ниже — исторические R1/R0 отчёты, их transport/content-target описание заменено этим R2.
+
+---
+
 # R1 — отказ приёма на iPhone (2026-10-17)
 
 Владелец прислал физический скрин: native lift работает, над сеткой знак запрета. Успешного drop в R0 нет — GUI gate остаётся открытым. Исправлены два lifecycle риска: delegate хранит live Binding к transient source (раньше let source снимался до onDrag и мог остаться nil в зарегистрированном target); transient scene inactive не отменяет token, background/day/project/disappear по-прежнему отменяют. Payload/дата/UUID/project/completion и одноразовая проверка перед save не ослаблены.

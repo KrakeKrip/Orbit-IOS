@@ -21,6 +21,7 @@ struct DayTimelineView: View {
     let onRename: (OrbitTask) -> Void
     let onDelete: (OrbitTask) -> Void
     let onCommitInterval: (OrbitTask, String, Int) -> String?
+    @State private var timelineContentTop: CGFloat = 0
     @State private var untimedCandidate: TaskTimelineAdjustment.Candidate?
     @State private var selectedTaskID: UUID?
     @State private var editing: TimelineGestureEdit?
@@ -57,8 +58,16 @@ struct DayTimelineView: View {
                     .frame(width: geometry.size.width, height: 24 * hourHeight + 24)
                     .background(appearance.canvas)
                     .coordinateSpace(name: "orbit-timeline")
-                    .onDrop(of: [UTType.orbitUntimedTask.identifier], delegate: UntimedTimelineDropDelegate(
+                    .background(GeometryReader { content in
+                        Color.clear.preference(key: TimelineContentTopKey.self,
+                            value: content.frame(in: .named("orbit-timeline-viewport")).minY)
+                    })
+                }
+                .coordinateSpace(name: "orbit-timeline-viewport")
+                .onPreferenceChange(TimelineContentTopKey.self) { timelineContentTop = $0 }
+                    .onDrop(of: [UTType.text.identifier], delegate: UntimedTimelineDropDelegate(
                         source: $untimedDrag, day: day, width: geometry.size.width, hourHeight: hourHeight,
+                        viewportHeight: geometry.size.height, contentTop: $timelineContentTop,
                         acceptsSource: { source in
                             guard editing == nil, let current = task(source.taskID) else { return false }
                             return current.plannedDate == source.day && current.plannedTime == nil &&
@@ -74,7 +83,6 @@ struct DayTimelineView: View {
                             untimedDrag = nil
                             gestureError = "Не удалось перенести задачу. Повторите действие."
                         }))
-                }
                 .scrollDisabled(editing != nil)
                 .overlay(alignment: .top) {
                     if let gestureError {
@@ -489,4 +497,9 @@ struct DayTimelineView: View {
             LaidOutSegment(segment: item.segment, lane: item.lane, laneCount: lanesPerCluster[item.cluster] ?? 1)
         }
     }
+}
+
+private struct TimelineContentTopKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
