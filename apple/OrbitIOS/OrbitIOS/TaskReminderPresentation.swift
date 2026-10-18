@@ -26,19 +26,21 @@ struct TaskReminderFields: View {
     @Binding var value: Date?
     @Binding var expanded: Bool
     let service: OrbitReminderScheduler
+    let plannedDate: String?
+    let plannedTime: String?
     @State private var pickerDate: Date
 
-    init(value: Binding<Date?>, expanded: Binding<Bool>, service: OrbitReminderScheduler) {
+    init(value: Binding<Date?>, expanded: Binding<Bool>, service: OrbitReminderScheduler,
+         plannedDate: String? = nil, plannedTime: String? = nil) {
         _value = value; _expanded = expanded; self.service = service
-        _pickerDate = State(initialValue: value.wrappedValue ?? Self.defaultDate())
-    }
-    private static func defaultDate() -> Date {
-        Date(timeIntervalSince1970: ceil((Date.now.timeIntervalSince1970 + 3600) / 60) * 60)
+        self.plannedDate = plannedDate; self.plannedTime = plannedTime
+        _pickerDate = State(initialValue: value.wrappedValue ?? TaskReminder.suggestedDate(
+            plannedDate: plannedDate, plannedTime: plannedTime))
     }
     private var enabled: Binding<Bool> {
         Binding(get: { value != nil }, set: { flag in
             if flag {
-                if pickerDate <= .now { pickerDate = Self.defaultDate() }
+                pickerDate = TaskReminder.suggestedDate(plannedDate: plannedDate, plannedTime: plannedTime)
                 value = pickerDate
                 expanded = true
                 Task { await service.requestAuthorization() }
@@ -118,7 +120,8 @@ struct TaskReminderSheet: View {
                         Text("Задача завершена. Напоминание отменено. Снова откройте задачу, чтобы назначить новое.")
                         if draft != nil { Button("Убрать напоминание", role: .destructive) { draft = nil } }
                     } else {
-                        TaskReminderFields(value: $draft, expanded: $expanded, service: model.reminders)
+                        TaskReminderFields(value: $draft, expanded: $expanded, service: model.reminders,
+                                           plannedDate: task.plannedDate, plannedTime: task.plannedTime)
                     }
                 }
                 if let error { Section { Text(error).foregroundStyle(.red) } }

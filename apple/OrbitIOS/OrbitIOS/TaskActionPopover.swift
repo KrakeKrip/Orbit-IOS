@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import OrbitCore
 
 enum OrbitTaskAction {
@@ -19,6 +20,7 @@ struct TaskActionPopoverButton<Content: View>: View {
     var canOpen: () -> Bool = { true }
     let onAction: (OrbitTaskAction) -> Void
     @ViewBuilder let label: () -> Content
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.orbitAppearance) private var appearance
     @State private var isPresented = false
     @State private var sourceSize = CGSize(width: 1, height: 1)
@@ -84,6 +86,7 @@ struct TaskActionPopoverButton<Content: View>: View {
                 .frame(minWidth: 0, idealWidth: previewWidth, maxWidth: previewWidth, alignment: .leading)
                 .frame(height: min(availableMenuHeight, measuredMenuHeight > 0 ? measuredMenuHeight : menuRowHeight * 8 + previewHeight + 20))
                 .background(appearance.canvas)
+                .background(TaskMenuAppearance(reduceMotion: reduceMotion))
                 .presentationBackground(appearance.canvas)
                 .presentationCompactAdaptation(.popover)
                 .onDisappear {
@@ -134,7 +137,7 @@ struct TaskActionPopoverButton<Content: View>: View {
 
     private func setPresented(_ presented: Bool) {
         // UIKit modal transitions otherwise ignore taps until their completion.
-        // Present/dismiss this small action card without a blocking transition.
+        // Animate its content separately, without blocking outside dismissal.
         var transaction = Transaction(animation: nil)
         transaction.disablesAnimations = true
         withTransaction(transaction) { isPresented = presented }
@@ -191,6 +194,58 @@ private struct TaskPopoverHoldModifier: ViewModifier {
             content.simultaneousGesture(LongPressGesture(minimumDuration: 0.45).onEnded { _ in action() })
         } else {
             content
+        }
+    }
+}
+
+/// Animate only this popover's hosted content. Unlike UIKit's modal
+/// transition, this animation explicitly permits immediate interaction.
+private struct TaskMenuAppearance: UIViewRepresentable {
+    let reduceMotion: Bool
+    func makeCoordinator() -> Coordinator { Coordinator(reduceMotion: reduceMotion) }
+    func makeUIView(context: Context) -> Probe {
+        let view = Probe()
+        view.isUserInteractionEnabled = false
+        view.mounted = { [weak coordinator = context.coordinator] view in coordinator?.animate(view) }
+        return view
+    }
+    func updateUIView(_ view: Probe, context: Context) {
+        if view.window != nil { context.coordinator.animate(view) }
+    }
+    final class Probe: UIView {
+        var mounted: ((UIView) -> Void)?
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            if window != nil { mounted?(self) }
+        }
+    }
+    final class Coordinator {
+        let reduceMotion: Bool
+        var started = false
+        init(reduceMotion: Bool) { self.reduceMotion = reduceMotion }
+        func animate(_ anchor: UIView) {
+            guard !started else { return }
+            var responder: UIResponder? = anchor
+            while let current = responder {
+                if let controller = current as? UIViewController {
+                    started = true
+                    let content = controller.view!
+                    UIView.performWithoutAnimation {
+                        content.alpha = 0
+                        content.transform = reduceMotion ? .identity : CGAffineTransform(scaleX: 0.96, y: 0.96)
+                    }
+                    DispatchQueue.main.async { [weak content, reduceMotion] in
+                        guard let content else { return }
+                        UIView.animate(withDuration: reduceMotion ? 0.1 : 0.18, delay: 0,
+                                       options: [.allowUserInteraction, .beginFromCurrentState, .curveEaseOut]) {
+                            content.alpha = 1
+                            content.transform = .identity
+                        }
+                    }
+                    return
+                }
+                responder = current.next
+            }
         }
     }
 }

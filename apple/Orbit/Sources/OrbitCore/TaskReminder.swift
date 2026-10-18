@@ -7,6 +7,31 @@ public enum TaskReminderError: Error, Equatable {
 }
 
 public enum TaskReminder {
+    /// Only seeds an explicitly enabled reminder. Existing reminders never move.
+    /// Civil start uses the current device zone; missing/invalid starts use +1h.
+    public static func suggestedDate(plannedDate: String?, plannedTime: String?,
+                                     now: Date = .now, timeZone: TimeZone = .current) -> Date {
+        let fallback = Date(timeIntervalSince1970: ceil((now.timeIntervalSince1970 + 3600) / 60) * 60)
+        guard let plannedDate, let plannedTime, TaskPlannedDate.isValid(plannedDate),
+              TaskTimeInterval.isValidTime(plannedTime) else { return fallback }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        var components = DateComponents()
+        components.year = Int(plannedDate.prefix(4))
+        components.month = Int(plannedDate.dropFirst(5).prefix(2))
+        components.day = Int(plannedDate.suffix(2))
+        components.hour = Int(plannedTime.prefix(2))
+        components.minute = Int(plannedTime.suffix(2))
+        components.second = 0
+        guard let start = calendar.date(from: components) else { return fallback }
+        // Do not silently normalize a nonexistent DST wall-clock time.
+        let actual = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: start)
+        guard actual.year == components.year, actual.month == components.month,
+              actual.day == components.day, actual.hour == components.hour,
+              actual.minute == components.minute else { return fallback }
+        return start.addingTimeInterval(-600)
+    }
+
     /// Whole-second instants in the product's UTC year range; future writes only.
     public static func validate(_ value: Date?, now: Date) throws {
         guard let value else { return }

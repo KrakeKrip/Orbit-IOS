@@ -231,7 +231,8 @@ struct TaskCreateSheet: View {
                             set: { flag in
                                 titleFieldFocused = false
                                 expandedGroup = flag ? .reminder : nil
-                            }), service: model.reminders)
+                            }), service: model.reminders, plannedDate: draftDate,
+                           plannedTime: timeEnabled ? startString : nil)
                     }
                     .accessibilityIdentifier("create-additional")
                     .onChange(of: showsAdditional) { _, _ in titleFieldFocused = false }

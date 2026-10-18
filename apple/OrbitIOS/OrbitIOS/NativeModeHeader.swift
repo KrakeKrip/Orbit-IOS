@@ -29,6 +29,7 @@ struct NativeModeHeader<Switcher: View, Trailing: View>: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 6)
         .background(appearance.canvas)
+        .zIndex(10) // Glass deformation must paint above following content.
     }
 }
 

@@ -29,6 +29,12 @@ struct TodayScreen: View {
                 if let todayMode {
                     NativeModeHeader(switcher: TodayModeSwitcher(showsCalendar: todayMode))
                 }
+                Text(dateCaption)
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16).padding(.vertical, 12)
+                    .accessibilityIdentifier("today-date-heading")
                 OverdueTaskBlock(model: model)
                 if let writeError = model.writeError {
                     writeErrorBanner(writeError)
@@ -74,13 +80,6 @@ struct TodayScreen: View {
 
     private var taskList: some View {
         List {
-            Section {
-                Text(dateCaption)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(appearance.canvas)
-            }
             if !openTasks.isEmpty {
                 Section("Открытые") {
                     ForEach(openTasks) { task in
@@ -107,6 +106,7 @@ struct TodayScreen: View {
             }
         }
         .listStyle(.plain)
+        .contentMargins(.top, 0, for: .scrollContent)
         .scrollContentBackground(.hidden)
     }
 
@@ -144,13 +144,6 @@ struct TodayScreen: View {
     /// its «Завершённые» history.
     private var emptyView: some View {
         VStack(spacing: 0) {
-            // Local day stays visible even on a completely empty store.
-            Text(dateCaption)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.top, 4)
             ContentUnavailableView {
                 Label(model.tasks.contains { TaskDaySelection.isOverdue($0, before: day) } ? "На сегодня задач нет" : "На сегодня всё", systemImage: "sun.max")
             } description: {
