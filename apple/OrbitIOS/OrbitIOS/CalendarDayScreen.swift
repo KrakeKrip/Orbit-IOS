@@ -44,6 +44,13 @@ struct CalendarDayScreen: View {
     var referenceDay: String? = nil
     var agendaMode: Binding<Bool>? = nil
 
+    private struct CalendarCreateDraft: Identifiable {
+        let id = UUID()
+        let day: String
+        let time: String
+        let duration: Int
+    }
+    @State private var createDraft: CalendarCreateDraft?
     @State private var projectTask: OrbitTask?
     @State private var deadlineTask: OrbitTask?
     @State private var reminderTask: OrbitTask?
@@ -130,6 +137,9 @@ struct CalendarDayScreen: View {
                         onReturnUntimed: { task in
                             model.setPlannedInterval(plannedTime: nil, durationMinutes: nil, for: task)
                         },
+                        onCreateInterval: { time, duration in
+                            createDraft = CalendarCreateDraft(day: selectedDay, time: time, duration: duration)
+                        },
                         segments: projection.timedSegments,
                         task: { taskID in model.tasks.first { $0.id == taskID } },
                         onEditInterval: { task in presentation = .interval(task) },
@@ -159,6 +169,10 @@ struct CalendarDayScreen: View {
                         .onChange(of: proxy.size.height) { _, height in contentHeight = height }
                 }
             )
+            .sheet(item: $createDraft) { value in
+                TaskCreateSheet(model: model, datePreset: value.day, projectPreset: projectID,
+                                timePreset: value.time, durationPreset: value.duration)
+            }
             .sheet(item: $reminderTask) { TaskReminderSheet(model: model, task: $0) }
             .sheet(item: $deadlineTask) { TaskDeadlineSheet(model: model, task: $0) }
             .sheet(item: $projectTask) { TaskProjectSheet(model: model, task: $0) }

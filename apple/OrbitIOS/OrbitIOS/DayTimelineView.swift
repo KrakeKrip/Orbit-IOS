@@ -13,6 +13,7 @@ struct DayTimelineView: View {
     let onCommitUntimed: (UntimedCalendarDrag, TaskTimelineAdjustment.Candidate) -> String?
     let onReturnHover: (CGPoint?) -> Bool
     let onReturnUntimed: (OrbitTask) -> String?
+    let onCreateInterval: (String, Int) -> Void
     let segments: [TaskDayIntervalSegment]
     /// Resolves a projected task UUID to the live shared-model task object.
     let task: (UUID) -> OrbitTask?
@@ -23,6 +24,9 @@ struct DayTimelineView: View {
     let onRename: (OrbitTask) -> Void
     let onDelete: (OrbitTask) -> Void
     let onCommitInterval: (OrbitTask, String, Int) -> String?
+    @State private var creationDraft: TaskTimelineCreation.Candidate?
+    @GestureState private var creationGestureActive = false
+    @State private var creationDay: String?
     @State private var timelineScrollOffset: CGFloat = 0
     @State private var untimedCandidate: TaskTimelineAdjustment.Candidate?
     @State private var returningUntimed = false
@@ -52,11 +56,13 @@ struct DayTimelineView: View {
                                 guard editing == nil else { return }
                                 selectedTaskID = nil
                             }
+                            .simultaneousGesture(creationGesture(containerWidth: geometry.size.width))
                             .accessibilityHidden(true)
                         ruler.allowsHitTesting(false)
                         blocks(containerSize: geometry.size, viewport: geometry.frame(in: .global))
                             .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: displaySegments)
                         untimedPreview(containerWidth: geometry.size.width)
+                        creationPreview(containerWidth: geometry.size.width)
                     }
                     .frame(width: geometry.size.width, height: 24 * hourHeight + 24)
                     .background(appearance.canvas)
@@ -87,7 +93,7 @@ struct DayTimelineView: View {
                             untimedDrag = nil
                             gestureError = "Не удалось перенести задачу. Повторите действие."
                         }))
-                .scrollDisabled(editing != nil)
+                .scrollDisabled(editing != nil || creationDraft != nil)
                 .overlay(alignment: .top) {
                     if let gestureError {
                         Text(gestureError).font(.footnote).foregroundStyle(.red)
@@ -100,6 +106,10 @@ struct DayTimelineView: View {
                 }
             }
         }
+        .onChange(of: day) { _, _ in creationDraft = nil; creationDay = nil }
+        .onChange(of: creationGestureActive) { _, active in
+            if !active { DispatchQueue.main.async { if !creationGestureActive { creationDraft = nil; creationDay = nil } } }
+        }
         .onChange(of: gestureActive) { _, active in
             if !active {
                 // Also clears drafts for recognizer cancellation, after onEnded.
@@ -107,10 +117,57 @@ struct DayTimelineView: View {
             }
         }
         .onChange(of: model.isSelecting) { _, selecting in
-            if selecting { editing = nil; selectedTaskID = nil; untimedDrag = nil; untimedCandidate = nil }
+            if selecting { creationDraft = nil; creationDay = nil; editing = nil; selectedTaskID = nil; untimedDrag = nil; untimedCandidate = nil }
         }
         .onChange(of: untimedDrag?.token) { _, _ in untimedCandidate = nil }
-        .onDisappear { editing = nil; selectedTaskID = nil; untimedCandidate = nil; returningUntimed = false; _ = onReturnHover(nil) }
+        .onDisappear { creationDraft = nil; creationDay = nil; editing = nil; selectedTaskID = nil; untimedCandidate = nil; returningUntimed = false; _ = onReturnHover(nil) }
+    }
+
+    private func creationGesture(containerWidth: CGFloat) -> some Gesture {
+        LongPressGesture(minimumDuration: 0.45, maximumDistance: 10)
+            .simultaneously(with: DragGesture(minimumDistance: 0, coordinateSpace: .named("orbit-timeline")))
+            .updating($creationGestureActive) { _, state, _ in state = true }
+            .onChanged { value in
+                guard !model.isSelecting, editing == nil, untimedDrag == nil,
+                      value.first == true, let drag = value.second,
+                      drag.startLocation.x >= Self.laneInset,
+                      drag.startLocation.x <= containerWidth - Self.laneTrailing else { return }
+                if creationDay == nil { creationDay = day; OrbitHaptics.longPress() }
+                guard creationDay == day else { return }
+                let next = TaskTimelineCreation.candidate(date: day,
+                    startMinute: Double(drag.startLocation.y / hourHeight * 60),
+                    deltaMinutes: Double(drag.translation.height / hourHeight * 60))
+                if creationDraft != next, creationDraft != nil { OrbitHaptics.timelineStep() }
+                creationDraft = next
+            }
+            .onEnded { value in
+                defer { creationDraft = nil; creationDay = nil }
+                guard !model.isSelecting, editing == nil, untimedDrag == nil,
+                      creationDay == day, value.first == true,
+                      let candidate = creationDraft else { return }
+                selectedTaskID = nil
+                onCreateInterval(candidate.time, candidate.duration)
+            }
+    }
+
+    @ViewBuilder private func creationPreview(containerWidth: CGFloat) -> some View {
+        if let draft = creationDraft {
+            let width = max(1, containerWidth - Self.laneInset - Self.laneTrailing)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Новая задача").font(.caption.weight(.semibold))
+                Text("\(draft.time) · \(draft.duration) мин").font(.caption2)
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 6)
+            .frame(width: width, height: max(5, CGFloat(draft.duration) / 60 * hourHeight), alignment: .topLeading)
+            .background(Color.orbitAccent.opacity(0.8), in: RoundedRectangle(cornerRadius: 3))
+            .overlay(RoundedRectangle(cornerRadius: 3).stroke(.white, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])))
+            .clipped()
+            .position(x: Self.laneInset + width / 2,
+                      y: CGFloat(draft.startMinute) / 60 * hourHeight + CGFloat(draft.duration) / 120 * hourHeight)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
     }
 
     /// The source remains in «Без времени» until the validated store commit.

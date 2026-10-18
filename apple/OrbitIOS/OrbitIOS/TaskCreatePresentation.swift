@@ -179,13 +179,24 @@ struct TaskCreateSheet: View {
     private static let rangeLowerBound = TaskPlannedDate.date(fromCivilDateString: "1900-01-01") ?? Date.distantPast
     private static let rangeUpperBound = TaskPlannedDate.date(fromCivilDateString: "2199-12-31") ?? Date.distantFuture
 
-    init(model: IOSInboxModel, datePreset: String?, projectPreset: UUID? = nil) {
+    init(model: IOSInboxModel, datePreset: String?, projectPreset: UUID? = nil,
+         timePreset: String? = nil, durationPreset: Int? = nil) {
         self.model = model
         self.datePreset = datePreset
         _draftProjectID = State(initialValue: projectPreset)
         // The preset seeds the draft only when it is a valid civil date; an
         // invalid preset is never silently replaced by today.
         let seeded = datePreset.flatMap { TaskPlannedDate.isValid($0) ? $0 : nil }
+        if let seeded, let timePreset, let durationPreset,
+           TaskTimeInterval.isWritableDuration(durationPreset),
+           TaskTimeInterval.end(plannedDate: seeded, plannedTime: timePreset, durationMinutes: durationPreset) != nil {
+            let parts = timePreset.split(separator: ":").compactMap { Int($0) }
+            _timeEnabled = State(initialValue: true)
+            _draftStartHour = State(initialValue: parts[0])
+            _draftStartMinute = State(initialValue: parts[1])
+            _draftDurationHours = State(initialValue: durationPreset / 60)
+            _draftDurationMinutes = State(initialValue: durationPreset % 60)
+        }
         _draftDate = State(initialValue: seeded)
         _pickerDate = State(
             initialValue: seeded.flatMap { TaskPlannedDate.date(fromCivilDateString: $0) } ?? .now
