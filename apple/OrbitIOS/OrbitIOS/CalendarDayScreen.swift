@@ -137,6 +137,7 @@ struct CalendarDayScreen: View {
                         onReturnUntimed: { task in
                             model.setPlannedInterval(plannedTime: nil, durationMinutes: nil, for: task)
                         },
+                        creationSheetPresented: createDraft != nil,
                         onCreateInterval: { time, duration in
                             createDraft = CalendarCreateDraft(day: selectedDay, time: time, duration: duration)
                         },

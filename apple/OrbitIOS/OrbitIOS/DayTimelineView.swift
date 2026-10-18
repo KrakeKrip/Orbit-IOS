@@ -14,6 +14,7 @@ struct DayTimelineView: View {
     let onCommitUntimed: (UntimedCalendarDrag, TaskTimelineAdjustment.Candidate) -> String?
     let onReturnHover: (CGPoint?) -> Bool
     let onReturnUntimed: (OrbitTask) -> String?
+    let creationSheetPresented: Bool
     let onCreateInterval: (String, Int) -> Void
     let segments: [TaskDayIntervalSegment]
     /// Resolves a projected task UUID to the live shared-model task object.
@@ -73,7 +74,7 @@ struct DayTimelineView: View {
                     .background(appearance.canvas)
                     .background(TimelineScrollResolver(resolve: { scrollView = $0 },
                         acceptsCreation: { point in
-                            guard !model.isSelecting, editing == nil, untimedDrag == nil,
+                            guard !model.isSelecting, editing == nil, untimedDrag == nil, creationDraft == nil,
                                   let scrollView else { return false }
                             let frame = scrollView.convert(scrollView.bounds, to: nil)
                             let x = point.x - frame.minX
@@ -88,9 +89,15 @@ struct DayTimelineView: View {
                                 if let candidate = creationDraft, creationDay == day,
                                    !model.isSelecting, editing == nil {
                                     selectedTaskID = nil
+                                    // Freeze the visible ghost during the modal handoff.
+                                    // The host clears it only when that form closes.
+                                    dragPoint = nil
+                                    creationDay = nil
+                                    creationStartMinute = nil
                                     onCreateInterval(candidate.time, candidate.duration)
+                                } else {
+                                    clearCreation()
                                 }
-                                clearCreation()
                             case .cancelled, .failed: clearCreation()
                             default: break
                             }
@@ -137,6 +144,9 @@ struct DayTimelineView: View {
                     proxy.scrollTo("hour-8", anchor: .top)
                 }
             }
+        }
+        .onChange(of: creationSheetPresented) { _, presented in
+            if !presented { clearCreation() }
         }
         .onChange(of: day) { _, _ in creationDraft = nil; creationDay = nil; editing = nil; dragPoint = nil }
         .onChange(of: gestureActive) { _, active in
@@ -227,6 +237,8 @@ struct DayTimelineView: View {
                       y: CGFloat(draft.startMinute) / 60 * hourHeight + CGFloat(draft.duration) / 120 * hourHeight)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
+            .transition(.identity)
+            .transaction { $0.disablesAnimations = true }
         }
     }
 
