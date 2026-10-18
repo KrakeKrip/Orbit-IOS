@@ -136,26 +136,39 @@ extension View {
 }
 
 /// One compact menu replaces the segmented picker in both workspaces.
+private struct OrbitThreeDayModeKey: EnvironmentKey {
+    static let defaultValue: Binding<Bool>? = nil
+}
+extension EnvironmentValues {
+    var orbitThreeDayMode: Binding<Bool>? {
+        get { self[OrbitThreeDayModeKey.self] }
+        set { self[OrbitThreeDayModeKey.self] = newValue }
+    }
+}
+
 struct OrbitViewModeMenu: View {
     @Binding var showsCalendar: Bool
     let identifier: String
     var agendaMode: Binding<Bool>? = nil
+    @Environment(\.orbitThreeDayMode) private var threeDayMode
     private var mode: Binding<Int> {
-        Binding(get: { agendaMode?.wrappedValue == true ? 2 : (showsCalendar ? 1 : 0) }, set: { value in
+        Binding(get: { threeDayMode?.wrappedValue == true ? 3 : (agendaMode?.wrappedValue == true ? 2 : (showsCalendar ? 1 : 0)) }, set: { value in
+            threeDayMode?.wrappedValue = value == 3
             agendaMode?.wrappedValue = value == 2
             showsCalendar = value == 1
         })
     }
-    private var title: String { mode.wrappedValue == 2 ? "Повестка" : (showsCalendar ? "Календарь" : "Список") }
+    private var title: String { mode.wrappedValue == 3 ? "3 дня" : mode.wrappedValue == 2 ? "Повестка" : (showsCalendar ? "Календарь" : "Список") }
     var body: some View {
         Menu {
             Picker("Вид отображения", selection: mode) {
                 Label("Список", systemImage: "list.bullet").tag(0)
                 if agendaMode != nil { Label("Повестка", systemImage: "calendar.badge.clock").tag(2) }
                 Label("Календарь", systemImage: "calendar").tag(1)
+                if threeDayMode != nil { Label("3 дня", systemImage: "rectangle.split.3x1").tag(3) }
             }
         } label: {
-            Image(systemName: mode.wrappedValue == 2 ? "calendar.badge.clock" : (showsCalendar ? "calendar" : "list.bullet"))
+            Image(systemName: mode.wrappedValue == 3 ? "rectangle.split.3x1" : mode.wrappedValue == 2 ? "calendar.badge.clock" : (showsCalendar ? "calendar" : "list.bullet"))
                 .font(.system(size: 18, weight: .medium))
                 .contentTransition(.symbolEffect(.replace))
                 .frame(width: 28, height: 28)

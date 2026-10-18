@@ -21,13 +21,17 @@ struct UpcomingWorkspaceScreen: View {
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("orbit.ui.upcoming.calendar") private var showsCalendar = false
     @AppStorage("orbit.ui.upcoming.agenda") private var showsAgenda = false
+    @AppStorage("orbit.ui.upcoming.threeDays") private var showsThreeDays = false
     @State private var selectedDay: String = TaskDaySelection.currentDay()
     @State private var referenceDay: String = TaskDaySelection.currentDay()
     private let dayRefreshTimer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
     var body: some View {
         Group {
-            if showsAgenda {
+            if showsThreeDays {
+                ThreeDayCalendarScreen(model: model, selectedDay: $selectedDay,
+                    showsCalendar: $showsCalendar, showsAgenda: $showsAgenda, referenceDay: referenceDay)
+            } else if showsAgenda {
                 UpcomingAgendaScreen(model: model, selectedDay: $selectedDay,
                                      showsCalendar: $showsCalendar, showsAgenda: $showsAgenda,
                                      referenceDay: referenceDay)
@@ -53,8 +57,9 @@ struct UpcomingWorkspaceScreen: View {
         // The preset is the section's existing selected day — the one
         // selection owner is never duplicated, and creating never resets the
         // selection or the mode.
+        .environment(\.orbitThreeDayMode, $showsThreeDays)
         .orbitCreateAction(model: model, datePreset: { selectedDay })
-        .onChange(of: showsAgenda ? 2 : (showsCalendar ? 1 : 0)) { _, _ in model.endSelection(); OrbitHaptics.selection() }
+        .onChange(of: showsThreeDays ? 3 : (showsAgenda ? 2 : (showsCalendar ? 1 : 0))) { _, _ in model.endSelection(); OrbitHaptics.selection() }
         .onChange(of: selectedDay) { _, _ in
             // Agenda scrolling updates the highlighted day continuously;
             // it must neither clear bulk selection nor vibrate per section.
@@ -64,7 +69,7 @@ struct UpcomingWorkspaceScreen: View {
             DragGesture(minimumDistance: 40).onEnded { value in
                 // List owns its content-only swipe, Agenda its week-header
                 // paging. Only the day timeline uses this workspace gesture.
-                guard showsCalendar, !showsAgenda, !model.isSelecting else { return }
+                guard showsCalendar, !showsAgenda, !showsThreeDays, !model.isSelecting else { return }
                 let dx = value.translation.width
                 let dy = value.translation.height
                 guard abs(dx) > 70, abs(dx) > abs(dy) * 1.6 else { return }

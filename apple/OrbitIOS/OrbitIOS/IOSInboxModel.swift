@@ -377,6 +377,17 @@ final class IOSInboxModel {
     /// otherwise returns a user-facing message for the interval editor, which
     /// stays open for retry. The pair is always passed to the store whole —
     /// the core remains the single source of validation rules.
+    func setPlannedSchedule(date: String, time: String, duration: Int, for task: OrbitTask) -> String? {
+        do {
+            try store.setPlannedSchedule(date: date, time: time, duration: duration, for: task.id)
+            reload()
+            return nil
+        } catch {
+            reload()
+            return IOSInboxFormatting.intervalMessage(error)
+        }
+    }
+
     func setPlannedInterval(plannedTime: String?, durationMinutes: Int?, for task: OrbitTask) -> String? {
         do {
             try store.setPlannedInterval(plannedTime: plannedTime, durationMinutes: durationMinutes, for: task.id)

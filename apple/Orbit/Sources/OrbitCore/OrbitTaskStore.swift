@@ -301,6 +301,23 @@ public final class OrbitTaskStore {
         catch { context.rollback(); throw error }
     }
 
+    /// A cross-column timeline move writes its complete schedule atomically.
+    /// Reminder/deadline/completion/project/order are untouched.
+    public func setPlannedSchedule(date: String, time: String, duration: Int, for id: UUID) throws {
+        guard TaskPlannedDate.isValid(date) else { throw TaskPlannedDateError.invalid(date) }
+        guard TaskTimeInterval.isValidTime(time) else { throw TaskTimeIntervalError.invalidTime(time) }
+        guard TaskTimeInterval.isWritableDuration(duration) else { throw TaskTimeIntervalError.invalidDuration(duration) }
+        guard TaskTimeInterval.end(plannedDate: date, plannedTime: time, durationMinutes: duration) != nil else {
+            throw TaskTimeIntervalError.endOutOfRange
+        }
+        let descriptor = FetchDescriptor<OrbitTask>(predicate: #Predicate { $0.id == id })
+        guard let task = try context.fetch(descriptor).first else { throw OrbitStoreError.taskNotFound(id: id) }
+        guard task.plannedDate != date || task.plannedTime != time || task.durationMinutes != duration else { return }
+        task.setPlannedDate(date)
+        task.setPlannedInterval(plannedTime: time, durationMinutes: duration)
+        do { try context.save() } catch { context.rollback(); throw error }
+    }
+
     /// Assigns, changes or clears (`nil`) the civil planned date of one task.
     /// Invalid values are rejected before any mutation; completion, title, id
     /// and list order are never touched, and tasks with a date stay in the Inbox.

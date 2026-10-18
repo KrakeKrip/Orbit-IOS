@@ -1,0 +1,390 @@
+import SwiftUI
+import Combine
+import OrbitCore
+
+/// One scroll surface and one hour scale for three consecutive civil days.
+struct ThreeDayCalendarScreen: View {
+    let model: IOSInboxModel
+    @Binding var selectedDay: String
+    @Binding var showsCalendar: Bool
+    @Binding var showsAgenda: Bool
+    let referenceDay: String
+    @Environment(\.orbitAppearance) private var appearance
+    @State private var anchorDay: String
+    @State private var selectedTask: UUID?
+    @State private var edit: Edit?
+    @State private var error: String?
+    @State private var editor: InboxSheetPresentation?
+    @State private var rename: TaskRenamePresentation?
+    @State private var deletion: TaskDeletePresentation?
+    @State private var create: Create?
+    @State private var creating: Create?
+    @State private var creationOrigin: Double?
+    @State private var scroll: UIScrollView?
+    @State private var latestDrag: DragGesture.Value?
+    @State private var creationPoint: CGPoint?
+    @State private var creationStart: CGPoint?
+    @State private var creationScrollOrigin: CGFloat = 0
+    private let edgeTicks = Timer.publish(every: 1.0 / 30, on: .main, in: .common).autoconnect()
+    @GestureState private var editingGesture = false
+    @State private var lastRelease = Date.distantPast
+    private let hourHeight: CGFloat = 64
+    private let gutter: CGFloat = 44
+    private struct Create: Identifiable {
+        let id = UUID()
+        let day: String
+        let time: String
+        let duration: Int
+    }
+    private struct Edit {
+        let taskID: UUID
+        let date: String
+        let time: String
+        let duration: Int
+        let column: Int
+        let edge: TaskTimelineAdjustment.Edge
+        let directMove: Bool
+        let scrollOrigin: CGFloat
+        var targetDate: String
+        var candidate: TaskTimelineAdjustment.Candidate?
+    }
+    init(model: IOSInboxModel, selectedDay: Binding<String>, showsCalendar: Binding<Bool>,
+         showsAgenda: Binding<Bool>, referenceDay: String) {
+        self.model = model; _selectedDay = selectedDay; _showsCalendar = showsCalendar
+        _showsAgenda = showsAgenda; self.referenceDay = referenceDay
+        _anchorDay = State(initialValue: selectedDay.wrappedValue)
+    }
+    private var days: [String] { TaskTimelineWindow.days(starting: anchorDay) }
+    private func task(_ id: UUID) -> OrbitTask? { model.tasks.first { $0.id == id } }
+    private func projection(_ day: String) -> TaskDayProjection { TaskDayProjector.project(day: day, in: model.tasks) }
+    private var picker: Binding<Date> {
+        Binding(get: { TaskPlannedDate.date(fromCivilDateString: selectedDay) ?? .now }, set: {
+            selectedDay = TaskPlannedDate.civilDateString(from: $0)
+        })
+    }
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: $showsCalendar, agendaMode: $showsAgenda))
+                HStack(spacing: 10) {
+                    Button { page(-3) } label: { Image(systemName: "chevron.left").frame(width: 32, height: 40) }
+                        .disabled(TaskTimelineWindow.shift(days.first ?? anchorDay, by: -3) == nil)
+                        .accessibilityLabel("Предыдущие три дня")
+                    MarkedDatePicker(selection: picker, taskDays: Set(model.tasks.compactMap(\.plannedDate)))
+                    Button { page(3) } label: { Image(systemName: "chevron.right").frame(width: 32, height: 40) }
+                        .disabled(days.last == "2199-12-31")
+                        .accessibilityLabel("Следующие три дня")
+                    Spacer(minLength: 0)
+                }.padding(.horizontal, 12)
+                if selectedDay != referenceDay {
+                    Button("Сегодня") { selectedDay = referenceDay; anchorDay = referenceDay }
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16)
+                }
+                OverdueTaskBlock(model: model)
+                dayHeaders
+                untimedRows
+                if let error { Text(error).font(.footnote).foregroundStyle(.red).padding(6) }
+                timeline
+            }
+            .background(appearance.canvas)
+            .toolbar(.hidden, for: .navigationBar)
+            .sheet(item: $editor) { item in
+                switch item {
+                case .date(let task): TaskDateSheet(task: task, model: model)
+                case .interval(let task): TaskIntervalSheet(task: task, model: model)
+                }
+            }
+            .sheet(item: $create, onDismiss: { creating = nil }) { value in
+                TaskCreateSheet(model: model, datePreset: value.day, timePreset: value.time, durationPreset: value.duration)
+            }
+            .taskManagementHost(model: model, renamePresentation: $rename, deletePresentation: $deletion)
+        }
+        .onChange(of: selectedDay) { _, day in
+            if !days.contains(day) { anchorDay = day }
+            edit = nil; selectedTask = nil
+        }
+        .onChange(of: editingGesture) { _, active in
+            if !active { DispatchQueue.main.async { if !editingGesture { edit = nil; latestDrag = nil } } }
+        }
+        .onChange(of: model.isSelecting) { _, selecting in
+            if selecting { edit = nil; latestDrag = nil; selectedTask = nil; creating = nil; creationPoint = nil }
+        }
+        .onDisappear { edit = nil; latestDrag = nil; creating = nil; creationPoint = nil; scroll = nil }
+    }
+    private func page(_ delta: Int) {
+        guard let next = TaskTimelineWindow.shift(days.first ?? anchorDay, by: delta) else { return }
+        anchorDay = next; selectedDay = next
+    }
+    private var dayHeaders: some View {
+        HStack(spacing: 0) {
+            Color.clear.frame(width: gutter)
+            ForEach(days, id: \.self) { day in
+                Button { selectedDay = day } label: {
+                    VStack(spacing: 3) {
+                        Text(TaskPlannedDate.date(fromCivilDateString: day)!.formatted(.dateTime.weekday(.abbreviated).locale(Locale(identifier: "ru_RU"))))
+                            .font(.caption).foregroundStyle(.secondary)
+                        Text(String(Int(day.suffix(2))!)).font(.headline)
+                            .frame(width: 32, height: 32)
+                            .foregroundStyle(day == selectedDay ? .white : .primary)
+                            .background(day == selectedDay ? Color.orbitAccent : .clear, in: Circle())
+                    }.frame(maxWidth: .infinity).padding(.vertical, 6)
+                }.buttonStyle(.plain).accessibilityLabel(RussianDateCaption.label(day))
+            }
+        }.frame(height: 64)
+    }
+    private var untimedRows: some View {
+        HStack(alignment: .top, spacing: 0) {
+            Text("Без\nвремени").font(.system(size: 9)).foregroundStyle(.secondary).frame(width: gutter)
+            ForEach(days, id: \.self) { day in
+                ScrollView {
+                    VStack(spacing: 3) {
+                        ForEach(projection(day).untimedTaskIDs, id: \.self) { id in
+                            if let task = task(id) {
+                                actionButton(task, range: RussianDateCaption.label(day), viewport: nil) {
+                                    Text(task.title).font(.caption2).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(4).background(.quaternary, in: RoundedRectangle(cornerRadius: 4))
+                                }
+                            }
+                        }
+                    }
+                }.frame(maxWidth: .infinity).frame(height: hasUntimed ? 68 : 20).padding(.horizontal, 2)
+            }
+        }.padding(.bottom, 4)
+    }
+    private var hasUntimed: Bool { days.contains { !projection($0).untimedTaskIDs.isEmpty } }
+    private var timeline: some View {
+        GeometryReader { viewport in
+            ScrollViewReader { reader in
+                ScrollView {
+                    ZStack(alignment: .topLeading) {
+                        appearance.canvas.contentShape(Rectangle()).onTapGesture { selectedTask = nil }
+                        VStack(spacing: 0) {
+                            ForEach(0...24, id: \.self) { hour in
+                                HStack(spacing: 2) {
+                                    Text(String(format: "%02d:00", hour)).font(.system(size: 9).monospacedDigit())
+                                        .foregroundStyle(.secondary).frame(width: gutter - 2, alignment: .leading)
+                                    Rectangle().fill(.quaternary).frame(height: 1)
+                                }.frame(height: hour == 24 ? 20 : hourHeight, alignment: .top).id(hour)
+                            }
+                        }.allowsHitTesting(false)
+                        ForEach(Array(days.enumerated()), id: \.element) { column, day in
+                            Rectangle().fill(.quaternary).frame(width: 1, height: 24 * hourHeight)
+                                .offset(x: gutter + CGFloat(column) * columnWidth(viewport.size.width))
+                                .allowsHitTesting(false)
+                            ForEach(TaskTimelineWindow.placements(projection(day).timedSegments), id: \.segment.taskID) { placement in
+                                if let task = task(placement.segment.taskID) {
+                                    block(task, placement: placement, column: column, viewport: viewport)
+                                }
+                            }
+                        }
+                        if let edit, let candidate = edit.candidate {
+                            ghost(day: edit.targetDate, time: candidate.time, duration: candidate.duration,
+                                  title: task(edit.taskID)?.title ?? "", width: viewport.size.width)
+                        }
+                        if let creating {
+                            ghost(day: creating.day, time: creating.time, duration: creating.duration,
+                                  title: "Новая задача", width: viewport.size.width)
+                        }
+                    }
+                    .frame(width: viewport.size.width, height: 24 * hourHeight + 20)
+                    .background(TimelineScrollResolver(resolve: { scroll = $0 }, acceptsCreation: { point in
+                        guard !model.isSelecting, edit == nil, creating == nil, let scroll else { return false }
+                        let frame = scroll.convert(scroll.bounds, to: nil)
+                        let x = point.x - frame.minX - gutter
+                        guard x >= 0, x < viewport.size.width - gutter else { return false }
+                        let column = min(2, Int(x / columnWidth(viewport.size.width)))
+                        let minute = (point.y - frame.minY + scroll.contentOffset.y) / hourHeight * 60
+                        return !projection(days[column]).timedSegments.contains { minute >= CGFloat($0.startMinute) && minute < CGFloat($0.endMinute) }
+                    }, creation: { state, start, point in
+                        createGesture(state, start: start, point: point, width: viewport.size.width)
+                    }))
+                }
+                .onReceive(edgeTicks) { _ in autoScroll(viewport: viewport) }
+                .scrollDisabled(edit != nil || creating != nil)
+                .onAppear { reader.scrollTo(8, anchor: .top) }
+            }
+        }
+    }
+    private func columnWidth(_ width: CGFloat) -> CGFloat { max(1, (width - gutter) / 3) }
+    private func block(_ task: OrbitTask, placement: TaskTimelineWindow.Placement, column: Int, viewport: GeometryProxy) -> some View {
+        let segment = placement.segment
+        let columnWidth = columnWidth(viewport.size.width)
+        let width = max(1, (columnWidth - 4) / CGFloat(placement.count))
+        let height = CGFloat(segment.endMinute - segment.startMinute) / 60 * hourHeight
+        return actionButton(task, range: "\(clock(segment.startMinute))–\(clock(segment.endMinute))", viewport: viewport.frame(in: .global)) {
+            VStack(alignment: .leading, spacing: 1) {
+                if height >= 14 { Text(task.title).font(.system(size: 10, weight: .semibold)).lineLimit(height >= 44 ? 2 : 1) }
+                if height >= 28 {
+                    Text("\(clock(segment.startMinute))–\(clock(segment.endMinute))\(segment.continuesFromPreviousDay ? " ↑" : "")")
+                        .font(.system(size: 8)).lineLimit(1).minimumScaleFactor(0.7)
+                }
+                Spacer(minLength: 0)
+            }.foregroundStyle(.white).padding(3).frame(width: width, height: height, alignment: .topLeading)
+                .background(task.isCompleted ? .gray : Color.orbitAccent.opacity(0.85), in: RoundedRectangle(cornerRadius: 3))
+                .clipped()
+        }
+        .frame(width: width, height: height)
+        .opacity(edit?.taskID == task.id ? 0.3 : 1)
+        .overlay {
+            if model.isSelecting ? model.selectedTaskIDs.contains(task.id) : selectedTask == task.id {
+                RoundedRectangle(cornerRadius: 3).stroke(.primary, lineWidth: 1.5).allowsHitTesting(false)
+            }
+        }
+        .simultaneousGesture(moveGesture(task, segment: segment, column: column, viewport: viewport))
+        .overlay(alignment: .topTrailing) {
+            if selectedTask == task.id && !model.isSelecting && !segment.continuesFromPreviousDay {
+                handle(.start, task: task, segment: segment, column: column, viewport: viewport).offset(x: 6, y: -12)
+            }
+        }
+        .overlay(alignment: .bottomLeading) {
+            if selectedTask == task.id && !model.isSelecting && !segment.continuesIntoNextDay {
+                handle(.end, task: task, segment: segment, column: column, viewport: viewport).offset(x: -6, y: 12)
+            }
+        }
+        .zIndex(selectedTask == task.id ? 3 : 1)
+        .position(x: gutter + CGFloat(column) * columnWidth + 2 + (CGFloat(placement.lane) + 0.5) * width,
+                  y: CGFloat(segment.startMinute) / 60 * hourHeight + height / 2)
+        .accessibilityLabel("\(task.title), \(RussianDateCaption.label(segment.day)), \(clock(segment.startMinute))–\(clock(segment.endMinute))")
+    }
+    private func actionButton<Content: View>(_ task: OrbitTask, range: String, viewport: CGRect?, @ViewBuilder content: @escaping () -> Content) -> some View {
+        TaskActionPopoverButton(model: model, task: task, range: range, previewWidth: 290,
+            maximumHeight: 500, anchorsAtTap: viewport != nil, calendarViewport: viewport,
+            opensOnHold: viewport == nil, canOpen: { edit == nil && Date.now.timeIntervalSince(lastRelease) > 0.25 }) { action in
+                switch action {
+                case .toggle: model.setCompleted(!task.isCompleted, for: task)
+                case .date: editor = .date(task)
+                case .interval: editor = .interval(task)
+                case .rename: rename = TaskRenamePresentation(task: task)
+                case .delete: deletion = TaskDeletePresentation(task: task)
+                }
+            } label: { content() }
+            .buttonStyle(.plain)
+    }
+    private func moveGesture(_ task: OrbitTask, segment: TaskDayIntervalSegment,
+                             column: Int, viewport: GeometryProxy) -> AnyGesture<Void> {
+        if edit?.taskID == task.id ? edit?.directMove == true : selectedTask == task.id {
+            return AnyGesture(DragGesture(minimumDistance: 3, coordinateSpace: .global)
+                .updating($editingGesture) { _, state, _ in state = true }
+                .onChanged { value in begin(task, segment: segment, column: column, edge: .move); update(value, viewport: viewport) }
+                .onEnded { _ in finish() }.map { _ in () })
+        }
+        return AnyGesture(LongPressGesture(minimumDuration: 0.45, maximumDistance: 10)
+            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
+            .updating($editingGesture) { _, state, _ in state = true }
+            .onChanged { value in
+                if case .second(true, let drag) = value {
+                    begin(task, segment: segment, column: column, edge: .move)
+                    if let drag { update(drag, viewport: viewport) }
+                }
+            }.onEnded { _ in finish() }.map { _ in () })
+    }
+
+    private func begin(_ task: OrbitTask, segment: TaskDayIntervalSegment, column: Int, edge: TaskTimelineAdjustment.Edge) {
+        guard !model.isSelecting, edit == nil, let date = task.plannedDate,
+              let time = task.plannedTime, let duration = task.durationMinutes else { return }
+        let directMove = selectedTask == task.id
+        selectedTask = task.id
+        error = nil
+        edit = Edit(taskID: task.id, date: date, time: time, duration: duration,
+                    column: column, edge: edge, directMove: directMove,
+                    scrollOrigin: scroll?.contentOffset.y ?? 0, targetDate: date)
+        OrbitHaptics.longPress()
+    }
+    private func update(_ value: DragGesture.Value, viewport: GeometryProxy) {
+        guard var edit else { return }
+        latestDrag = value
+        let translation = value.translation.height + (scroll?.contentOffset.y ?? edit.scrollOrigin) - edit.scrollOrigin
+        let column = min(2, max(0, Int(floor((value.location.x - viewport.frame(in: .global).minX - gutter) / columnWidth(viewport.size.width)))))
+        let delta = edit.edge == .move ? column - edit.column : 0
+        if delta == 0 && abs(translation) < 2 {
+            edit.candidate = nil
+            self.edit = edit
+            return
+        }
+        guard let date = TaskTimelineWindow.shift(edit.date, by: delta),
+              let candidate = TaskTimelineAdjustment.candidate(date: date, time: edit.time, duration: edit.duration,
+                deltaMinutes: Double(translation / hourHeight * 60), edge: edit.edge) else { return }
+        if edit.targetDate != date || edit.candidate != candidate { OrbitHaptics.timelineStep() }
+        edit.targetDate = date; edit.candidate = candidate
+        self.edit = edit
+    }
+    private func finish() {
+        defer { edit = nil; latestDrag = nil; lastRelease = .now }
+        guard let edit, let candidate = edit.candidate, let task = task(edit.taskID) else { return }
+        guard task.plannedDate == edit.date, task.plannedTime == edit.time, task.durationMinutes == edit.duration else {
+            error = "Задача изменилась. Повторите перенос."; return
+        }
+        error = model.setPlannedSchedule(date: edit.targetDate, time: candidate.time, duration: candidate.duration, for: task)
+    }
+    private func handle(_ edge: TaskTimelineAdjustment.Edge, task: OrbitTask, segment: TaskDayIntervalSegment,
+                        column: Int, viewport: GeometryProxy) -> some View {
+        Circle().fill(.white).overlay(Circle().stroke(Color.orbitAccent)).frame(width: 10, height: 10)
+            .frame(width: 28, height: 28).contentShape(Rectangle())
+            .accessibilityLabel(edge == .start ? "Изменить начало" : "Изменить конец")
+            .highPriorityGesture(DragGesture(minimumDistance: 0, coordinateSpace: .global)
+                .updating($editingGesture) { _, state, _ in state = true }
+                .onChanged { value in begin(task, segment: segment, column: column, edge: edge); update(value, viewport: viewport) }
+                .onEnded { _ in finish() })
+    }
+    private func ghost(day: String, time: String, duration: Int, title: String, width: CGFloat) -> some View {
+        let start = (Int(time.prefix(2)) ?? 0) * 60 + (Int(time.suffix(2)) ?? 0)
+        return ForEach(Array(days.enumerated()), id: \.element) { column, visibleDay in
+            let previous = TaskTimelineWindow.shift(visibleDay, by: -1)
+            let top = visibleDay == day ? start : 0
+            let bottom = visibleDay == day ? min(1440, start + duration) : start + duration - 1440
+            if visibleDay == day || (previous == day && bottom > 0) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title).font(.system(size: 10, weight: .semibold)).lineLimit(2)
+                    Text(time).font(.system(size: 9))
+                }.foregroundStyle(.white).padding(3)
+                    .frame(width: columnWidth(width) - 4, height: CGFloat(bottom - top) / 60 * hourHeight, alignment: .topLeading)
+                    .background(Color.orbitAccent, in: RoundedRectangle(cornerRadius: 3))
+                    .overlay(RoundedRectangle(cornerRadius: 3).stroke(.white, lineWidth: 1.5)).clipped()
+                    .position(x: gutter + (CGFloat(column) + 0.5) * columnWidth(width), y: CGFloat(top + bottom) / 120 * hourHeight)
+                    .allowsHitTesting(false).accessibilityHidden(true)
+            }
+        }
+    }
+    private func createGesture(_ state: UIGestureRecognizer.State, start: CGPoint, point: CGPoint, width: CGFloat) {
+        guard let scroll else { return }
+        let frame = scroll.convert(scroll.bounds, to: nil)
+        switch state {
+        case .began:
+            creationStart = start; creationPoint = point
+            creationScrollOrigin = scroll.contentOffset.y
+            let column = min(2, max(0, Int((start.x - frame.minX - gutter) / columnWidth(width))))
+            creationOrigin = Double((start.y - frame.minY + scroll.contentOffset.y) / hourHeight * 60)
+            if let candidate = TaskTimelineCreation.candidate(date: days[column], startMinute: creationOrigin!, deltaMinutes: 0) {
+                creating = Create(day: days[column], time: candidate.time, duration: candidate.duration)
+                OrbitHaptics.longPress()
+            }
+        case .changed:
+            creationPoint = point
+            if let creating, let origin = creationOrigin,
+               let candidate = TaskTimelineCreation.candidate(date: creating.day, startMinute: origin,
+                    deltaMinutes: Double((point.y - start.y + scroll.contentOffset.y - creationScrollOrigin) / hourHeight * 60)) {
+                if candidate.duration != creating.duration { OrbitHaptics.timelineStep() }
+                self.creating = Create(day: creating.day, time: candidate.time, duration: candidate.duration)
+            }
+        case .ended: create = creating; creationOrigin = nil; creationPoint = nil; creationStart = nil
+        case .cancelled, .failed: creating = nil; creationOrigin = nil; creationPoint = nil; creationStart = nil
+        default: break
+        }
+    }
+    private func autoScroll(viewport: GeometryProxy) {
+        guard !model.isSelecting, create == nil, let scroll,
+              let point = edit != nil ? latestDrag?.location : creationPoint else { return }
+        let frame = viewport.frame(in: .global)
+        guard point.x >= frame.minX, point.x <= frame.maxX else { return }
+        let lower = -scroll.adjustedContentInset.top
+        let upper = max(lower, scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom)
+        let next = TaskTimelineAutoScroll.offset(current: Double(scroll.contentOffset.y), pointer: Double(point.y - frame.minY),
+            viewport: Double(frame.height), minimum: Double(lower), maximum: Double(upper))
+        guard abs(next - Double(scroll.contentOffset.y)) > 0.01 else { return }
+        scroll.setContentOffset(CGPoint(x: scroll.contentOffset.x, y: CGFloat(next)), animated: false)
+        if let latestDrag, edit != nil { update(latestDrag, viewport: viewport) }
+        else if let start = creationStart { createGesture(.changed, start: start, point: point, width: viewport.size.width) }
+    }
+
+    private func clock(_ minute: Int) -> String { String(format: "%02d:%02d", minute / 60, minute % 60) }
+}

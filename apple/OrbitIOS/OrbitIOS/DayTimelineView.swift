@@ -682,7 +682,7 @@ private struct TimelineTaskButtonStyle: ButtonStyle {
 }
 
 /// Resolve only the enclosing timeline scroll view; no global UIKit lookup.
-private struct TimelineScrollResolver: UIViewRepresentable {
+struct TimelineScrollResolver: UIViewRepresentable {
     let resolve: (UIScrollView) -> Void
     let acceptsCreation: (CGPoint) -> Bool
     let creation: (UIGestureRecognizer.State, CGPoint, CGPoint) -> Void
