@@ -1,0 +1,5 @@
+# NATIVE-CALENDAR-AUTOSCROLL
+
+Implemented 30Hz edge scrolling, max120pt/s, 56pt ramp zone; exact UIKit scroll offset delta added to frozen global gesture translation. Move/start/end/create paths share compensation. Nearest enclosing UIScrollView resolved locally; no application-wide introspection. Bounds clamp; return-to-untimed hover pauses scrolling; lifecycle cancellation stops timer effects. Writes remain existing single release commit.
+
+Checks: 123 core tests PASS, final Simulator build PASS. Initial compile found extra closing parenthesis, corrected before successful build. CUA own simulator: stationary hold2200ms at bottom edge opened create sheet with start17:25 and duration2h30 (initial30min plus actual automatic scroll); proves timer scroll changes candidate while finger stays stationary. Cancel without save. Existing fixture retained. Physical move/resize edge hold, upper edge, VoiceOver, AXL remain UNVERIFIED; velocity/bounds covered by pure test. No phone install for this isolated commit; combined final update follows UI fixes requested during work.

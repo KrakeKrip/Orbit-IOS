@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import UniformTypeIdentifiers
 import OrbitCore
 
@@ -27,6 +28,12 @@ struct DayTimelineView: View {
     @State private var creationDraft: TaskTimelineCreation.Candidate?
     @GestureState private var creationGestureActive = false
     @State private var creationDay: String?
+    @State private var scrollView: UIScrollView?
+    @State private var dragPoint: CGPoint?
+    @State private var dragTranslation: CGFloat = 0
+    @State private var dragOriginOffset: CGFloat = 0
+    @State private var creationStartMinute: Double?
+    private let edgeTicks = Timer.publish(every: 1.0 / 30, on: .main, in: .common).autoconnect()
     @State private var timelineScrollOffset: CGFloat = 0
     @State private var untimedCandidate: TaskTimelineAdjustment.Candidate?
     @State private var returningUntimed = false
@@ -66,6 +73,7 @@ struct DayTimelineView: View {
                     }
                     .frame(width: geometry.size.width, height: 24 * hourHeight + 24)
                     .background(appearance.canvas)
+                    .background(TimelineScrollResolver { scrollView = $0 })
                     .coordinateSpace(name: "orbit-timeline")
                     .onGeometryChange(for: CGFloat.self) { content in
                         // Both frames use the window, not ScrollView's moving
@@ -93,6 +101,9 @@ struct DayTimelineView: View {
                             untimedDrag = nil
                             gestureError = "Не удалось перенести задачу. Повторите действие."
                         }))
+                .onReceive(edgeTicks) { _ in
+                    autoScroll(viewport: geometry.frame(in: .global))
+                }
                 .scrollDisabled(editing != nil || creationDraft != nil)
                 .overlay(alignment: .top) {
                     if let gestureError {
@@ -106,42 +117,82 @@ struct DayTimelineView: View {
                 }
             }
         }
-        .onChange(of: day) { _, _ in creationDraft = nil; creationDay = nil }
+        .onChange(of: day) { _, _ in creationDraft = nil; creationDay = nil; editing = nil; dragPoint = nil }
         .onChange(of: creationGestureActive) { _, active in
-            if !active { DispatchQueue.main.async { if !creationGestureActive { creationDraft = nil; creationDay = nil } } }
+            if !active { DispatchQueue.main.async { if !creationGestureActive { creationDraft = nil; creationDay = nil; dragPoint = nil } } }
         }
         .onChange(of: gestureActive) { _, active in
             if !active {
                 // Also clears drafts for recognizer cancellation, after onEnded.
-                DispatchQueue.main.async { if !gestureActive { editing = nil; returningUntimed = false; _ = onReturnHover(nil) } }
+                DispatchQueue.main.async { if !gestureActive { editing = nil; dragPoint = nil; returningUntimed = false; _ = onReturnHover(nil) } }
             }
         }
         .onChange(of: model.isSelecting) { _, selecting in
-            if selecting { creationDraft = nil; creationDay = nil; editing = nil; selectedTaskID = nil; untimedDrag = nil; untimedCandidate = nil }
+            if selecting { dragPoint = nil; creationDraft = nil; creationDay = nil; editing = nil; selectedTaskID = nil; untimedDrag = nil; untimedCandidate = nil }
         }
         .onChange(of: untimedDrag?.token) { _, _ in untimedCandidate = nil }
-        .onDisappear { creationDraft = nil; creationDay = nil; editing = nil; selectedTaskID = nil; untimedCandidate = nil; returningUntimed = false; _ = onReturnHover(nil) }
+        .onDisappear { dragPoint = nil; scrollView = nil; creationDraft = nil; creationDay = nil; editing = nil; selectedTaskID = nil; untimedCandidate = nil; returningUntimed = false; _ = onReturnHover(nil) }
+    }
+
+    private var currentScrollDelta: CGFloat {
+        (scrollView?.contentOffset.y ?? timelineScrollOffset) - dragOriginOffset
+    }
+
+    private func trackDrag(_ point: CGPoint, translation: CGFloat) {
+        dragPoint = point
+        dragTranslation = translation
+        if !returningUntimed { update(translation + currentScrollDelta) }
+    }
+
+    private func autoScroll(viewport: CGRect) {
+        guard let scrollView, let point = dragPoint,
+              !model.isSelecting, !returningUntimed,
+              editing != nil || creationDraft != nil,
+              point.x >= viewport.minX, point.x <= viewport.maxX else { return }
+        let inset = scrollView.adjustedContentInset
+        let lower = -inset.top
+        let upper = max(lower, scrollView.contentSize.height - scrollView.bounds.height + inset.bottom)
+        let next = TaskTimelineAutoScroll.offset(current: Double(scrollView.contentOffset.y),
+            pointer: Double(point.y - viewport.minY), viewport: Double(viewport.height),
+            minimum: Double(lower), maximum: Double(upper))
+        guard abs(next - Double(scrollView.contentOffset.y)) > 0.01 else { return }
+        scrollView.setContentOffset(CGPoint(x: scrollView.contentOffset.x, y: CGFloat(next)), animated: false)
+        if editing != nil { update(dragTranslation + currentScrollDelta) }
+        else if let start = creationStartMinute {
+            let next = TaskTimelineCreation.candidate(date: day, startMinute: start,
+                deltaMinutes: Double((dragTranslation + currentScrollDelta) / hourHeight * 60))
+            if next != creationDraft { OrbitHaptics.timelineStep() }
+            creationDraft = next
+        }
     }
 
     private func creationGesture(containerWidth: CGFloat) -> some Gesture {
         LongPressGesture(minimumDuration: 0.45, maximumDistance: 10)
-            .simultaneously(with: DragGesture(minimumDistance: 0, coordinateSpace: .named("orbit-timeline")))
+            .simultaneously(with: DragGesture(minimumDistance: 0, coordinateSpace: .global))
             .updating($creationGestureActive) { _, state, _ in state = true }
             .onChanged { value in
                 guard !model.isSelecting, editing == nil, untimedDrag == nil,
                       value.first == true, let drag = value.second,
-                      drag.startLocation.x >= Self.laneInset,
-                      drag.startLocation.x <= containerWidth - Self.laneTrailing else { return }
-                if creationDay == nil { creationDay = day; OrbitHaptics.longPress() }
+                      drag.startLocation.x >= (scrollView.map { $0.convert($0.bounds, to: nil).minX } ?? 0) + Self.laneInset,
+                      drag.startLocation.x <= (scrollView.map { $0.convert($0.bounds, to: nil).minX } ?? 0) + containerWidth - Self.laneTrailing else { return }
+                if creationDay == nil {
+                    creationDay = day
+                    dragOriginOffset = scrollView?.contentOffset.y ?? timelineScrollOffset
+                    let top = scrollView.map { $0.convert($0.bounds, to: nil).minY } ?? 0
+                    creationStartMinute = Double((drag.startLocation.y - top + dragOriginOffset) / hourHeight * 60)
+                    OrbitHaptics.longPress()
+                }
+                dragPoint = drag.location
+                dragTranslation = drag.translation.height
                 guard creationDay == day else { return }
                 let next = TaskTimelineCreation.candidate(date: day,
-                    startMinute: Double(drag.startLocation.y / hourHeight * 60),
-                    deltaMinutes: Double(drag.translation.height / hourHeight * 60))
+                    startMinute: creationStartMinute ?? 0,
+                    deltaMinutes: Double((dragTranslation + currentScrollDelta) / hourHeight * 60))
                 if creationDraft != next, creationDraft != nil { OrbitHaptics.timelineStep() }
                 creationDraft = next
             }
             .onEnded { value in
-                defer { creationDraft = nil; creationDay = nil }
+                defer { creationDraft = nil; creationDay = nil; creationStartMinute = nil; dragPoint = nil }
                 guard !model.isSelecting, editing == nil, untimedDrag == nil,
                       creationDay == day, value.first == true,
                       let candidate = creationDraft else { return }
@@ -444,6 +495,7 @@ struct DayTimelineView: View {
                                       duration: duration,
                                       dayOffset: segment.continuesFromPreviousDay ? -1440 : 0,
                                       edge: edge, directMove: directMove)
+        dragOriginOffset = scrollView?.contentOffset.y ?? timelineScrollOffset
         OrbitHaptics.longPress()
         OrbitHaptics.prepareTimeline()
     }
@@ -474,6 +526,7 @@ struct DayTimelineView: View {
         // Ordinary taps never begin an edit and remain available.
         lastGestureFinish = .now
         editing = nil
+        dragPoint = nil
         let returnToUntimed = returningUntimed
         returningUntimed = false
         _ = onReturnHover(nil)
@@ -509,7 +562,7 @@ struct DayTimelineView: View {
                     .onChanged { value in
                         begin(.move, task: task, segment: segment)
                         returningUntimed = onReturnHover(value.location)
-                        if !returningUntimed { update(value.translation.height) }
+                        trackDrag(value.location, translation: value.translation.height)
                     }
                     .onEnded { _ in finish() }
                     .map { _ in () }
@@ -526,7 +579,7 @@ struct DayTimelineView: View {
                     begin(.move, task: task, segment: segment)
                     if let drag {
                         returningUntimed = onReturnHover(drag.location)
-                        if !returningUntimed { update(drag.translation.height) }
+                        trackDrag(drag.location, translation: drag.translation.height)
                     }
                 default: break
                 }
@@ -544,11 +597,11 @@ struct DayTimelineView: View {
             .contentShape(Rectangle())
             .accessibilityLabel(edge == .start ? "Изменить начало" : "Изменить конец")
             .highPriorityGesture(
-                DragGesture(minimumDistance: 0, coordinateSpace: .named("orbit-timeline"))
+                DragGesture(minimumDistance: 0, coordinateSpace: .global)
                     .updating($gestureActive) { _, state, _ in state = true }
                     .onChanged { value in
                         begin(edge, task: task, segment: segment)
-                        update(value.translation.height)
+                        trackDrag(value.location, translation: value.translation.height)
                     }
                     .onEnded { _ in finish() }
             )
@@ -604,5 +657,20 @@ private struct TimelineTaskButtonStyle: ButtonStyle {
                 transaction.animation = nil
                 transaction.disablesAnimations = true
             }
+    }
+}
+
+/// Resolve only the enclosing timeline scroll view; no global UIKit lookup.
+private struct TimelineScrollResolver: UIViewRepresentable {
+    let resolve: (UIScrollView) -> Void
+    func makeUIView(context: Context) -> UIView { UIView() }
+    func updateUIView(_ view: UIView, context: Context) {
+        DispatchQueue.main.async { [weak view] in
+            var ancestor = view?.superview
+            while let current = ancestor {
+                if let scroll = current as? UIScrollView { resolve(scroll); return }
+                ancestor = current.superview
+            }
+        }
     }
 }
