@@ -11,6 +11,8 @@ struct UpcomingAgendaScreen: View {
     let referenceDay: String
     @Environment(\.orbitAppearance) private var appearance
     @State private var scrollRequest: AgendaScrollRequest?
+    @State private var earliestAllowedDay: String
+    @State private var isNavigating = false
     @State private var anchorDay: String
     @State private var dayCount = 56
     @State private var editor: InboxSheetPresentation?
@@ -22,6 +24,7 @@ struct UpcomingAgendaScreen: View {
         self.model = model; _selectedDay = selectedDay; _showsCalendar = showsCalendar
         _showsAgenda = showsAgenda; self.referenceDay = referenceDay
         _anchorDay = State(initialValue: selectedDay.wrappedValue)
+        _earliestAllowedDay = State(initialValue: selectedDay.wrappedValue)
     }
 
     private struct AgendaScrollRequest: Equatable {
@@ -105,13 +108,27 @@ struct UpcomingAgendaScreen: View {
                     }
                     .coordinateSpace(name: "agenda-viewport")
                     .onPreferenceChange(AgendaDayFrames.self) { frames in
-                        // Observe the whole day group, including its tasks: a
-                        // tall day stays selected while its heading is offscreen.
-                        // Ignore the last half-row of a day slipping offscreen.
+                        if isNavigating, let request = scrollRequest {
+                            // Wait for the requested section to reach the top;
+                            // old frames must not immediately lock it out again.
+                            guard let frame = frames[request.day],
+                                  frame.minY <= 4, frame.maxY > 0 else { return }
+                            isNavigating = false
+                        }
+                        guard let first = frames.filter({ $0.value.maxY > 0 })
+                            .min(by: { $0.value.minY < $1.value.minY })?.key else { return }
+                        if first < earliestAllowedDay {
+                            proxy.scrollTo(earliestAllowedDay, anchor: .top)
+                            return
+                        }
+                        // Only fully departed past days advance the boundary.
+                        // Today and future days remain freely scrollable back.
+                        if earliestAllowedDay < referenceDay, first > earliestAllowedDay {
+                            earliestAllowedDay = min(first, referenceDay)
+                        }
                         guard let top = frames.filter({ $0.value.maxY > 22 })
-                        .min(by: { $0.value.minY < $1.value.minY })?.key,
-                          selectedDay != top else { return }
-                        // Observation only: never scroll in response to this.
+                            .min(by: { $0.value.minY < $1.value.minY })?.key,
+                              selectedDay != top else { return }
                         selectedDay = top
                     }
                     .onChange(of: scrollRequest) { _, request in
@@ -205,7 +222,13 @@ struct UpcomingAgendaScreen: View {
     private func navigate(to day: String) {
         guard TaskPlannedDate.isValid(day) else { return }
         model.endSelection()
-        if !days.contains(day) { anchorDay = day; dayCount = 56 }
+        if day < referenceDay || !days.contains(day) {
+            anchorDay = day; dayCount = 56
+        } else if anchorDay < referenceDay {
+            anchorDay = referenceDay
+        }
+        earliestAllowedDay = anchorDay
+        isNavigating = true
         // Also works when tapping the already highlighted day: its section
         // is aligned to the top without depending on a binding change.
         scrollRequest = AgendaScrollRequest(day: day)
