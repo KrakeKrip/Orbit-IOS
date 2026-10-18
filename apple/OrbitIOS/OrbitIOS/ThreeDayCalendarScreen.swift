@@ -10,6 +10,7 @@ struct ThreeDayCalendarScreen: View {
     @Binding var showsAgenda: Bool
     let referenceDay: String
     @Environment(\.orbitAppearance) private var appearance
+    @State private var untimedExpanded = false
     @State private var anchorDay: String
     @State private var selectedTask: UUID?
     @State private var edit: Edit?
@@ -113,7 +114,7 @@ struct ThreeDayCalendarScreen: View {
     }
     private func page(_ delta: Int) {
         guard let next = TaskTimelineWindow.shift(days.first ?? anchorDay, by: delta) else { return }
-        anchorDay = next; selectedDay = next
+        anchorDay = next; selectedDay = next; untimedExpanded = false
     }
     private var dayHeaders: some View {
         HStack(spacing: 0) {
@@ -132,26 +133,55 @@ struct ThreeDayCalendarScreen: View {
             }
         }.frame(height: 64)
     }
+    private var untimedCount: Int { days.map { projection($0).untimedTaskIDs.count }.max() ?? 0 }
     private var untimedRows: some View {
         HStack(alignment: .top, spacing: 0) {
-            Text("Без\nвремени").font(.system(size: 9)).foregroundStyle(.secondary).frame(width: gutter)
-            ForEach(days, id: \.self) { day in
-                ScrollView {
-                    VStack(spacing: 3) {
-                        ForEach(projection(day).untimedTaskIDs, id: \.self) { id in
-                            if let task = task(id) {
-                                actionButton(task, range: RussianDateCaption.label(day), viewport: nil) {
-                                    Text(task.title).font(.caption2).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
-                                        .padding(4).background(.quaternary, in: RoundedRectangle(cornerRadius: 4))
-                                }
-                            }
-                        }
+            VStack(spacing: 2) {
+                Text("Без\nвремени").font(.system(size: 9)).foregroundStyle(.secondary)
+                if untimedCount > 3 {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) { untimedExpanded.toggle() }
+                    } label: {
+                        VStack(spacing: 2) {
+                            Image(systemName: untimedExpanded ? "chevron.down" : "chevron.up")
+                            Image(systemName: untimedExpanded ? "chevron.up" : "chevron.down")
+                        }.font(.system(size: 10, weight: .medium)).frame(width: 44, height: 44)
                     }
-                }.frame(maxWidth: .infinity).frame(height: hasUntimed ? 68 : 20).padding(.horizontal, 2)
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(untimedExpanded ? "Свернуть без времени" : "Развернуть без времени")
+                }
+            }.frame(width: gutter)
+            ForEach(days, id: \.self) { day in
+                let ids = projection(day).untimedTaskIDs
+                VStack(spacing: 2) {
+                    if untimedExpanded && ids.count > 7 {
+                        ScrollView {
+                            untimedTasks(ids)
+                        }.frame(height: 7 * 28 + 6 * 3)
+                    } else {
+                        untimedTasks(Array(ids.prefix(untimedExpanded ? 7 : 3)))
+                    }
+                    if !untimedExpanded && ids.count > 3 {
+                        Text("Ещё \(ids.count - 3)").font(.caption2).foregroundStyle(.secondary)
+                    }
+                }.frame(maxWidth: .infinity, alignment: .top).padding(.horizontal, 2)
             }
-        }.padding(.bottom, 4)
+        }.frame(minHeight: 20, alignment: .top).padding(.bottom, 4)
     }
-    private var hasUntimed: Bool { days.contains { !projection($0).untimedTaskIDs.isEmpty } }
+    private func untimedTasks(_ ids: [UUID]) -> some View {
+        VStack(spacing: 3) {
+            ForEach(ids, id: \.self) { id in
+                if let task = task(id) {
+                    actionButton(task, range: RussianDateCaption.label(task.plannedDate ?? selectedDay), viewport: nil) {
+                        Text(task.title).font(.caption2).lineLimit(2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(height: 28).padding(.horizontal, 4)
+                            .background(.quaternary, in: RoundedRectangle(cornerRadius: 4))
+                    }
+                }
+            }
+        }
+    }
     private var timeline: some View {
         GeometryReader { viewport in
             ScrollViewReader { reader in

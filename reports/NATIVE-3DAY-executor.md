@@ -16,3 +16,6 @@ TaskTimelineWindow supplies UTC civil arithmetic and stable overlap lane placeme
 
 ## Limits
 Physical finger/haptics, AXL/VoiceOver/dark theme, overlapped-task GUI and overnight-segment GUI, store disk-failure injection remain unverified. Overlap/window/store logic covered by core tests; projector overnight coverage is existing. Drag stays inside the currently visible three-day window, no horizontal edge paging. External untimed drag/return zones are not added to this mode (use menu/time editor or one-day view). Navigation uses arrows/date picker; horizontal window swipe not added. Selection and shared actions use existing hosts; exhaustive bulk GUI not repeated. No push/merge in this task.
+
+## Follow-up: untimed expansion
+User requested the existing day-calendar pattern in three-day mode. Collapsed columns now show at most three fixed-height rows with remaining count, without a nested scroll. Shared gutter button expands all columns up to seven rows; only columns with more than seven tasks scroll in expanded state. Collapse and page navigation restore compact presentation. Simulator BUILD SUCCEEDED; diff --check PASS. This follow-up has not yet had GUI/physical-device verification or installation.
