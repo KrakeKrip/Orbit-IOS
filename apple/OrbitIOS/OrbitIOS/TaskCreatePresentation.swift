@@ -174,6 +174,8 @@ struct TaskCreateSheet: View {
     @State private var draftDurationHours = 0
     @State private var draftDurationMinutes = 30
     @State private var expandedGroup: ExpandedGroup?
+    @State private var showsAdditional = false
+    @Environment(\.orbitAppearance) private var appearance
 
     private static let durationMinuteOptions = Array(stride(from: 0, through: 55, by: 5))
     private static let rangeLowerBound = TaskPlannedDate.date(fromCivilDateString: "1900-01-01") ?? Date.distantPast
@@ -213,54 +215,65 @@ struct TaskCreateSheet: View {
                         ForEach(model.projects) { Text($0.name).tag(Optional($0.id)) }
                     }
                     .accessibilityIdentifier("create-project-picker")
-                }
-                Section { dateSection }
-                Section {
-                    TaskDeadlineFields(value: $draftDeadline, expanded: Binding(
-                        get: { expandedGroup == .deadline },
-                        set: { value in
-                            titleFieldFocused = false
-                            expandedGroup = value ? .deadline : nil
-                        }))
-                }
-                Section { timeSection }
-                Section {
-                    TaskReminderFields(value: $draftReminder, expanded: Binding(
-                        get: { expandedGroup == .reminder },
-                        set: { flag in
-                            titleFieldFocused = false
-                            expandedGroup = flag ? .reminder : nil
-                        }), service: model.reminders)
+                    dateSection
+                    timeSection
                 }
                 Section {
-                    if let errorMessage {
-                        Text(errorMessage)
-                            .font(.footnote)
-                            .foregroundStyle(.red)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                    DisclosureGroup("Дополнительно", isExpanded: $showsAdditional) {
+                        TaskDeadlineFields(value: $draftDeadline, expanded: Binding(
+                            get: { expandedGroup == .deadline },
+                            set: { value in
+                                titleFieldFocused = false
+                                expandedGroup = value ? .deadline : nil
+                            }))
+                        TaskReminderFields(value: $draftReminder, expanded: Binding(
+                            get: { expandedGroup == .reminder },
+                            set: { flag in
+                                titleFieldFocused = false
+                                expandedGroup = flag ? .reminder : nil
+                            }), service: model.reminders)
+                    }
+                    .accessibilityIdentifier("create-additional")
+                    .onChange(of: showsAdditional) { _, _ in titleFieldFocused = false }
+                }
+                if let errorMessage {
+                    Section {
+                        Text(errorMessage).font(.footnote).foregroundStyle(.red)
                             .accessibilityIdentifier("create-error")
                     }
-                    Button(action: submit) {
-                        Text("Добавить")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .orbitPrimaryStyle()
-                    .disabled(!addEnabled)
-                    .accessibilityIdentifier("create-add-button")
-
-                    Button("Отмена") { dismiss() }
-                        .orbitSecondaryStyle()
-                        .frame(maxWidth: .infinity)
-                        .accessibilityIdentifier("create-cancel-button")
                 }
             }
+            .listSectionSpacing(.custom(8))
+            .contentMargins(.top, 8, for: .scrollContent)
+            .scrollDismissesKeyboard(.interactively)
             .orbitEditorSurface()
-            .navigationTitle("Новая задача")
-            .navigationBarTitleDisplayMode(.inline)
+            .safeAreaInset(edge: .top, spacing: 0) { createHeader }
+            .toolbar(.hidden, for: .navigationBar)
             .onAppear { titleFieldFocused = true }
         }
-        .presentationDetents([.medium, .large])
+        // A single detent avoids a downward scroll first shrinking the sheet.
+        // The fixed Cancel control stays available with keyboard and wheels.
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
         .orbitEditorSurface()
+    }
+
+    private var createHeader: some View {
+        HStack(spacing: 8) {
+            Button("Отмена") { titleFieldFocused = false; dismiss() }
+                .accessibilityIdentifier("create-cancel-button")
+            Spacer(minLength: 0)
+            Text("Новая задача").font(.subheadline.weight(.semibold))
+                .accessibilityAddTraits(.isHeader)
+            Spacer(minLength: 0)
+            Button("Добавить", action: submit)
+                .fontWeight(.semibold)
+                .disabled(!addEnabled)
+                .accessibilityIdentifier("create-add-button")
+        }
+        .font(.subheadline)
+        .padding(.horizontal, 16).padding(.vertical, 12)
+        .background(appearance.canvas)
     }
 
     // MARK: - Sections

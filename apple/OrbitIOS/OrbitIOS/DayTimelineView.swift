@@ -172,7 +172,7 @@ struct DayTimelineView: View {
             .updating($creationGestureActive) { _, state, _ in state = true }
             .onChanged { value in
                 guard !model.isSelecting, editing == nil, untimedDrag == nil,
-                      value.first == true, let drag = value.second,
+                      (value.first == true || creationDay == day), let drag = value.second,
                       drag.startLocation.x >= (scrollView.map { $0.convert($0.bounds, to: nil).minX } ?? 0) + Self.laneInset,
                       drag.startLocation.x <= (scrollView.map { $0.convert($0.bounds, to: nil).minX } ?? 0) + containerWidth - Self.laneTrailing else { return }
                 if creationDay == nil {
@@ -194,7 +194,7 @@ struct DayTimelineView: View {
             .onEnded { value in
                 defer { creationDraft = nil; creationDay = nil; creationStartMinute = nil; dragPoint = nil }
                 guard !model.isSelecting, editing == nil, untimedDrag == nil,
-                      creationDay == day, value.first == true,
+                      creationDay == day,
                       let candidate = creationDraft else { return }
                 selectedTaskID = nil
                 onCreateInterval(candidate.time, candidate.duration)

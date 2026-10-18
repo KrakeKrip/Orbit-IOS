@@ -38,13 +38,9 @@ struct TaskActionPopoverButton<Content: View>: View {
         Button {
             if model.isSelecting { model.toggleSelection(task); return }
             guard canOpen() else { return }
-            if anchorsAtTap {
-                // SpatialTapGesture records the actual touch point in this
-                // event before presentation reads its attachment anchor.
-                DispatchQueue.main.async { if canOpen() { isPresented = true } }
-            } else {
-                isPresented = true
-            }
+            // Anchor and presentation state are consumed together on the next
+            // render. Do not enqueue opening after a subsequent outside tap.
+            setPresented(true)
         } label: { label() }
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: {
                 sourceFrame = $0
@@ -58,9 +54,9 @@ struct TaskActionPopoverButton<Content: View>: View {
             })
             .modifier(TaskPopoverHoldModifier(enabled: opensOnHold && !model.isSelecting) {
                 OrbitHaptics.longPress()
-                isPresented = true
+                setPresented(true)
             })
-            .popover(isPresented: $isPresented, attachmentAnchor: anchorsAtTap ? .point(tapAnchor) : .rect(.bounds), arrowEdge: preferredArrowEdge) {
+            .popover(isPresented: Binding(get: { isPresented }, set: { setPresented($0) }), attachmentAnchor: anchorsAtTap ? .point(tapAnchor) : .rect(.bounds), arrowEdge: preferredArrowEdge) {
                 ScrollView {
                   VStack(spacing: 0) {
                     TaskActionPreview(task: task, range: range, reminders: model.reminders)
@@ -73,9 +69,9 @@ struct TaskActionPopoverButton<Content: View>: View {
                             onEditInterval: { choose(.interval) },
                             onRename: { choose(.rename) },
                             onDelete: { choose(.delete) },
-                            onEditProject: { wantsProject = true; isPresented = false },
-                            onEditDeadline: { wantsDeadline = true; isPresented = false },
-                            onEditReminder: { wantsReminder = true; isPresented = false }
+                            onEditProject: { wantsProject = true; setPresented(false) },
+                            onEditDeadline: { wantsDeadline = true; setPresented(false) },
+                            onEditReminder: { wantsReminder = true; setPresented(false) }
                         )
                     }
                     .buttonStyle(OrbitTaskActionStyle())
@@ -112,7 +108,7 @@ struct TaskActionPopoverButton<Content: View>: View {
                 }
             }
             .onChange(of: model.isSelecting) { _, selecting in
-                if selecting { isPresented = false }
+                if selecting { setPresented(false) }
             }
             .accessibilityAddTraits(model.isSelecting && model.selectedTaskIDs.contains(task.id) ? [.isSelected] : [])
             .sheet(isPresented: $showsReminder) { TaskReminderSheet(model: model, task: task) }
@@ -134,9 +130,17 @@ struct TaskActionPopoverButton<Content: View>: View {
         return min(maximumHeight, max(44, room - 24))
     }
 
+    private func setPresented(_ presented: Bool) {
+        // UIKit modal transitions otherwise ignore taps until their completion.
+        // Present/dismiss this small action card without a blocking transition.
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) { isPresented = presented }
+    }
+
     private func choose(_ action: OrbitTaskAction) {
         pendingAction = action
-        isPresented = false
+        setPresented(false)
     }
 }
 
