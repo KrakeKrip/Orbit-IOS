@@ -272,7 +272,7 @@ struct TaskCreateSheet: View {
                 .accessibilityIdentifier("create-add-button")
         }
         .font(.subheadline)
-        .padding(.horizontal, 16).padding(.vertical, 12)
+        .padding(.horizontal, 16).padding(.top, 20).padding(.bottom, 12)
         .background(appearance.canvas)
     }
 

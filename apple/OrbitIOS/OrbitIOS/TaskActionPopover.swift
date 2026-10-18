@@ -30,6 +30,7 @@ struct TaskActionPopoverButton<Content: View>: View {
     @State private var showsReminder = false
     @State private var wantsDeadline = false
     @State private var showsDeadline = false
+    @State private var measuredMenuHeight: CGFloat = 0
     @State private var pendingAction: OrbitTaskAction?
     @ScaledMetric(relativeTo: .body) private var menuRowHeight = 44.0
     @ScaledMetric(relativeTo: .subheadline) private var previewHeight = 110.0
@@ -77,10 +78,11 @@ struct TaskActionPopoverButton<Content: View>: View {
                     .buttonStyle(OrbitTaskActionStyle())
                     .padding(.bottom, 6)
                   }
+                  .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measuredMenuHeight = $0 }
                 }
                 .scrollBounceBehavior(.basedOnSize)
                 .frame(minWidth: 0, idealWidth: previewWidth, maxWidth: previewWidth, alignment: .leading)
-                .frame(height: min(availableMenuHeight, menuRowHeight * 8 + previewHeight + 20))
+                .frame(height: min(availableMenuHeight, measuredMenuHeight > 0 ? measuredMenuHeight : menuRowHeight * 8 + previewHeight + 20))
                 .background(appearance.canvas)
                 .presentationBackground(appearance.canvas)
                 .presentationCompactAdaptation(.popover)
