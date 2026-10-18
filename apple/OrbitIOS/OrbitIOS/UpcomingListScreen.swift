@@ -38,6 +38,7 @@ struct UpcomingListScreen: View {
                 // the navigation bar — no toolbar item, no second contour.
                 NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: $showsCalendar, agendaMode: agendaMode))
                 dateControls
+                OverdueTaskBlock(model: model)
                 if let writeError = model.writeError {
                     writeErrorBanner(writeError)
                 }

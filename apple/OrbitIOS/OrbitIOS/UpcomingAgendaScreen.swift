@@ -67,6 +67,7 @@ struct UpcomingAgendaScreen: View {
             VStack(spacing: 0) {
                 NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: $showsCalendar, agendaMode: $showsAgenda))
                 weekNavigation
+                OverdueTaskBlock(model: model)
                 Divider()
                 if let message = model.writeError ?? model.listError {
                     Text(message).font(.footnote).foregroundStyle(.red).padding(8)

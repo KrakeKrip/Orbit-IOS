@@ -105,6 +105,7 @@ struct CalendarDayScreen: View {
         NavigationStack {
             VStack(spacing: 0) {
                 dayControls
+                OverdueTaskBlock(model: model, projectID: projectID)
                 if let writeError = model.writeError {
                     writeErrorBanner(writeError)
                 }

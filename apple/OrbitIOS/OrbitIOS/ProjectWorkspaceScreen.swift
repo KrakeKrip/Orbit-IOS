@@ -46,6 +46,7 @@ struct ProjectWorkspaceScreen: View {
                 NavigationStack {
                     VStack(spacing: 0) {
                         header
+                        OverdueTaskBlock(model: model, projectID: project.id)
                         if let error = model.listError {
                             ContentUnavailableView("Задачи недоступны", systemImage: "exclamationmark.triangle", description: Text(error))
                             Button("Повторить") { model.reload() }
@@ -55,7 +56,7 @@ struct ProjectWorkspaceScreen: View {
                             List {
                                 if let error = model.writeError { Text(error).foregroundStyle(.red) }
                                 ForEach([false, true], id: \.self) { completed in
-                                    let rows = tasks.filter { $0.isCompleted == completed }
+                                    let rows = tasks.filter { $0.isCompleted == completed && !TaskDaySelection.isOverdue($0, before: referenceDay) }
                                     if !rows.isEmpty {
                                         Section(completed ? "Завершённые" : "Открытые") {
                                             ForEach(rows) { task in

@@ -283,6 +283,24 @@ public final class OrbitTaskStore {
         }
     }
 
+    /// Atomic date move: validate every target and derived end before any
+    /// mutation. Absolute reminders/deadlines and intervals remain unchanged.
+    public func rescheduleTasks(_ ids: [UUID], to day: String) throws {
+        guard TaskPlannedDate.isValid(day) else { throw TaskPlannedDateError.invalid(day) }
+        let targets = try selectedTasks(ids)
+        for task in targets {
+            if let time = task.plannedTime, let duration = task.durationMinutes,
+               TaskTimeInterval.end(plannedDate: day, plannedTime: time, durationMinutes: duration) == nil {
+                throw TaskTimeIntervalError.endOutOfRange
+            }
+        }
+        let changed = targets.filter { $0.plannedDate != day }
+        guard !changed.isEmpty else { return }
+        for task in changed { task.setPlannedDate(day) }
+        do { try context.save() }
+        catch { context.rollback(); throw error }
+    }
+
     /// Assigns, changes or clears (`nil`) the civil planned date of one task.
     /// Invalid values are rejected before any mutation; completion, title, id
     /// and list order are never touched, and tasks with a date stay in the Inbox.

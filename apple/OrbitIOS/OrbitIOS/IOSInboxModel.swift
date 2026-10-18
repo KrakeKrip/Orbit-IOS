@@ -150,6 +150,18 @@ final class IOSInboxModel {
             reload()
         }
     }
+    func reschedule(_ ids: [UUID], to day: String) -> String? {
+        do {
+            try store.rescheduleTasks(ids, to: day)
+            writeError = nil
+            reload()
+            return nil
+        } catch {
+            reload()
+            return IOSInboxFormatting.plannedDateMessage(error)
+        }
+    }
+
     func deleteSelection() {
         let ids = Array(selectedTaskIDs)
         guard !ids.isEmpty else { return }

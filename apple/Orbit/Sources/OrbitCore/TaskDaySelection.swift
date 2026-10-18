@@ -17,6 +17,13 @@ public enum TaskDaySelection {
         TaskPlannedDate.civilDateString(from: reference, calendar: calendar)
     }
 
+    /// A missed planning day, independent from a task's separate deadline.
+    public static func isOverdue(_ task: OrbitTask, before day: String) -> Bool {
+        guard !task.isCompleted, TaskPlannedDate.isValid(day),
+              let planned = task.plannedDate, TaskPlannedDate.isValid(planned) else { return false }
+        return planned < day
+    }
+
     /// Tasks whose `plannedDate` equals `day`, same objects in the same order.
     /// Timed and untimed, open and completed tasks are all included — the UI
     /// splits open/completed. An invalid or nil day yields an empty result

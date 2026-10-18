@@ -1,3 +1,4 @@
+import OrbitCore
 import SwiftUI
 
 struct OrbitTaskSelectionHeader: View {
@@ -16,11 +17,13 @@ struct OrbitTaskSelectionHeader: View {
 struct OrbitTaskSelectionActions: View {
     let model: IOSInboxModel
     @State private var confirmingDelete = false
+    @State private var moveRequest: TaskRescheduleRequest?
+    @State private var moveError: String?
     private var count: Int { model.selectedTaskIDs.count }
 
     var body: some View {
         VStack(spacing: 8) {
-            if let error = model.selectionError {
+            if let error = moveError ?? model.selectionError {
                 Text(error).font(.footnote).foregroundStyle(.red)
             }
             HStack(spacing: 10) {
@@ -31,6 +34,20 @@ struct OrbitTaskSelectionActions: View {
                 }
                 .accessibilityLabel("Удалить")
                 .accessibilityIdentifier("task-selection-delete")
+                Menu {
+                    Button("На сегодня", systemImage: "sun.max") {
+                        moveError = model.reschedule(Array(model.selectedTaskIDs), to: TaskDaySelection.currentDay())
+                        if moveError == nil { model.endSelection() }
+                    }
+                    Button("Выбрать дату…", systemImage: "calendar") {
+                        moveRequest = TaskRescheduleRequest(ids: Array(model.selectedTaskIDs))
+                    }
+                } label: {
+                    Image(systemName: "calendar.badge.clock").font(.title3)
+                        .frame(width: 50, height: 50)
+                        .background(Color.orbitAccent.opacity(0.10), in: RoundedRectangle(cornerRadius: 18))
+                }
+                .accessibilityLabel("Перенести выбранные задачи")
                 Button { model.completeSelection() } label: {
                     Label("Завершить", systemImage: "checkmark.circle.fill")
                         .font(.headline)
@@ -50,6 +67,9 @@ struct OrbitTaskSelectionActions: View {
         .shadow(color: .black.opacity(0.10), radius: 16, y: 5)
         .padding(.horizontal, 20)
         .padding(.bottom, 8)
+        .sheet(item: $moveRequest) { value in
+            TaskRescheduleSheet(model: model, ids: value.ids, endsSelection: true)
+        }
         .confirmationDialog("Удалить выбранные задачи?", isPresented: $confirmingDelete, titleVisibility: .visible) {
             Button("Удалить задачи (\(count))", role: .destructive) { model.deleteSelection() }
             Button("Отмена", role: .cancel) {}

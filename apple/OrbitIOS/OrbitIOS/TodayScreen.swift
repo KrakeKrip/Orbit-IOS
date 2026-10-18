@@ -29,6 +29,7 @@ struct TodayScreen: View {
                 if let todayMode {
                     NativeModeHeader(switcher: TodayModeSwitcher(showsCalendar: todayMode))
                 }
+                OverdueTaskBlock(model: model)
                 if let writeError = model.writeError {
                     writeErrorBanner(writeError)
                 }
@@ -151,9 +152,9 @@ struct TodayScreen: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 4)
             ContentUnavailableView {
-                Label("На сегодня всё", systemImage: "sun.max")
+                Label(model.tasks.contains { TaskDaySelection.isOverdue($0, before: day) } ? "На сегодня задач нет" : "На сегодня всё", systemImage: "sun.max")
             } description: {
-                Text("Можно отдохнуть — или добавить новые планы.")
+                Text(model.tasks.contains { TaskDaySelection.isOverdue($0, before: day) } ? "Просроченные дела — в блоке выше." : "Можно отдохнуть — или добавить новые планы.")
             }
             Spacer(minLength: 0)
         }

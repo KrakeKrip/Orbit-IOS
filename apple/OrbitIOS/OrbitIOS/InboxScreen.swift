@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 import OrbitCore
 
@@ -31,6 +32,8 @@ struct InboxScreen: View {
     @Environment(\.orbitAppearance) private var appearance
     @State private var model: IOSInboxModel
     @State private var presentation: InboxSheetPresentation?
+    @State private var referenceDay = TaskDaySelection.currentDay()
+    private let dayTimer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
     init(model: IOSInboxModel) {
         _model = State(initialValue: model)
@@ -42,6 +45,7 @@ struct InboxScreen: View {
                 NativeModeHeader(switcher: EmptyView()) {
                     Text("Входящие").font(.title2.bold()).lineLimit(1)
                 }
+                OverdueTaskBlock(model: model)
                 if let writeError = model.writeError {
                     writeErrorBanner(writeError)
                 }
@@ -69,13 +73,19 @@ struct InboxScreen: View {
         // NATIVE-ADD-002: the shared «+» replaces the removed bottom composer;
         // Inbox creation is always undated (nil preset).
         .orbitCreateAction(model: model, datePreset: { nil })
+        .onAppear { referenceDay = TaskDaySelection.currentDay() }
+        .onReceive(dayTimer) { _ in referenceDay = TaskDaySelection.currentDay() }
+    }
+
+    private var currentOpenTasks: [OrbitTask] {
+        model.openTasks.filter { !TaskDaySelection.isOverdue($0, before: referenceDay) }
     }
 
     private var taskList: some View {
         List {
-            if !model.openTasks.isEmpty {
+            if !currentOpenTasks.isEmpty {
                 Section("Открытые") {
-                    ForEach(model.openTasks) { task in
+                    ForEach(currentOpenTasks) { task in
                         InboxRowView(task: task, model: model) {
                             presentation = .date(task)
                         } onEditInterval: {
