@@ -18,3 +18,9 @@ iOS-корневые документы переписаны под актуал
 - Manifest переноса с SHA-256 сохранён вне репозиториев: orbit-outputs/IOS-REPO-SPLIT/manifest.json.
 
 Личные базы, iPhone, действующие БД/контейнеры и ignored caches не изменялись. Новый Simulator с синтетическими задачами используется только для README screenshots.
+
+## README screenshots и публикация
+
+Добавлены два реальных экрана Today List/Day Calendar с синтетическими данными, тема Слоновая кость, единый статус-бар. Сняты на собственном iPhone17 Simulator, визуально проверены. Исходные PNG без дорисовки UI; галерея с одинаковой шириной и подписями.
+
+Orbit-Web опубликован в main b56ce18. iOS-only структура опубликована ec9241f; GitHub сообщает переименование Orbit→Orbit-IOS, remote и активные ссылки обновлены. macOS сохранён локальным Git48b80df и backup bundle вне iOS tree. История исходного репозитория сохранена без force push.

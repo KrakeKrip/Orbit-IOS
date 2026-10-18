@@ -1,6 +1,6 @@
 # Репозитории Orbit
 
-- iOS: https://github.com/KrakeKrip/Orbit — iPhone-клиент, OrbitCore, тесты, ресурсы и iOS-документы.
+- iOS: https://github.com/KrakeKrip/Orbit-IOS — iPhone-клиент, OrbitCore, тесты, ресурсы и iOS-документы.
 - Web: https://github.com/KrakeKrip/Orbit-Web — Next.js/TypeScript/PostgreSQL, миграции, инструменты и веб-тесты.
 - Orbit-MacOs: remote пока не создан. Снимок macOS-прототипа сохранён отдельно, вне iOS Git tree; перенос не завершён до появления remote.
 
