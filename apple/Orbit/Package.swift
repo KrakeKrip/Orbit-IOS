@@ -9,14 +9,9 @@ let package = Package(
     ],
     products: [
         .library(name: "OrbitCore", targets: ["OrbitCore"]),
-        .executable(name: "OrbitMac", targets: ["OrbitMac"]),
     ],
     targets: [
         .target(name: "OrbitCore"),
-        .executableTarget(
-            name: "OrbitMac",
-            dependencies: ["OrbitCore"]
-        ),
         .testTarget(
             name: "OrbitCoreTests",
             dependencies: ["OrbitCore"]

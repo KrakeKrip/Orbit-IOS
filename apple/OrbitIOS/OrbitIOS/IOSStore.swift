@@ -2,8 +2,7 @@ import Foundation
 import OrbitCore
 
 /// Opens the iOS app's own sandbox store at one explicit URL.
-/// The macOS CLI resolver (`OrbitStoreLocation.resolveStoreURL`) is intentionally
-/// not used on iOS: the app never accepts launch overrides and never touches
+/// The app never accepts launch overrides and never touches
 /// any store outside its own container.
 enum IOSStore {
     /// `<app sandbox>/Library/Application Support/Orbit/store.sqlite`.

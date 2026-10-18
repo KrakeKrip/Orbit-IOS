@@ -1,3 +1,13 @@
+.DS_Store
+*.log
+.build/
+.swiftpm/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+.env
+.env.*
+# Existing local web caches are untracked; the web project lives in Orbit-Web.
 node_modules/
 .next/
 out/
@@ -5,8 +15,4 @@ coverage/
 playwright-report/
 test-results/
 *.tsbuildinfo
-.env
-.env.*
-!.env.example
-.DS_Store
-*.log
+.mimosa/
