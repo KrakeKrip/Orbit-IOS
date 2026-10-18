@@ -27,7 +27,7 @@ struct MarkedDatePicker: View {
 
 /// Intrinsic height is header + weekday labels + 4/5/6 complete week rows.
 /// No UIKit intrinsic-size negotiation or fixed outer height can clip a week.
-private struct MarkedMonthCalendar: View {
+struct MarkedMonthCalendar: View {
     @Binding var selection: Date
     let taskDays: Set<String>
     let onSelect: () -> Void
@@ -122,6 +122,9 @@ private struct MarkedMonthCalendar: View {
                     }
                 }
             }
+        }
+        .onChange(of: selection) { _, date in
+            month = calendar.dateInterval(of: .month, for: date)!.start
         }
         .buttonStyle(.plain)
         .environment(\.locale, Locale(identifier: "ru_RU"))

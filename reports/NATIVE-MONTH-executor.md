@@ -1,0 +1,7 @@
+# NATIVE-MONTH — Codex self-check
+
+Implemented Month in Upcoming only. Separate persisted mode, mutually exclusive with List/Agenda/Day/3days. Reuses MarkedMonthCalendar (now internal) with Monday-first complete4/5/6week rows, bounded1900–2199 month/year navigation and existing task-presence dots. External selection updates the grid month. Selected-day list uses shared InboxRowView/actions/edit sheets, load/write errors, overdue block, empty state. Shared FAB seeds selected date. No core/schema changes or personal data access.
+
+Checks: Simulator BUILD SUCCEEDED (/private/tmp/orbit-month-build.log), diff --check PASS. Own simulator1A3DE04B-CFDB-4DB4-BC3D-CB429529DF7A: menu includes Month; October grid visually inspected, no clipping;18/19/20 task markers; tap20→Третий день row; +→20Oct preset, Cancel; tap21→empty; +→21Oct, real input Month check, Add→row and new21Oct marker. Next month→November30days; terminate/relaunch→Upcoming still Month,21Oct marker persists (selected day starts at today by existing section policy). Previous129core tests not repeated because core unchanged.
+
+Not verified: physical device, VoiceOver/AXL, dark theme, runtime disk failure, all distant boundary months, exhaustive row actions/bulk. Shared grid arithmetic/bounds reused from accepted date picker. No phone install, push or merge in this task. Month navigation browses independently of selected day until a day is tapped; list heading and + continue to use the selected date.

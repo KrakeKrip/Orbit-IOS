@@ -146,19 +146,31 @@ extension EnvironmentValues {
     }
 }
 
+private struct OrbitMonthModeKey: EnvironmentKey {
+    static let defaultValue: Binding<Bool>? = nil
+}
+extension EnvironmentValues {
+    var orbitMonthMode: Binding<Bool>? {
+        get { self[OrbitMonthModeKey.self] }
+        set { self[OrbitMonthModeKey.self] = newValue }
+    }
+}
+
 struct OrbitViewModeMenu: View {
     @Binding var showsCalendar: Bool
     let identifier: String
     var agendaMode: Binding<Bool>? = nil
     @Environment(\.orbitThreeDayMode) private var threeDayMode
+    @Environment(\.orbitMonthMode) private var monthMode
     private var mode: Binding<Int> {
-        Binding(get: { threeDayMode?.wrappedValue == true ? 3 : (agendaMode?.wrappedValue == true ? 2 : (showsCalendar ? 1 : 0)) }, set: { value in
+        Binding(get: { monthMode?.wrappedValue == true ? 4 : (threeDayMode?.wrappedValue == true ? 3 : (agendaMode?.wrappedValue == true ? 2 : (showsCalendar ? 1 : 0))) }, set: { value in
+            monthMode?.wrappedValue = value == 4
             threeDayMode?.wrappedValue = value == 3
             agendaMode?.wrappedValue = value == 2
             showsCalendar = value == 1
         })
     }
-    private var title: String { mode.wrappedValue == 3 ? "3 дня" : mode.wrappedValue == 2 ? "Повестка" : (showsCalendar ? "Календарь" : "Список") }
+    private var title: String { mode.wrappedValue == 4 ? "Месяц" : mode.wrappedValue == 3 ? "3 дня" : mode.wrappedValue == 2 ? "Повестка" : (showsCalendar ? "Календарь" : "Список") }
     var body: some View {
         Menu {
             Picker("Вид отображения", selection: mode) {
@@ -166,9 +178,10 @@ struct OrbitViewModeMenu: View {
                 if agendaMode != nil { Label("Повестка", systemImage: "calendar.badge.clock").tag(2) }
                 Label("Календарь", systemImage: "calendar").tag(1)
                 if threeDayMode != nil { Label("3 дня", systemImage: "rectangle.split.3x1").tag(3) }
+                if monthMode != nil { Label("Месяц", systemImage: "calendar.circle").tag(4) }
             }
         } label: {
-            Image(systemName: mode.wrappedValue == 3 ? "rectangle.split.3x1" : mode.wrappedValue == 2 ? "calendar.badge.clock" : (showsCalendar ? "calendar" : "list.bullet"))
+            Image(systemName: mode.wrappedValue == 4 ? "calendar.circle" : mode.wrappedValue == 3 ? "rectangle.split.3x1" : mode.wrappedValue == 2 ? "calendar.badge.clock" : (showsCalendar ? "calendar" : "list.bullet"))
                 .font(.system(size: 18, weight: .medium))
                 .contentTransition(.symbolEffect(.replace))
                 .frame(width: 28, height: 28)
