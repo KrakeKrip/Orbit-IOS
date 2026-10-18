@@ -136,21 +136,30 @@ struct ThreeDayCalendarScreen: View {
     private var untimedCount: Int { days.map { projection($0).untimedTaskIDs.count }.max() ?? 0 }
     private var untimedRows: some View {
         HStack(alignment: .top, spacing: 0) {
-            VStack(spacing: 2) {
-                Text("Без\nвремени").font(.system(size: 9)).foregroundStyle(.secondary)
+            Group {
                 if untimedCount > 3 {
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { untimedExpanded.toggle() }
                     } label: {
-                        VStack(spacing: 2) {
-                            Image(systemName: untimedExpanded ? "chevron.down" : "chevron.up")
-                            Image(systemName: untimedExpanded ? "chevron.up" : "chevron.down")
-                        }.font(.system(size: 10, weight: .medium)).frame(width: 44, height: 44)
+                        VStack(spacing: 6) {
+                            Text("Без\nвремени").font(.system(size: 9)).foregroundStyle(.secondary)
+                            VStack(spacing: 2) {
+                                Image(systemName: untimedExpanded ? "chevron.down" : "chevron.up")
+                                Image(systemName: untimedExpanded ? "chevron.up" : "chevron.down")
+                            }
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(Color.orbitAccent)
+                        }
+                        .frame(width: gutter, height: 76)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(untimedExpanded ? "Свернуть без времени" : "Развернуть без времени")
+                } else {
+                    Text("Без\nвремени").font(.system(size: 9)).foregroundStyle(.secondary)
+                        .frame(width: gutter)
                 }
-            }.frame(width: gutter)
+            }
             ForEach(days, id: \.self) { day in
                 let ids = projection(day).untimedTaskIDs
                 VStack(spacing: 2) {

@@ -19,3 +19,6 @@ Physical finger/haptics, AXL/VoiceOver/dark theme, overlapped-task GUI and overn
 
 ## Follow-up: untimed expansion
 User requested the existing day-calendar pattern in three-day mode. Collapsed columns now show at most three fixed-height rows with remaining count, without a nested scroll. Shared gutter button expands all columns up to seven rows; only columns with more than seven tasks scroll in expanded state. Collapse and page navigation restore compact presentation. Simulator BUILD SUCCEEDED; diff --check PASS. This follow-up has not yet had GUI/physical-device verification or installation.
+
+## Follow-up: toggle tint and hit target
+Disclosure chevrons explicitly use orbitAccent, matching the day calendar. Visible glyph remains10pt; the entire44×76pt gutter label (caption plus arrows) is one rectangular button hit area, with no overlap into task columns. Signed iOS BUILD SUCCEEDED and diff --check PASS. Installed in place on iPhone, sequence2700 (prior expansion build installed sequence2692). Physical hit accuracy remains for owner validation.
