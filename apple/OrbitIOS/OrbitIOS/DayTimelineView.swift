@@ -401,7 +401,23 @@ struct DayTimelineView: View {
             alignment: .top
         )
         .clipped()
-        .simultaneousGesture(moveGesture(task: task, segment: segment))
+        .modifier(TimelineTaskHold(enabled: !model.isSelecting && untimedDrag == nil && creationDraft == nil, ignoresResizeHandles: selectedTaskID == task.id) { state, start, point in
+            switch state {
+            case .began:
+                begin(.move, task: task, segment: segment)
+            case .changed:
+                guard editing?.taskID == task.id else { return }
+                returningUntimed = onReturnHover(point)
+                trackDrag(point, translation: point.y - start.y)
+            case .ended:
+                if editing?.taskID == task.id { finish() }
+            case .cancelled, .failed:
+                if editing?.taskID == task.id {
+                    editing = nil; dragPoint = nil; returningUntimed = false; _ = onReturnHover(nil)
+                }
+            default: break
+            }
+        })
         .overlay {
             if model.isSelecting ? model.selectedTaskIDs.contains(task.id) : selectedTaskID == task.id {
                 RoundedRectangle(cornerRadius: 3).stroke(model.isSelecting ? Color.primary : .white, lineWidth: 2)
@@ -483,7 +499,6 @@ struct DayTimelineView: View {
         let duration: Int
         let dayOffset: Int
         let edge: TaskTimelineAdjustment.Edge
-        let directMove: Bool
         var candidate: TaskTimelineAdjustment.Candidate?
     }
 
@@ -509,13 +524,12 @@ struct DayTimelineView: View {
     private func begin(_ edge: TaskTimelineAdjustment.Edge, task: OrbitTask, segment: TimelineSegment) {
         guard !model.isSelecting, editing == nil, let date = task.plannedDate,
               let time = task.plannedTime, let duration = task.durationMinutes else { return }
-        let directMove = selectedTaskID == task.id
         selectedTaskID = task.id
         gestureError = nil
         editing = TimelineGestureEdit(taskID: task.id, date: date, time: time,
                                       duration: duration,
                                       dayOffset: segment.continuesFromPreviousDay ? -1440 : 0,
-                                      edge: edge, directMove: directMove)
+                                      edge: edge)
         dragOriginOffset = scrollView?.contentOffset.y ?? timelineScrollOffset
         OrbitHaptics.longPress()
         OrbitHaptics.prepareTimeline()
@@ -573,40 +587,6 @@ struct DayTimelineView: View {
         gestureError = onCommitInterval(current, candidate.time, candidate.duration)
         if gestureError != nil { selectedTaskID = nil }
         else { OrbitHaptics.selection() }
-    }
-
-    private func moveGesture(task: OrbitTask, segment: TimelineSegment) -> AnyGesture<Void> {
-        if editing?.taskID == task.id ? editing?.directMove == true : selectedTaskID == task.id {
-            return AnyGesture(
-                DragGesture(minimumDistance: 3, coordinateSpace: .global)
-                    .updating($gestureActive) { _, state, _ in state = true }
-                    .onChanged { value in
-                        begin(.move, task: task, segment: segment)
-                        returningUntimed = onReturnHover(value.location)
-                        trackDrag(value.location, translation: value.translation.height)
-                    }
-                    .onEnded { _ in finish() }
-                    .map { _ in () }
-            )
-        }
-        return AnyGesture(LongPressGesture(minimumDuration: 0.4, maximumDistance: 10)
-            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
-            .updating($gestureActive) { _, state, _ in state = true }
-            .onChanged { value in
-                switch value {
-                // The first phase starts at touch-down, before the hold
-                // threshold. Only the second phase may enter edit mode.
-                case .second(true, let drag):
-                    begin(.move, task: task, segment: segment)
-                    if let drag {
-                        returningUntimed = onReturnHover(drag.location)
-                        trackDrag(drag.location, translation: drag.translation.height)
-                    }
-                default: break
-                }
-            }
-            .onEnded { _ in finish() }
-            .map { _ in () })
     }
 
     private func resizeHandle(_ edge: TaskTimelineAdjustment.Edge,

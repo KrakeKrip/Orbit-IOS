@@ -22,7 +22,8 @@ struct ThreeDayCalendarScreen: View {
     @State private var creating: Create?
     @State private var creationOrigin: Double?
     @State private var scroll: UIScrollView?
-    @State private var latestDrag: DragGesture.Value?
+    @State private var latestDrag: Pointer?
+    private struct Pointer { let location: CGPoint; let translation: CGSize }
     @State private var creationPoint: CGPoint?
     @State private var creationStart: CGPoint?
     @State private var creationScrollOrigin: CGFloat = 0
@@ -44,7 +45,6 @@ struct ThreeDayCalendarScreen: View {
         let duration: Int
         let column: Int
         let edge: TaskTimelineAdjustment.Edge
-        let directMove: Bool
         let scrollOrigin: CGFloat
         var targetDate: String
         var candidate: TaskTimelineAdjustment.Candidate?
@@ -269,7 +269,19 @@ struct ThreeDayCalendarScreen: View {
                 RoundedRectangle(cornerRadius: 3).stroke(.primary, lineWidth: 1.5).allowsHitTesting(false)
             }
         }
-        .simultaneousGesture(moveGesture(task, segment: segment, column: column, viewport: viewport))
+        .modifier(TimelineTaskHold(enabled: !model.isSelecting && creating == nil, ignoresResizeHandles: selectedTask == task.id) { state, start, point in
+            switch state {
+            case .began: begin(task, segment: segment, column: column, edge: .move)
+            case .changed:
+                guard edit?.taskID == task.id else { return }
+                update(Pointer(location: point, translation: CGSize(width: point.x - start.x, height: point.y - start.y)), viewport: viewport)
+            case .ended:
+                if edit?.taskID == task.id { finish() }
+            case .cancelled, .failed:
+                if edit?.taskID == task.id { edit = nil; latestDrag = nil }
+            default: break
+            }
+        })
         .overlay(alignment: .topTrailing) {
             if selectedTask == task.id && !model.isSelecting && !segment.continuesFromPreviousDay {
                 handle(.start, task: task, segment: segment, column: column, viewport: viewport).offset(x: 6, y: -12)
@@ -299,37 +311,20 @@ struct ThreeDayCalendarScreen: View {
             } label: { content() }
             .buttonStyle(.plain)
     }
-    private func moveGesture(_ task: OrbitTask, segment: TaskDayIntervalSegment,
-                             column: Int, viewport: GeometryProxy) -> AnyGesture<Void> {
-        if edit?.taskID == task.id ? edit?.directMove == true : selectedTask == task.id {
-            return AnyGesture(DragGesture(minimumDistance: 3, coordinateSpace: .global)
-                .updating($editingGesture) { _, state, _ in state = true }
-                .onChanged { value in begin(task, segment: segment, column: column, edge: .move); update(value, viewport: viewport) }
-                .onEnded { _ in finish() }.map { _ in () })
-        }
-        return AnyGesture(LongPressGesture(minimumDuration: 0.45, maximumDistance: 10)
-            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
-            .updating($editingGesture) { _, state, _ in state = true }
-            .onChanged { value in
-                if case .second(true, let drag) = value {
-                    begin(task, segment: segment, column: column, edge: .move)
-                    if let drag { update(drag, viewport: viewport) }
-                }
-            }.onEnded { _ in finish() }.map { _ in () })
-    }
-
     private func begin(_ task: OrbitTask, segment: TaskDayIntervalSegment, column: Int, edge: TaskTimelineAdjustment.Edge) {
         guard !model.isSelecting, edit == nil, let date = task.plannedDate,
               let time = task.plannedTime, let duration = task.durationMinutes else { return }
-        let directMove = selectedTask == task.id
         selectedTask = task.id
         error = nil
         edit = Edit(taskID: task.id, date: date, time: time, duration: duration,
-                    column: column, edge: edge, directMove: directMove,
+                    column: column, edge: edge,
                     scrollOrigin: scroll?.contentOffset.y ?? 0, targetDate: date)
         OrbitHaptics.longPress()
     }
     private func update(_ value: DragGesture.Value, viewport: GeometryProxy) {
+        update(Pointer(location: value.location, translation: value.translation), viewport: viewport)
+    }
+    private func update(_ value: Pointer, viewport: GeometryProxy) {
         guard var edit else { return }
         latestDrag = value
         let translation = value.translation.height + (scroll?.contentOffset.y ?? edit.scrollOrigin) - edit.scrollOrigin
