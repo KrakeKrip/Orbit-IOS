@@ -302,30 +302,9 @@ struct OrbitSettingsSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Оформление") {
-                    ForEach(OrbitAppearance.allCases) { option in
-                        Button {
-                            appearanceRaw = option.rawValue
-                            OrbitHaptics.selection()
-                        } label: {
-                            HStack {
-                                Circle().fill(option.canvas)
-                                    .overlay(Circle().stroke(.secondary.opacity(0.4), lineWidth: 1))
-                                    .frame(width: 22, height: 22)
-                                Text(option.title).foregroundStyle(.primary)
-                                Spacer()
-                                if appearanceRaw == option.rawValue {
-                                    Image(systemName: "checkmark").foregroundStyle(Color.orbitAccent)
-                                }
-                            }
-                            .frame(minHeight: 32)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityAddTraits(appearanceRaw == option.rawValue ? [.isSelected] : [])
-                    }
-                }
-                Section {
+                Section("Персонализация") {
+                    NavigationLink("Оформление") { OrbitAppearanceSettings() }
+                        .accessibilityIdentifier("appearance-settings")
                     NavigationLink("Иконка приложения") { OrbitAppIconSettings() }
                         .accessibilityIdentifier("app-icon-settings")
                 }
