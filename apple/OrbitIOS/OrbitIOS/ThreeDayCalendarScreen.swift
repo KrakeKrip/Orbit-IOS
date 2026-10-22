@@ -92,12 +92,14 @@ struct ThreeDayCalendarScreen: View {
                         .font(.subheadline).frame(maxWidth: .infinity, minHeight: 44)
                         .accessibilityLabel("Задачи за " + RussianDateCaption.label(selectedDay))
                         .accessibilityIdentifier("calendar-readable-day")
+                            .environment(\.dynamicTypeSize, .xxxLarge)
                     ScrollView {
                         VStack(spacing: 0) {
                             OverdueTaskBlock(model: model)
                             dayHeaders
                             untimedRows
-                        }.fixedSize(horizontal: false, vertical: true)
+                        }.environment(\.dynamicTypeSize, .xxxLarge)
+                        .fixedSize(horizontal: false, vertical: true)
                     }.frame(height: min(190, max(100, availableHeight * 0.28)))
                 } else {
                     OverdueTaskBlock(model: model)

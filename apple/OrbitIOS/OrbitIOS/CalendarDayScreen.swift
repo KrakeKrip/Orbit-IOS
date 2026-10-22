@@ -127,11 +127,13 @@ struct CalendarDayScreen: View {
                         Button("Задачи дня", systemImage: "list.bullet") { showsReadableDay = true }
                             .font(.subheadline).frame(maxWidth: .infinity, minHeight: 44)
                             .accessibilityIdentifier("calendar-readable-day")
+                            .environment(\.dynamicTypeSize, .xxxLarge)
                         ScrollView {
                             VStack(spacing: 0) {
                                 OverdueTaskBlock(model: model, projectID: projectID)
                                 untimedSection
-                            }.fixedSize(horizontal: false, vertical: true)
+                            }.environment(\.dynamicTypeSize, .xxxLarge)
+                            .fixedSize(horizontal: false, vertical: true)
                         }.frame(height: min(190, max(100, contentHeight * 0.28)))
                     } else {
                         OverdueTaskBlock(model: model, projectID: projectID)
