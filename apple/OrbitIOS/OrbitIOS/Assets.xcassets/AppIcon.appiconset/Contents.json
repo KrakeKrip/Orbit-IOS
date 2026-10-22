@@ -5,6 +5,30 @@
       "idiom": "universal",
       "platform": "ios",
       "size": "1024x1024"
+    },
+    {
+      "filename": "Dark.png",
+      "idiom": "universal",
+      "platform": "ios",
+      "size": "1024x1024",
+      "appearances": [
+        {
+          "appearance": "luminosity",
+          "value": "dark"
+        }
+      ]
+    },
+    {
+      "filename": "Tinted.png",
+      "idiom": "universal",
+      "platform": "ios",
+      "size": "1024x1024",
+      "appearances": [
+        {
+          "appearance": "luminosity",
+          "value": "tinted"
+        }
+      ]
     }
   ],
   "info": {

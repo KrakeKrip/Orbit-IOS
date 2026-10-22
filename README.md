@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="apple/OrbitIOS/OrbitIOS/Assets.xcassets/AppIcon.appiconset/OrbitIcon.png" width="112" alt="Иконка Orbit — чёрное кольцо с красным сектором на фоне слоновой кости" />
+  <img src="apple/OrbitIOS/OrbitIOS/Assets.xcassets/AppIcon.appiconset/OrbitIcon.png" width="112" alt="Иконка Orbit — графитовая открытая орбита с коралловой дугой на фоне слоновой кости" />
 
   <h1>Orbit</h1>
   <p><strong>Задачи и время — в одном месте.</strong></p>
@@ -233,3 +233,5 @@ swift test
 ---
 
 [Требования](PRODUCT.md) · [Архитектура](ARCHITECTURE.md) · [Дизайн](DESIGN.md) · [Задачи](TASKS.md) · [Решения](DECISIONS.md) · [Отчёты](reports/README.md)
+
+В настройках доступен выбор иконки приложения: три фона и четыре акцента, предпросмотр и применение. Выбор независим от темы интерфейса.

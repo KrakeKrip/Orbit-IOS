@@ -325,6 +325,10 @@ struct OrbitSettingsSheet: View {
                         .accessibilityAddTraits(appearanceRaw == option.rawValue ? [.isSelected] : [])
                     }
                 }
+                Section {
+                    NavigationLink("Иконка приложения") { OrbitAppIconSettings() }
+                        .accessibilityIdentifier("app-icon-settings")
+                }
                 Section("Уведомления") {
                     ReminderPermissionView(service: reminders)
                     NavigationLink {
