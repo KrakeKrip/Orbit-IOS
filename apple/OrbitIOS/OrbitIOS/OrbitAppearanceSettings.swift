@@ -2,6 +2,7 @@ import SwiftUI
 import UIKit
 
 struct OrbitAppearanceSettings: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.orbitAppearance) private var appearance
     @AppStorage("orbit.ui.appearance") private var appearanceRaw = OrbitAppearance.system.rawValue
     @AppStorage("orbit.ui.appearance.systemLight") private var lightRaw = OrbitAppearance.light.rawValue
@@ -45,6 +46,7 @@ struct OrbitAppearanceSettings: View {
                 .background(preview.canvas, in: RoundedRectangle(cornerRadius: 18))
                 .overlay(RoundedRectangle(cornerRadius: 18).stroke(appearance.secondaryText.opacity(0.25)))
                 .padding(.vertical, 6)
+                .environment(\.dynamicTypeSize, .large)
                 .environment(\.colorScheme, preview.colorScheme ?? systemScheme)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Предпросмотр темы: " + preview.title)
@@ -62,6 +64,7 @@ struct OrbitAppearanceSettings: View {
                             Text(option.title).foregroundStyle(.primary)
                             Spacer(minLength: 8)
                             Image(systemName: draft == option ? "checkmark.circle.fill" : "circle")
+                                .font(.system(size: 22))
                                 .foregroundStyle(draft == option ? Color.orbitAccent : appearance.secondaryText)
                         }.frame(minHeight: 36).contentShape(Rectangle())
                     }.buttonStyle(.plain)
@@ -102,6 +105,7 @@ struct OrbitAppearanceSettings: View {
                 Text("Применить тему").fontWeight(.semibold)
                     .frame(maxWidth: .infinity).padding(.vertical, 13)
             }
+            .environment(\.dynamicTypeSize, min(typeSize, .xxxLarge))
             .buttonStyle(.borderedProminent).tint(Color.orbitAccentFill)
             .disabled(unchanged).accessibilityIdentifier("appearance-apply")
             .padding(.horizontal, 20).padding(.vertical, 10).background(appearance.canvas)

@@ -66,11 +66,12 @@ private struct OverdueTaskContent: View {
                         LazyVStack(spacing: 0) {
                             ForEach(tasks) { task in
                                 HStack(spacing: 0) {
-                                    InboxRowView(task: task, model: model) { editor = .date(task) }
+                                    InboxRowView(task: task, model: model, showsProjectLabel: projectID == nil) { editor = .date(task) }
                                         onEditInterval: { editor = .interval(task) }
                                     if !model.isSelecting {
                                         Menu { moveActions([task.id]) } label: {
                                             Image(systemName: "arrow.turn.up.right")
+                                                .font(.system(size: 20))
                                                 .frame(width: 44, height: 44)
                                         }
                                         .accessibilityLabel("Перенести задачу: \(task.title)")
@@ -82,7 +83,7 @@ private struct OverdueTaskContent: View {
                         }
                         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { expandedHeight = $0 }
                     }
-                    .frame(height: min(230, max(44, expandedHeight)))
+                    .frame(height: min(typeSize.isAccessibilitySize ? 420 : 230, max(44, expandedHeight)))
                     .scrollBounceBehavior(.basedOnSize)
                 }
             }
