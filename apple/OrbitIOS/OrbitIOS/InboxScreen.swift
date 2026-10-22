@@ -147,6 +147,7 @@ struct InboxScreen: View {
 /// wrap instead of being truncated; hit areas are ≥ 44pt; rows are lower
 /// through explicit compact vertical List insets.
 struct InboxRowView: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.orbitAppearance) private var appearance
     let task: OrbitTask
     let model: IOSInboxModel
@@ -212,7 +213,12 @@ struct InboxRowView: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        // At accessibility sizes the control gets its own line, leaving the
+        // entire row width for names and metadata without reducing type size.
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
+        layout {
             CompletionButton(isCompleted: model.isSelecting ? model.selectedTaskIDs.contains(task.id) : task.isCompleted, showsCheckmark: !model.isSelecting) {
                 if model.isSelecting { model.toggleSelection(task) }
                 else { model.setCompleted(!task.isCompleted, for: task) }
@@ -242,7 +248,7 @@ struct InboxRowView: View {
         .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
         .listRowBackground(model.isSelecting && model.selectedTaskIDs.contains(task.id) ? Color.orbitAccent.opacity(0.12) : appearance.canvas)
         .alignmentGuide(.listRowSeparatorLeading) { dimensions in
-            dimensions[.leading] + 44 + 14
+            dimensions[.leading] + (typeSize.isAccessibilitySize ? 0 : 44 + 14)
         }
         .taskManagementHost(
             model: model,

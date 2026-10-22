@@ -25,7 +25,7 @@ struct OrbitCalendarDayTasks: View {
                         Text("На этот день задач нет")
                     } else {
                         ForEach(tasks) { task in
-                            InboxRowView(task: task, model: model, showsDateLabel: false) {
+                            InboxRowView(task: task, model: model, showsDateLabel: false, showsProjectLabel: projectID == nil) {
                                 editor = .date(task)
                             } onEditInterval: {
                                 editor = .interval(task)
