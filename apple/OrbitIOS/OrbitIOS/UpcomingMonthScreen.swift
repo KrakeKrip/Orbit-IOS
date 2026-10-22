@@ -9,6 +9,7 @@ struct UpcomingMonthScreen: View {
     @Binding var showsAgenda: Bool
     let referenceDay: String
     @Environment(\.orbitAppearance) private var appearance
+    @State private var monthReset = 0
     @State private var presentation: InboxSheetPresentation?
 
     private var selection: Binding<Date> {
@@ -23,12 +24,18 @@ struct UpcomingMonthScreen: View {
                 NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: $showsCalendar, agendaMode: $showsAgenda)) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Выбрано: " + RussianDateCaption.label(selectedDay))
-                        if selectedDay != referenceDay { Button("Сегодня") { selectedDay = TaskDaySelection.currentDay() }.frame(minHeight: 44) }
+                        Button("Сегодня") {
+                            selectedDay = TaskDaySelection.currentDay()
+                            // Browsing does not change selection, so reset the
+                            // grid even when today was already selected.
+                            monthReset += 1
+                        }.frame(minHeight: 44).accessibilityIdentifier("month-return-today")
                     }
                 }
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
                         MarkedMonthCalendar(selection: selection, taskDays: Set(model.tasks.compactMap(\.plannedDate))) {}
+                            .id(monthReset)
                         OverdueTaskBlock(model: model)
                         Divider()
                         Text(RussianDateCaption.label(selectedDay)).font(.headline).padding(.vertical, 8)

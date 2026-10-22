@@ -221,7 +221,8 @@ struct TaskCreateSheet: View {
                     dateSection
                     DisclosureGroup(isExpanded: $showsTime) { timeSection } label: {
                         LabeledContent("Время") {
-                            Text(timeEnabled ? (endPreview ?? startString) : "Без времени")
+                            Text(timeEnabled ? intervalSummary : "Без времени")
+                                .accessibilityIdentifier("create-interval-summary")
                                 .foregroundStyle(appearance.secondaryText)
                         }
                     }
@@ -444,6 +445,11 @@ struct TaskCreateSheet: View {
     /// Read-only derived end from the accepted helper; never stored. The
     /// «Закончится в …» prefix appears exactly once, with the overnight
     /// crossing marked.
+    private var intervalSummary: String {
+        guard let endPreview else { return startString }
+        return "\(startString)–\(endPreview)"
+    }
+
     private var endPreview: String? {
         guard timeEnabled, let draftDate,
             let end = TaskTimeInterval.end(

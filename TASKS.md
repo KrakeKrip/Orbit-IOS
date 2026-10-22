@@ -44,3 +44,5 @@ Web: https://github.com/KrakeKrip/Orbit-Web. macOS ожидает собстве
 - D04/D05: после удержания короткой/узкой задачи доступен точный редактор через панель; FAB скрывается на время выбора календарной задачи. [Реализация и границы проверки](reports/CALENDAR-INTERVAL-CONTROLS/README.md).
 
 - Маркеры календаря: центры на верхней/нижней границах, боковой отступ сохранён; оба resize проверены на synthetic Simulator. [Отчёт](reports/CALENDAR-HANDLE-POSITION/README.md).
+
+- D06/D07: полный диапазон в форме создания, возврат Today к текущему месяцу даже при уже выбранной сегодняшней дате. [Проверки](reports/AUDIT-TIME-DATE-CLARITY/README.md).
