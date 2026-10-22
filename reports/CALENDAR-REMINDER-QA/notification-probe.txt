@@ -1,0 +1,13 @@
+2026-10-22 10:46:09 +0000: Authorization: true
+2026-10-22 10:46:17 +0000: PASS authorized
+2026-10-22 10:46:17 +0000: PASS initial queue
+2026-10-22 10:46:17 +0000: PASS UTC trigger matches absolute instant
+2026-10-22 10:46:17 +0000: PASS rename and reschedule replace old request
+2026-10-22 10:46:17 +0000: PASS global silent sound replaces queued sound
+2026-10-22 10:46:17 +0000: PASS completion cancels
+2026-10-22 10:46:17 +0000: PASS clear cancels
+2026-10-22 10:46:17 +0000: PASS delete cancels
+2026-10-22 10:46:21 +0000: Delivery queued: 2, base 1792665982.0
+2026-10-22 10:46:37 +0000: FOREGROUND delegate received
+2026-10-22 10:47:32 +0000: Delivered: Foreground delivery, Terminated delivery
+2026-10-22 10:47:32 +0000: Pending: 0

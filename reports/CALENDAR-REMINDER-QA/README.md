@@ -55,7 +55,7 @@ All queue checks passed against `UNUserNotificationCenter`, not a fake:
 - Probe process terminated before the +45-second alarm. iOS displayed the `Terminated delivery` banner on the home screen while the process was absent.
 - After relaunch, `deliveredNotifications()` contained both alarms and the pending queue was empty.
 
-[Raw synthetic probe log](notification-probe.log). Foreground receipt 10:46:37 UTC; terminated delivery visible in CUA at approximately 10:47 UTC; delivered list read at 10:47:32 UTC. No synthetic remote push was used.
+[Raw synthetic probe log](notification-probe.txt). Foreground receipt 10:46:37 UTC; terminated delivery visible in CUA at approximately 10:47 UTC; delivered list read at 10:47:32 UTC. No synthetic remote push was used.
 
 The probe exercises the production native adapter and synchronizer; its foreground predicate deliberately returns true. It does **not** prove the full Orbit task-editor/store-to-delivery path or foreground stale-task suppression. A separate actual-app store-to-delivery check is described below. Existing fake-client tests cover revisions/in-flight replacement, permission denial/retry, idempotency, foreign capacity, sound changes and completion/clear/delete races.
 
