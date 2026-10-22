@@ -368,7 +368,8 @@ struct DayTimelineView: View {
         } label: {
             OrbitTimelineCard(title: task.title, range: range, completed: task.isCompleted,
                               height: paintedHeight, width: laneWidth(laneCount: laneCount, containerWidth: containerWidth), font: calendarFont,
-                              continuesFrom: segment.continuesFromPreviousDay, continuesInto: segment.continuesIntoNextDay)
+                              continuesFrom: segment.continuesFromPreviousDay, continuesInto: segment.continuesIntoNextDay,
+                              selected: model.isSelecting ? model.selectedTaskIDs.contains(task.id) : selectedTaskID == task.id)
         }
         .buttonStyle(TimelineTaskButtonStyle())
         .frame(

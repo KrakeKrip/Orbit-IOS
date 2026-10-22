@@ -18,6 +18,7 @@ import OrbitCore
 /// and keeps the draft. The derived «Закончится в …» preview is read-only
 /// via the accepted `TaskTimeInterval.end` and is never stored.
 struct TaskIntervalSheet: View {
+    @Environment(\.orbitAppearance) private var appearance
     let task: OrbitTask
     let model: IOSInboxModel
 
@@ -123,7 +124,7 @@ struct TaskIntervalSheet: View {
                         if savedDurationOffGrid, let legacy = legacyDurationMinutes {
                             Text("Сохранено: \(RussianDurationText.text(legacy)) — выберите новую длительность, кратную 5 минутам.")
                                 .font(.footnote)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(appearance.secondaryText)
                         }
                         HStack(alignment: .top, spacing: 0) {
                             wheelColumn("Часы") {
@@ -153,7 +154,7 @@ struct TaskIntervalSheet: View {
                 }
 
                 if removesInterval {
-                    Text("После сохранения задача останется без времени; дата сохранится.").font(.footnote).foregroundStyle(.secondary)
+                    Text("После сохранения задача останется без времени; дата сохранится.").font(.footnote).foregroundStyle(appearance.secondaryText)
                 }
                 Section {
                     LabeledContent("Дата") {
@@ -306,7 +307,7 @@ struct TaskIntervalSheet: View {
                 Text(title)
                 Spacer(minLength: 8)
                 Text(value)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(appearance.secondaryText)
                     .multilineTextAlignment(.trailing)
                 Image(systemName: expanded ? "chevron.up" : "chevron.down")
                     .font(.footnote.weight(.medium))
@@ -327,7 +328,7 @@ struct TaskIntervalSheet: View {
         VStack(spacing: 0) {
             Text(title)
                 .font(.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(appearance.secondaryText)
             Picker(title, selection: selection()) {
                 options()
             }

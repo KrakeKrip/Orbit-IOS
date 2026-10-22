@@ -11,10 +11,14 @@ struct OrbitTimelineCard: View {
     let font: CGFloat
     let continuesFrom: Bool
     let continuesInto: Bool
+    var selected = false
+    private var cornerRadius: CGFloat { min(8, max(0, height / 2)) }
     var body: some View {
         ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 8).fill(appearance.eventSurface)
-            RoundedRectangle(cornerRadius: 8).strokeBorder(completed ? appearance.secondaryText : Color.orbitAccent, lineWidth: 1)
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .fill(completed ? appearance.completedEventSurface : selected ? appearance.eventPreviewSurface : appearance.eventSurface)
+            Rectangle().fill(completed ? appearance.secondaryText : Color.orbitAccent)
+                .frame(width: 3)
             if height >= font + 8 {
                 VStack(alignment: .leading, spacing: 3) {
                     Text((completed ? "✓ " : "") + title).font(.system(size: font, weight: .medium))
@@ -23,7 +27,7 @@ struct OrbitTimelineCard: View {
                     if height >= font * 3 + 14 && width >= font * 8 {
                         Text(range).font(.caption.monospacedDigit()).lineLimit(1).foregroundStyle(appearance.secondaryText)
                     }
-                }.padding(.horizontal, 6).padding(.vertical, 4)
+                }.padding(.leading, 10).padding(.trailing, 6).padding(.vertical, 4)
             }
             if continuesFrom {
                 Image(systemName: "arrow.up.to.line").font(.system(size: 12, weight: .bold))
@@ -35,6 +39,6 @@ struct OrbitTimelineCard: View {
                         .foregroundStyle(Color.orbitAccent).frame(maxWidth: .infinity, alignment: .trailing).padding(3)
                 }
             }
-        }.clipped()
+        }.clipShape(RoundedRectangle(cornerRadius: cornerRadius))
     }
 }

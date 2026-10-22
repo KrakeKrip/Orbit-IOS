@@ -109,6 +109,7 @@ private struct OverdueTaskContent: View {
 }
 
 struct TaskRescheduleSheet: View {
+    @Environment(\.orbitAppearance) private var appearance
     let model: IOSInboxModel
     let ids: [UUID]
     var endsSelection = false
@@ -141,7 +142,7 @@ struct TaskRescheduleSheet: View {
                         .environment(\.locale, Locale(identifier: "ru_RU"))
                         .environment(\.calendar, Calendar.orbitCivil)
                 }
-                Section { Text("Время и длительность сохранятся. Дедлайн и напоминание не изменятся.").font(.footnote).foregroundStyle(.secondary) }
+                Section { Text("Время и длительность сохранятся. Дедлайн и напоминание не изменятся.").font(.footnote).foregroundStyle(appearance.secondaryText) }
                 if let error { OrbitErrorMessage(error) }
             }
             .orbitEditorSurface()

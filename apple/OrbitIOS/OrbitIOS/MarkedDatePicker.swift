@@ -30,6 +30,7 @@ struct MarkedDatePicker: View {
 /// Intrinsic height is header + weekday labels + 4/5/6 complete week rows.
 /// No UIKit intrinsic-size negotiation or fixed outer height can clip a week.
 struct MarkedMonthCalendar: View {
+    @Environment(\.orbitAppearance) private var appearance
     @Binding var selection: Date
     let taskDays: Set<String>
     let onSelect: () -> Void
@@ -115,7 +116,7 @@ struct MarkedMonthCalendar: View {
             } else {
                 LazyVGrid(columns: columns, spacing: 0) {
                     ForEach(weekdays, id: \.self) { weekday in
-                        Text(weekday).font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                        Text(weekday).font(.caption.weight(.medium)).foregroundStyle(appearance.secondaryText)
                             .frame(maxWidth: .infinity, minHeight: 24)
                     }
                     ForEach(Array(days.enumerated()), id: \.offset) { _, date in

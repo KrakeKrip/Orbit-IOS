@@ -48,7 +48,30 @@ extension OrbitAppearance {
         default: Color(uiColor: .secondarySystemBackground)
         }
     }
-    var eventSurface: Color { surface }
+    var eventSurface: Color {
+        switch self {
+        case .ivory: Color(red: 1, green: 0.992, blue: 0.973)
+        case .dark: Color(red: 0.169, green: 0.153, blue: 0.173)
+        case .oled: Color(red: 0.129, green: 0.118, blue: 0.137)
+        default: Color(uiColor: .secondarySystemBackground)
+        }
+    }
+    var eventPreviewSurface: Color {
+        if self == .oled { return Color(red: 0.188, green: 0.137, blue: 0.129) }
+        return Color(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor(red: 0.20, green: 0.153, blue: 0.145, alpha: 1)
+                : UIColor(red: 0.976, green: 0.89, blue: 0.863, alpha: 1)
+        })
+    }
+    var completedEventSurface: Color {
+        if self == .oled { return Color(red: 0.11, green: 0.102, blue: 0.118) }
+        return Color(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor(red: 0.145, green: 0.137, blue: 0.153, alpha: 1)
+                : UIColor(red: 0.937, green: 0.925, blue: 0.898, alpha: 1)
+        })
+    }
     var eventText: Color { .primary }
     var secondaryText: Color {
         Color(uiColor: UIColor { traits in
@@ -78,6 +101,7 @@ extension EnvironmentValues {
 private struct OrbitAppearanceKey: EnvironmentKey {
     static let defaultValue = OrbitAppearance.system
 }
+
 extension EnvironmentValues {
     var orbitAppearance: OrbitAppearance {
         get { self[OrbitAppearanceKey.self] }
@@ -269,7 +293,6 @@ struct OrbitSettingsButton: View {
 struct OrbitSettingsSheet: View {
     @Environment(OrbitReminderScheduler.self) private var reminders
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.colorScheme) private var inheritedColorScheme
     @AppStorage("orbit.ui.appearance") private var appearanceRaw = OrbitAppearance.system.rawValue
     @AppStorage("orbit.ui.haptics") private var haptics = true
     @AppStorage("orbit.ui.completionSound") private var completionSound = true
@@ -307,7 +330,9 @@ struct OrbitSettingsSheet: View {
                     NavigationLink {
                         OrbitSoundSettings()
                     } label: {
-                        LabeledContent("Звук", value: reminders.sound.title)
+                        LabeledContent("Звук") {
+                            Text(reminders.sound.title).foregroundStyle(selectedAppearance.secondaryText)
+                        }
                     }.accessibilityIdentifier("reminder-sound-settings")
                 }
                 Section("Отклик") {
@@ -326,7 +351,7 @@ struct OrbitSettingsSheet: View {
             }
         }
         .environment(\.orbitAppearance, selectedAppearance)
-        .environment(\.colorScheme, selectedAppearance.colorScheme ?? inheritedColorScheme)
+        .preferredColorScheme(selectedAppearance.colorScheme)
     }
 }
 

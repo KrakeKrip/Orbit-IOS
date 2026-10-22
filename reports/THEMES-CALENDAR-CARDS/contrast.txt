@@ -1,0 +1,24 @@
+Flat sRGB palette calculation, not native glass or rendered-pixel certification.
+Native light/dark surfaces are reference values; custom tokens match source.
+ivory primary: 20.65:1 PASS >=4.5
+ivory secondary: 6.58:1 PASS >=4.5
+dark primary: 14.68:1 PASS >=4.5
+dark secondary: 8.23:1 PASS >=4.5
+oled primary: 16.47:1 PASS >=4.5
+oled secondary: 9.23:1 PASS >=4.5
+light/native-light primary: 18.82:1 PASS >=4.5
+light/native-light secondary: 5.99:1 PASS >=4.5
+system-dark/native primary: 17.00:1 PASS >=4.5
+system-dark/native secondary: 9.53:1 PASS >=4.5
+selected-light primary: 17.04:1 PASS >=4.5
+selected-light secondary: 5.43:1 PASS >=4.5
+selected-dark primary: 14.40:1 PASS >=4.5
+selected-dark secondary: 8.07:1 PASS >=4.5
+selected-oled primary: 15.14:1 PASS >=4.5
+selected-oled secondary: 8.48:1 PASS >=4.5
+completed-light primary: 17.78:1 PASS >=4.5
+completed-light secondary: 5.66:1 PASS >=4.5
+completed-dark primary: 15.58:1 PASS >=4.5
+completed-dark secondary: 8.73:1 PASS >=4.5
+completed-oled primary: 17.27:1 PASS >=4.5
+completed-oled secondary: 9.67:1 PASS >=4.5

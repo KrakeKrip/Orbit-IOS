@@ -2,10 +2,11 @@ import SwiftUI
 import OrbitCore
 
 struct ReminderPermissionView: View {
+    @Environment(\.orbitAppearance) private var appearance
     let service: OrbitReminderScheduler
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(service.message).font(.footnote).foregroundStyle(.secondary)
+            Text(service.message).font(.footnote).foregroundStyle(appearance.secondaryText)
                 .accessibilityIdentifier("reminder-permission-status")
             if service.status.authorization == .notDetermined {
                 Button("Разрешить уведомления") { Task { await service.requestAuthorization() } }
@@ -27,6 +28,7 @@ struct ReminderPermissionView: View {
 }
 
 struct TaskReminderFields: View {
+    @Environment(\.orbitAppearance) private var appearance
     @Binding var value: Date?
     @Binding var expanded: Bool
     let service: OrbitReminderScheduler
@@ -86,7 +88,7 @@ struct TaskReminderFields: View {
                     }
                 }
                 Text("Время показано для текущего часового пояса. Перенос задачи не меняет напоминание.")
-                    .font(.footnote).foregroundStyle(.secondary)
+                    .font(.footnote).foregroundStyle(appearance.secondaryText)
                 ReminderPermissionView(service: service)
             }
         }

@@ -82,6 +82,7 @@ struct OrbitIOSApp: App {
                     if scenePhase == .active { model.reminders.refresh() }
                 }
                 .tint(.orbitAccent)
+                .background(appearance.canvas.ignoresSafeArea())
                 .environment(\.orbitAppearance, appearance)
                 .preferredColorScheme(appearance.colorScheme)
                 .onChange(of: selectedTab) { _, _ in model.endSelection(); OrbitHaptics.selection() }

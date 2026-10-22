@@ -174,7 +174,7 @@ struct UpcomingAgendaScreen: View {
                 ForEach(Array(week.enumerated()), id: \.offset) { index, day in
                     VStack(spacing: 2) {
                         Text(["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "ВС"][index])
-                            .font(.caption2.weight(.medium)).foregroundStyle(.secondary)
+                            .font(.caption2.weight(.medium)).foregroundStyle(appearance.secondaryText)
                         if let day, let date = TaskPlannedDate.date(fromCivilDateString: day, calendar: calendar) {
                             Button { navigate(to: day) } label: {
                                 VStack(spacing: 2) {

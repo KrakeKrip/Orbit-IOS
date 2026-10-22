@@ -21,11 +21,13 @@ struct TaskActionPopoverButton<Content: View>: View {
     let onAction: (OrbitTaskAction) -> Void
     @ViewBuilder let label: () -> Content
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.orbitAppearance) private var appearance
     @State private var isPresented = false
     @State private var sourceSize = CGSize(width: 1, height: 1)
     @State private var tapAnchor = UnitPoint.center
     @State private var sourceFrame: CGRect = .zero
+    @State private var sourceViewport: CGRect?
     @State private var wantsProject = false
     @State private var showsProject = false
     @State private var wantsReminder = false
@@ -49,6 +51,11 @@ struct TaskActionPopoverButton<Content: View>: View {
                 sourceFrame = $0
                 sourceSize = $0.size
             }
+            .onGeometryChange(for: CGRect?.self) { geometry in
+                guard let bounds = geometry.bounds(of: .scrollView) else { return nil }
+                let origin = geometry.frame(in: .global).origin
+                return bounds.offsetBy(dx: origin.x, dy: origin.y)
+            } action: { sourceViewport = $0 }
             .simultaneousGesture(SpatialTapGesture().onEnded { value in
                 guard !model.isSelecting, anchorsAtTap, canOpen() else { return }
                 tapAnchor = UnitPoint(
@@ -64,7 +71,7 @@ struct TaskActionPopoverButton<Content: View>: View {
                 OrbitHaptics.longPress()
                 setPresented(true)
             })
-            .popover(isPresented: Binding(get: { isPresented }, set: { setPresented($0) }), attachmentAnchor: anchorsAtTap ? .point(tapAnchor) : .rect(.bounds), arrowEdge: preferredArrowEdge) {
+            .popover(isPresented: Binding(get: { isPresented }, set: { setPresented($0) }), attachmentAnchor: .point(presentationAnchor), arrowEdge: preferredArrowEdge) {
                 ScrollView {
                   VStack(spacing: 0) {
                     TaskActionPreview(task: task, range: range, reminders: model.reminders)
@@ -87,6 +94,9 @@ struct TaskActionPopoverButton<Content: View>: View {
                   }
                   .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measuredMenuHeight = $0 }
                 }
+                // Like the pinned editor actions, this compact action surface
+                // caps chrome scaling; the task row itself keeps full AX size.
+                .environment(\.dynamicTypeSize, min(typeSize, .accessibility1))
                 .scrollBounceBehavior(.basedOnSize)
                 .frame(minWidth: 0, idealWidth: previewWidth, maxWidth: previewWidth, alignment: .leading)
                 .frame(height: min(availableMenuHeight, measuredMenuHeight > 0 ? measuredMenuHeight : menuRowHeight * 8 + previewHeight + 20))
@@ -129,13 +139,24 @@ struct TaskActionPopoverButton<Content: View>: View {
     // A vertical arrow keeps the menu out of narrow side gutters. Choose
     // the half with more room and let the ScrollView fit that real space.
     private var preferredArrowEdge: Edge {
-        guard anchorsAtTap, let viewport = calendarViewport else { return .top }
-        return sourceFrame.minY + sourceSize.height * tapAnchor.y > viewport.midY ? .bottom : .top
+        guard let viewport = calendarViewport ?? sourceViewport else { return .top }
+        return sourceFrame.minY + sourceSize.height * presentationAnchor.y > viewport.midY ? .bottom : .top
+    }
+
+    private var presentationAnchor: UnitPoint {
+        if anchorsAtTap { return tapAnchor }
+        guard let viewport = sourceViewport else { return .center }
+        let visible = sourceFrame.intersection(viewport)
+        guard !visible.isNull, !visible.isEmpty else { return .center }
+        // A large Dynamic Type row may extend well beyond the viewport. A
+        // bounds attachment would put its arrow on an invisible edge.
+        return UnitPoint(x: (visible.midX - sourceFrame.minX) / max(1, sourceSize.width),
+                         y: (visible.midY - sourceFrame.minY) / max(1, sourceSize.height))
     }
 
     private var availableMenuHeight: CGFloat {
-        guard anchorsAtTap, let viewport = calendarViewport else { return maximumHeight }
-        let y = min(viewport.maxY, max(viewport.minY, sourceFrame.minY + sourceSize.height * tapAnchor.y))
+        guard let viewport = calendarViewport ?? sourceViewport else { return maximumHeight }
+        let y = min(viewport.maxY, max(viewport.minY, sourceFrame.minY + sourceSize.height * presentationAnchor.y))
         let room = preferredArrowEdge == .bottom ? y - viewport.minY : viewport.maxY - y
         return min(maximumHeight, max(44, room - 24))
     }

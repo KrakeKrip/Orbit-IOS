@@ -218,7 +218,10 @@ struct TaskCreateSheet: View {
                     .accessibilityIdentifier("create-project-picker")
                     dateSection
                     DisclosureGroup(isExpanded: $showsTime) { timeSection } label: {
-                        LabeledContent("Время", value: timeEnabled ? (endPreview ?? startString) : "Без времени")
+                        LabeledContent("Время") {
+                            Text(timeEnabled ? (endPreview ?? startString) : "Без времени")
+                                .foregroundStyle(appearance.secondaryText)
+                        }
                     }
                 }
                 Section {
@@ -294,7 +297,7 @@ struct TaskCreateSheet: View {
                     if !enabled { timeEnabled = false }
                 }))
                 if draftDate == nil {
-                    Text("Без даты. Включите дату, чтобы выбрать день.").font(.footnote).foregroundStyle(.secondary)
+                    Text("Без даты. Включите дату, чтобы выбрать день.").font(.footnote).foregroundStyle(appearance.secondaryText)
                 }
                 DatePicker(
                     "Дата",
@@ -330,7 +333,7 @@ struct TaskCreateSheet: View {
             if draftDate == nil {
                 Text("Сначала выберите дату")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(appearance.secondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityIdentifier("create-time-hint")
             }
@@ -536,7 +539,7 @@ struct TaskCreateSheet: View {
                 Text(title)
                 Spacer(minLength: 8)
                 Text(value)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(appearance.secondaryText)
                     .multilineTextAlignment(.trailing)
                 Image(systemName: expanded ? "chevron.up" : "chevron.down")
                     .font(.footnote.weight(.medium))
@@ -557,7 +560,7 @@ struct TaskCreateSheet: View {
         VStack(spacing: 0) {
             Text(title)
                 .font(.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(appearance.secondaryText)
             Picker(title, selection: selection()) {
                 options()
             }

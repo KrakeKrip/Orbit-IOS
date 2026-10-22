@@ -287,7 +287,8 @@ struct ThreeDayCalendarScreen: View {
         return actionButton(task, range: "\(clock(segment.startMinute))–\(clock(segment.endMinute))", viewport: viewport.frame(in: .global)) {
             OrbitTimelineCard(title: task.title, range: "\(clock(segment.startMinute))–\(clock(segment.endMinute))",
                               completed: task.isCompleted, height: height, width: width, font: calendarFont,
-                              continuesFrom: segment.continuesFromPreviousDay, continuesInto: segment.continuesIntoNextDay)
+                              continuesFrom: segment.continuesFromPreviousDay, continuesInto: segment.continuesIntoNextDay,
+                              selected: model.isSelecting ? model.selectedTaskIDs.contains(task.id) : selectedTask == task.id)
                 .frame(width: width, height: height, alignment: .topLeading)
         }
         .modifier(TimelineTaskHold(enabled: !model.isSelecting && creating == nil, ignoresResizeHandles: selectedTask == task.id && height >= 44 && width >= 88) { state, start, point in

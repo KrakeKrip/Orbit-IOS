@@ -3,6 +3,7 @@ import OrbitCore
 
 /// A deadline is an independent end-of-day limit, not a calendar appointment.
 struct TaskDeadlineFields: View {
+    @Environment(\.orbitAppearance) private var appearance
     @Binding var value: String?
     @Binding var expanded: Bool
     @State private var pickerDate: Date
@@ -54,7 +55,7 @@ struct TaskDeadlineFields: View {
 
             }
             Text("Срок до конца дня. Дата и время выполнения задаются отдельно.")
-                .font(.footnote).foregroundStyle(.secondary)
+                .font(.footnote).foregroundStyle(appearance.secondaryText)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -64,7 +65,7 @@ struct TaskDeadlineFields: View {
     }
     private var deadlineCaption: some View {
         Text(value.map(RussianDateCaption.label) ?? "Без срока")
-            .foregroundStyle(.secondary)
+            .foregroundStyle(appearance.secondaryText)
             .fixedSize(horizontal: false, vertical: true)
     }
     private var disclosure: some View {

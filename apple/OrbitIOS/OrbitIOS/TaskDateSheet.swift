@@ -3,6 +3,7 @@ import OrbitCore
 
 /// Optional civil date draft with pinned native actions; opening and cancellation never write.
 struct TaskDateSheet: View {
+    @Environment(\.orbitAppearance) private var appearance
     let task: OrbitTask
     let model: IOSInboxModel
 
@@ -50,7 +51,7 @@ struct TaskDateSheet: View {
                 }
                 if !hasDate {
                     Text("Без даты. Время и длительность тоже будут убраны после сохранения.")
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .font(.footnote).foregroundStyle(appearance.secondaryText)
                 }
 
             }
