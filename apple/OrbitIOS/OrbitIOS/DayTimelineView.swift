@@ -588,7 +588,10 @@ struct DayTimelineView: View {
         Circle().fill(.white)
             .overlay(Circle().stroke(Color.orbitAccent, lineWidth: 1.5))
             .frame(width: 12, height: 12)
-            .frame(width: 44, height: 44)
+            // Put the visible centre on the time boundary, retaining the
+            // horizontal inset and the existing inward 44-point touch region.
+            .offset(y: edge == .start ? -6 : 6)
+            .frame(width: 44, height: 44, alignment: edge == .start ? .top : .bottom)
             .contentShape(Rectangle())
             .accessibilityLabel(edge == .start ? "Изменить начало" : "Изменить конец")
             .highPriorityGesture(

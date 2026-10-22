@@ -42,3 +42,5 @@ Web: https://github.com/KrakeKrip/Orbit-Web. macOS ожидает собстве
 - Для «Как на устройстве» реализован выбор светлой/тёмной пары с сохранением и переключением по системе. [Проверки](reports/SYSTEM-THEME-PAIR/README.md).
 
 - D04/D05: после удержания короткой/узкой задачи доступен точный редактор через панель; FAB скрывается на время выбора календарной задачи. [Реализация и границы проверки](reports/CALENDAR-INTERVAL-CONTROLS/README.md).
+
+- Маркеры календаря: центры на верхней/нижней границах, боковой отступ сохранён; оба resize проверены на synthetic Simulator. [Отчёт](reports/CALENDAR-HANDLE-POSITION/README.md).

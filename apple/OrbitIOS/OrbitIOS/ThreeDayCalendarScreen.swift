@@ -399,7 +399,9 @@ struct ThreeDayCalendarScreen: View {
     private func handle(_ edge: TaskTimelineAdjustment.Edge, task: OrbitTask, segment: TaskDayIntervalSegment,
                         column: Int, viewport: GeometryProxy) -> some View {
         Circle().fill(.white).overlay(Circle().stroke(Color.orbitAccent)).frame(width: 10, height: 10)
-            .frame(width: 44, height: 44).contentShape(Rectangle())
+            .offset(y: edge == .start ? -5 : 5)
+            .frame(width: 44, height: 44, alignment: edge == .start ? .top : .bottom)
+            .contentShape(Rectangle())
             .accessibilityHint("Можно также изменить время через меню задачи")
             .accessibilityLabel(edge == .start ? "Изменить начало" : "Изменить конец")
             .highPriorityGesture(DragGesture(minimumDistance: 0, coordinateSpace: .global)
