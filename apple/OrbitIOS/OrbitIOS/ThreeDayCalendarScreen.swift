@@ -127,6 +127,15 @@ struct ThreeDayCalendarScreen: View {
             }
             .taskManagementHost(model: model, renamePresentation: $rename, deletePresentation: $deletion)
         }
+        .preference(key: OrbitCalendarEditingKey.self, value: selectedTask != nil && !model.isSelecting)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if !model.isSelecting, edit == nil, let id = selectedTask, let selected = task(id) {
+                OrbitCalendarIntervalControls(title: selected.title, onEdit: {
+                    selectedTask = nil
+                    editor = .interval(selected)
+                }, onClose: { selectedTask = nil })
+            }
+        }
         .onChange(of: selectedDay) { _, day in
             if !days.contains(day) { anchorDay = day }
             edit = nil; selectedTask = nil
@@ -143,7 +152,7 @@ struct ThreeDayCalendarScreen: View {
                 creationStart = nil; creationOrigin = nil; selectedTask = nil
             }
         }
-        .onDisappear { edit = nil; latestDrag = nil; creating = nil; creationPoint = nil; scroll = nil }
+        .onDisappear { edit = nil; latestDrag = nil; creating = nil; creationPoint = nil; scroll = nil; selectedTask = nil }
     }
     private func page(_ delta: Int) {
         guard let next = TaskTimelineWindow.shift(days.first ?? anchorDay, by: delta) else { return }

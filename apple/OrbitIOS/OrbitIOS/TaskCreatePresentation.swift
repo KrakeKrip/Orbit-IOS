@@ -74,6 +74,7 @@ private struct OrbitCreateHostModifier: ViewModifier {
 
 /// One safe-area placement shared by task and project creation.
 private struct OrbitFloatingActionModifier: ViewModifier {
+    @State private var calendarEditing = false
     @Environment(IOSInboxModel.self) private var model
     let label: String
     let identifier: String
@@ -84,13 +85,14 @@ private struct OrbitFloatingActionModifier: ViewModifier {
             Color.clear.frame(height: 0)
                 .overlay(alignment: .bottomTrailing) {
                     OrbitCreateButton(action: action, label: label, identifier: identifier)
-                        .allowsHitTesting(enabled && !model.isSelecting)
-                        .accessibilityHidden(!enabled || model.isSelecting)
-                        .opacity(model.isSelecting ? 0 : 1)
+                        .allowsHitTesting(enabled && !model.isSelecting && !calendarEditing)
+                        .accessibilityHidden(!enabled || model.isSelecting || calendarEditing)
+                        .opacity(model.isSelecting || calendarEditing ? 0 : 1)
                         .padding(.trailing, 16)
                         .padding(.bottom, 16)
                 }
         }
+        .onPreferenceChange(OrbitCalendarEditingKey.self) { calendarEditing = $0 }
     }
 }
 

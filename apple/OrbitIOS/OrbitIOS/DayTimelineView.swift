@@ -149,10 +149,19 @@ struct DayTimelineView: View {
                 }
             }
         }
+        .preference(key: OrbitCalendarEditingKey.self, value: selectedTaskID != nil && !model.isSelecting)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if !model.isSelecting, editing == nil, let id = selectedTaskID, let selected = task(id) {
+                OrbitCalendarIntervalControls(title: selected.title, onEdit: {
+                    selectedTaskID = nil
+                    onEditInterval(selected)
+                }, onClose: { selectedTaskID = nil })
+            }
+        }
         .onChange(of: creationSheetPresented) { _, presented in
             if !presented { clearCreation() }
         }
-        .onChange(of: day) { _, _ in creationDraft = nil; creationDay = nil; editing = nil; dragPoint = nil }
+        .onChange(of: day) { _, _ in creationDraft = nil; creationDay = nil; editing = nil; dragPoint = nil; selectedTaskID = nil }
         .onChange(of: gestureActive) { _, active in
             if !active {
                 // Also clears drafts for recognizer cancellation, after onEnded.
