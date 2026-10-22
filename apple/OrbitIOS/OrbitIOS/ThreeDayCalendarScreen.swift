@@ -215,10 +215,19 @@ struct ThreeDayCalendarScreen: View {
             ForEach(ids, id: \.self) { id in
                 if let task = task(id) {
                     actionButton(task, range: RussianDateCaption.label(task.plannedDate ?? selectedDay), viewport: nil) {
-                        Text(task.title).font(.subheadline).lineLimit(typeSize.isAccessibilitySize ? nil : 2).fixedSize(horizontal: false, vertical: true)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        HStack(spacing: 5) {
+                            if model.isSelecting {
+                                Circle().fill(model.selectedTaskIDs.contains(id) ? Color.orbitAccentFill : Color.clear)
+                                    .overlay(Circle().strokeBorder(model.selectedTaskIDs.contains(id) ? Color.orbitAccent : appearance.secondaryText, lineWidth: 1.5))
+                                    .frame(width: 14, height: 14).accessibilityHidden(true)
+                            }
+                            Text((task.isCompleted ? "✓ " : "") + task.title).font(.subheadline)
+                                .lineLimit(typeSize.isAccessibilitySize ? nil : 2).fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
                             .frame(minHeight: untimedRowHeight).padding(.horizontal, 4)
                             .background(appearance.surface, in: RoundedRectangle(cornerRadius: 8))
+                            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(model.isSelecting && model.selectedTaskIDs.contains(id) ? Color.orbitAccent : .clear, lineWidth: 2))
                     }
                 }
             }
@@ -288,7 +297,8 @@ struct ThreeDayCalendarScreen: View {
             OrbitTimelineCard(title: task.title, range: "\(clock(segment.startMinute))–\(clock(segment.endMinute))",
                               completed: task.isCompleted, height: height, width: width, font: calendarFont,
                               continuesFrom: segment.continuesFromPreviousDay, continuesInto: segment.continuesIntoNextDay,
-                              selected: model.isSelecting ? model.selectedTaskIDs.contains(task.id) : selectedTask == task.id)
+                              selected: model.isSelecting ? model.selectedTaskIDs.contains(task.id) : selectedTask == task.id,
+                              selectionMode: model.isSelecting)
                 .frame(width: width, height: height, alignment: .topLeading)
         }
         .modifier(TimelineTaskHold(enabled: !model.isSelecting && creating == nil, ignoresResizeHandles: selectedTask == task.id && height >= 44 && width >= 88) { state, start, point in

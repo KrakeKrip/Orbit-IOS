@@ -369,7 +369,8 @@ struct DayTimelineView: View {
             OrbitTimelineCard(title: task.title, range: range, completed: task.isCompleted,
                               height: paintedHeight, width: laneWidth(laneCount: laneCount, containerWidth: containerWidth), font: calendarFont,
                               continuesFrom: segment.continuesFromPreviousDay, continuesInto: segment.continuesIntoNextDay,
-                              selected: model.isSelecting ? model.selectedTaskIDs.contains(task.id) : selectedTaskID == task.id)
+                              selected: model.isSelecting ? model.selectedTaskIDs.contains(task.id) : selectedTaskID == task.id,
+                              selectionMode: model.isSelecting)
         }
         .buttonStyle(TimelineTaskButtonStyle())
         .frame(
@@ -400,7 +401,7 @@ struct DayTimelineView: View {
             }
         })
         .overlay {
-            if model.isSelecting ? model.selectedTaskIDs.contains(task.id) : selectedTaskID == task.id {
+            if !model.isSelecting && selectedTaskID == task.id {
                 RoundedRectangle(cornerRadius: 3).stroke(Color.orbitAccent, lineWidth: 2)
                     .allowsHitTesting(false)
             }
@@ -419,11 +420,11 @@ struct DayTimelineView: View {
         .orbitMenuFeedback()
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(InboxRowView.accessibilitySummary(task, notificationsDenied: model.reminders.status.authorization == .denied) + (segment.continuesFromPreviousDay ? ", продолжение с предыдущего дня" : "") + (segment.continuesIntoNextDay ? ", продолжается на следующий день" : ""))
-        .accessibilityHint("Нажмите для меню; удерживайте для переноса и изменения границ. Короткие задачи доступны также в меню «Задачи дня».")
+        .accessibilityHint(model.isSelecting ? "Нажмите, чтобы изменить выбор задачи." : "Нажмите для меню; удерживайте для переноса и изменения границ. Короткие задачи доступны также в меню «Задачи дня».")
         .accessibilityAddTraits(.isButton)
         .accessibilityAction(named: "Изменить время") { onEditInterval(task) }
         .accessibilityAction(named: "Изменить дату") { onEditDate(task) }
-        .accessibilityAddTraits(task.isCompleted ? [.isSelected] : [])
+        .accessibilityAddTraits(model.isSelecting && model.selectedTaskIDs.contains(task.id) ? [.isSelected] : [])
         // Position is outside the local gesture and popover source.
         .position(
             x: blockX(laneIndex: laneIndex, laneCount: laneCount, containerWidth: containerWidth)

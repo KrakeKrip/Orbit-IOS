@@ -12,6 +12,7 @@ struct OrbitTimelineCard: View {
     let continuesFrom: Bool
     let continuesInto: Bool
     var selected = false
+    var selectionMode = false
     private var cornerRadius: CGFloat { min(8, max(0, height / 2)) }
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -27,7 +28,7 @@ struct OrbitTimelineCard: View {
                     if height >= font * 3 + 14 && width >= font * 8 {
                         Text(range).font(.caption.monospacedDigit()).lineLimit(1).foregroundStyle(appearance.secondaryText)
                     }
-                }.padding(.leading, 10).padding(.trailing, 6).padding(.vertical, 4)
+                }.padding(.leading, selectionMode ? 27 : 10).padding(.trailing, 6).padding(.vertical, 4)
             }
             if continuesFrom {
                 Image(systemName: "arrow.up.to.line").font(.system(size: 12, weight: .bold))
@@ -40,5 +41,19 @@ struct OrbitTimelineCard: View {
                 }
             }
         }.clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+        .overlay {
+            if selectionMode && selected {
+                RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(Color.orbitAccent, lineWidth: 2)
+                    .allowsHitTesting(false)
+            }
+        }
+        .overlay(alignment: .topLeading) {
+            if selectionMode && height >= 20 && width >= 35 {
+                Circle().fill(selected ? Color.orbitAccentFill : appearance.eventSurface)
+                    .overlay(Circle().strokeBorder(selected ? Color.orbitAccent : appearance.secondaryText, lineWidth: 1.5))
+                    .frame(width: 14, height: 14).padding(.leading, 8).padding(.top, 5)
+                    .allowsHitTesting(false).accessibilityHidden(true)
+            }
+        }
     }
 }
