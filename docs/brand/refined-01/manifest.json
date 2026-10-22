@@ -1,0 +1,131 @@
+{
+  "stage": "design proposal; not integrated",
+  "geometry": {
+    "canvas": 512,
+    "centre": [
+      260,
+      256
+    ],
+    "radius": 155,
+    "stroke": 42,
+    "main_arc": [
+      40,
+      290
+    ],
+    "accent_arc": [
+      325,
+      370
+    ]
+  },
+  "default": "ivory-coral",
+  "variants": [
+    {
+      "id": "ivory-coral",
+      "label": "Слоновая кость · Коралл",
+      "background": "#F7F3E9",
+      "ring": "#282725",
+      "accent": "#E56C5C",
+      "svg": "assets/ivory-coral.svg",
+      "png": "assets/ivory-coral-1024.png"
+    },
+    {
+      "id": "ivory-sage",
+      "label": "Слоновая кость · Шалфей",
+      "background": "#F7F3E9",
+      "ring": "#282725",
+      "accent": "#547B68",
+      "svg": "assets/ivory-sage.svg",
+      "png": "assets/ivory-sage-1024.png"
+    },
+    {
+      "id": "ivory-blue",
+      "label": "Слоновая кость · Синий",
+      "background": "#F7F3E9",
+      "ring": "#282725",
+      "accent": "#527EAA",
+      "svg": "assets/ivory-blue.svg",
+      "png": "assets/ivory-blue-1024.png"
+    },
+    {
+      "id": "ivory-lilac",
+      "label": "Слоновая кость · Сирень",
+      "background": "#F7F3E9",
+      "ring": "#282725",
+      "accent": "#8970A8",
+      "svg": "assets/ivory-lilac.svg",
+      "png": "assets/ivory-lilac-1024.png"
+    },
+    {
+      "id": "white-coral",
+      "label": "Белая · Коралл",
+      "background": "#FFFFFF",
+      "ring": "#282725",
+      "accent": "#E56C5C",
+      "svg": "assets/white-coral.svg",
+      "png": "assets/white-coral-1024.png"
+    },
+    {
+      "id": "white-sage",
+      "label": "Белая · Шалфей",
+      "background": "#FFFFFF",
+      "ring": "#282725",
+      "accent": "#547B68",
+      "svg": "assets/white-sage.svg",
+      "png": "assets/white-sage-1024.png"
+    },
+    {
+      "id": "white-blue",
+      "label": "Белая · Синий",
+      "background": "#FFFFFF",
+      "ring": "#282725",
+      "accent": "#527EAA",
+      "svg": "assets/white-blue.svg",
+      "png": "assets/white-blue-1024.png"
+    },
+    {
+      "id": "white-lilac",
+      "label": "Белая · Сирень",
+      "background": "#FFFFFF",
+      "ring": "#282725",
+      "accent": "#8970A8",
+      "svg": "assets/white-lilac.svg",
+      "png": "assets/white-lilac-1024.png"
+    },
+    {
+      "id": "night-coral",
+      "label": "Ночная · Коралл",
+      "background": "#17171B",
+      "ring": "#F4F0E8",
+      "accent": "#F18A79",
+      "svg": "assets/night-coral.svg",
+      "png": "assets/night-coral-1024.png"
+    },
+    {
+      "id": "night-sage",
+      "label": "Ночная · Шалфей",
+      "background": "#17171B",
+      "ring": "#F4F0E8",
+      "accent": "#8CB69A",
+      "svg": "assets/night-sage.svg",
+      "png": "assets/night-sage-1024.png"
+    },
+    {
+      "id": "night-blue",
+      "label": "Ночная · Синий",
+      "background": "#17171B",
+      "ring": "#F4F0E8",
+      "accent": "#83A9D1",
+      "svg": "assets/night-blue.svg",
+      "png": "assets/night-blue-1024.png"
+    },
+    {
+      "id": "night-lilac",
+      "label": "Ночная · Сирень",
+      "background": "#17171B",
+      "ring": "#F4F0E8",
+      "accent": "#BA9CCE",
+      "svg": "assets/night-lilac.svg",
+      "png": "assets/night-lilac-1024.png"
+    }
+  ]
+}
