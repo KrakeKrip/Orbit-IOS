@@ -55,6 +55,11 @@ struct TaskActionPopoverButton<Content: View>: View {
                     x: min(1, max(0, value.location.x / max(1, sourceSize.width))),
                     y: min(1, max(0, value.location.y / max(1, sourceSize.height))))
             })
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction {
+                if model.isSelecting { model.toggleSelection(task) }
+                else if canOpen() { setPresented(true) }
+            }
             .modifier(TaskPopoverHoldModifier(enabled: opensOnHold && !model.isSelecting) {
                 OrbitHaptics.longPress()
                 setPresented(true)
@@ -150,22 +155,31 @@ struct TaskActionPopoverButton<Content: View>: View {
 }
 
 struct TaskActionPreview: View {
+    @Environment(\.orbitAppearance) private var badgeAppearance
+
     let task: OrbitTask
     let range: String
     let reminders: OrbitReminderScheduler
+    @Environment(\.orbitAppearance) private var appearance
+    private static func fullRange(_ task: OrbitTask) -> String? {
+        guard let date = task.plannedDate, let time = task.plannedTime,
+              let duration = task.durationMinutes,
+              let end = TaskTimeInterval.end(plannedDate: date, plannedTime: time, durationMinutes: duration) else { return nil }
+        if end.date == date { return RussianDateCaption.label(date) + " · " + time + "–" + end.time }
+        return RussianDateCaption.label(date) + " · " + time + " → " + RussianDateCaption.label(end.date) + " · " + end.time
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(task.title).font(.headline).lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
-            Text(range).font(.subheadline.monospacedDigit())
+            Text(Self.fullRange(task) ?? range).font(.footnote.monospacedDigit()).foregroundStyle(badgeAppearance.secondaryText)
             TaskDeadlineBadge(task: task, preview: true)
             TaskReminderBadge(task: task, service: reminders, preview: true)
         }
-        .foregroundStyle(.white)
-        .padding(14)
+        .foregroundStyle(.primary)
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(task.isCompleted ? Color.gray : Color.orbitAccent,
-                    in: RoundedRectangle(cornerRadius: 10))
+        .background(appearance.surface, in: RoundedRectangle(cornerRadius: 12))
         .accessibilityIdentifier("calendar-task-menu-preview")
     }
 }
@@ -177,7 +191,7 @@ private struct OrbitTaskActionStyle: ButtonStyle {
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .padding(.horizontal, 16)
-            .foregroundStyle(configuration.role == .destructive ? Color.red : Color.primary)
+            .foregroundStyle(configuration.role == .destructive ? Color.orbitError : Color.primary)
             .contentShape(Rectangle())
             .background(configuration.isPressed ? Color.primary.opacity(0.08) : .clear)
     }

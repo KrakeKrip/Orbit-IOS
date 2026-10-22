@@ -1,0 +1,7 @@
+sRGB relative luminance, formula (Lmax + 0.05) / (Lmin + 0.05).
+Source colors, not measured display pixels.
+Текущий accent / white: 3.57:1
+Текущий accent 85% на ivory / white: 3.02:1
+Текущий accent / ivory: 3.27:1
+Предложение action / white: 5.39:1
+Предложение secondary / ivory: 5.44:1

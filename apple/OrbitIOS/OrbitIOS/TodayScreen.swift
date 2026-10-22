@@ -27,14 +27,10 @@ struct TodayScreen: View {
         NavigationStack {
             VStack(spacing: 0) {
                 if let todayMode {
-                    NativeModeHeader(switcher: TodayModeSwitcher(showsCalendar: todayMode))
+                    NativeModeHeader(switcher: TodayModeSwitcher(showsCalendar: todayMode)) {
+                        Text(dateCaption).font(.subheadline).accessibilityIdentifier("today-date-heading")
+                    }
                 }
-                Text(dateCaption)
-                    .font(.title2.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16).padding(.vertical, 12)
-                    .accessibilityIdentifier("today-date-heading")
                 OverdueTaskBlock(model: model)
                 if let writeError = model.writeError {
                     writeErrorBanner(writeError)
@@ -105,21 +101,13 @@ struct TodayScreen: View {
                 }
             }
         }
-        .listStyle(.plain)
+        .listStyle(.plain).contentMargins(.bottom, 88, for: .scrollContent)
         .contentMargins(.top, 0, for: .scrollContent)
         .scrollContentBackground(.hidden)
     }
 
     private var listErrorView: some View {
-        ContentUnavailableView {
-            Label("Не удалось загрузить задачи", systemImage: "externaldrive.badge.exclamationmark")
-        } description: {
-            Text(model.listError ?? "")
-        } actions: {
-            Button("Повторить") { model.reload() }
-                .buttonStyle(.borderedProminent)
-                .tint(.orbitAccent)
-        }
+        OrbitTaskLoadFailure(message: model.listError ?? "", retry: { model.reload() })
     }
 
     /// A failed complete/reopen (or another write) on this screen: the shared
@@ -127,13 +115,8 @@ struct TodayScreen: View {
     /// reason stays visible next to the content without masking the list,
     /// empty state or a read failure. The view never clears it.
     private func writeErrorBanner(_ message: String) -> some View {
-        Text(message)
-            .font(.footnote)
-            .foregroundStyle(.red)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(Color(.secondarySystemBackground))
+        OrbitErrorMessage(message)
+            .padding(.horizontal, 16).padding(.vertical, 8)
             .accessibilityIdentifier("today-write-error")
     }
 
@@ -145,7 +128,7 @@ struct TodayScreen: View {
     private var emptyView: some View {
         VStack(spacing: 0) {
             ContentUnavailableView {
-                Label(model.tasks.contains { TaskDaySelection.isOverdue($0, before: day) } ? "На сегодня задач нет" : "На сегодня всё", systemImage: "sun.max")
+                Label(model.tasks.contains { TaskDaySelection.isOverdue($0, before: day) } ? "На сегодня ничего не запланировано" : "На сегодня всё", systemImage: "sun.max")
             } description: {
                 Text(model.tasks.contains { TaskDaySelection.isOverdue($0, before: day) } ? "Просроченные дела — в блоке выше." : "Можно отдохнуть — или добавить новые планы.")
             }

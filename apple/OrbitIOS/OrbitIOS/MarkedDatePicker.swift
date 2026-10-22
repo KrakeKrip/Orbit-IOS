@@ -10,11 +10,13 @@ struct MarkedDatePicker: View {
     var body: some View {
         Button { presented = true } label: {
             Text(selection.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "ru_RU"))))
+                .lineLimit(2).multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 12).padding(.vertical, 7)
                 .background(.quaternary, in: Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Выбрать дату")
+        .accessibilityValue(RussianDateCaption.label(TaskPlannedDate.civilDateString(from: selection)))
         .popover(isPresented: $presented) {
             MarkedMonthCalendar(selection: $selection, taskDays: taskDays) { presented = false }
                 .frame(width: 308)
@@ -151,15 +153,16 @@ struct MarkedMonthCalendar: View {
                 Text(String(calendar.component(.day, from: date)))
                     .font(.body.weight(selected ? .semibold : .regular))
                     .lineLimit(1).minimumScaleFactor(0.6)
-                    .frame(width: 34, height: 34)
+                    .frame(minWidth: 34, minHeight: 34)
                     .foregroundStyle(selected ? Color.white : Color.primary)
-                    .background(selected ? Color.orbitAccent : .clear, in: Circle())
+                    .background(selected ? Color.orbitAccentFill : .clear, in: Circle())
+                    .overlay(Circle().stroke(calendar.isDateInToday(date) && !selected ? Color.primary : .clear, lineWidth: 1))
                 Circle().fill(marked ? Color.orbitAccent : .clear).frame(width: 4, height: 4)
             }
             .frame(maxWidth: .infinity, minHeight: 44)
             .contentShape(Rectangle())
         }
-        .accessibilityLabel(date.formatted(.dateTime.day().month(.wide).year().locale(Locale(identifier: "ru_RU"))) + (marked ? ", есть задачи" : ""))
+        .accessibilityLabel(date.formatted(.dateTime.day().month(.wide).year().locale(Locale(identifier: "ru_RU"))) + (calendar.isDateInToday(date) ? ", сегодня" : "") + (marked ? ", есть задачи" : ""))
         .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 }

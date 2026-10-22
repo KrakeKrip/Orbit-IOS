@@ -1,0 +1,5 @@
+Baseline: 891ac15c7659ab0b0fdb32088aff25b3cb1493c1
+OrbitIOS Simulator build: BUILD SUCCEEDED
+Core source/tests unchanged from baseline.
+✔ Test run with 124 tests in 16 suites passed after 0.634 seconds.
+GUI verification and exclusions: README.md

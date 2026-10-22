@@ -1,0 +1,10 @@
+Flat palette checks (sRGB source tokens, not a certification of rendered native material):
+Filled action white / accentFill: 5.68:1 PASS >= 4.5
+Ivory secondary / canvas: 6.13:1 PASS >= 4.5
+Ivory secondary / event: 6.54:1 PASS >= 4.5
+Light secondary / surface: 6.01:1 PASS >= 4.5
+Dark secondary / event: 8.43:1 PASS >= 4.5
+Dark action text / event: 6.33:1 PASS >= 4.5
+OLED secondary / canvas: 11.76:1 PASS >= 4.5
+Ivory error text / canvas: 5.90:1 PASS >= 4.5
+Dark error text / event: 6.13:1 PASS >= 4.5

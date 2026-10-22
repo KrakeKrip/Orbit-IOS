@@ -27,14 +27,12 @@ struct ProjectsScreen: View {
     private var projectIndex: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                NativeModeHeader(switcher: EmptyView()) {
-                    Text("Проекты").font(.title2.bold()).lineLimit(1)
-                }
+                NativeModeHeader(title: "Проекты", switcher: EmptyView())
                 if let error = model.projectListError {
                     ContentUnavailableView {
                         Label("Проекты недоступны", systemImage: "exclamationmark.triangle")
                     } description: {
-                        Text(error)
+                        OrbitErrorMessage(error)
                     } actions: {
                         Button("Повторить") { model.reloadProjects() }
                     }
@@ -78,7 +76,7 @@ struct ProjectsScreen: View {
                             .listRowBackground(appearance.canvas)
                         }
                     }
-                    .listStyle(.plain)
+                    .listStyle(.plain).contentMargins(.bottom, 88, for: .scrollContent)
                     .scrollContentBackground(.hidden)
                     .refreshable { model.reloadProjects() }
                 }
@@ -116,11 +114,10 @@ private struct ProjectNameSheet: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Например, Работа", text: $draft)
+                    TextField("Например, Работа", text: $draft, axis: .vertical).lineLimit(1...4)
                         .textInputAutocapitalization(.sentences)
                         .submitLabel(.done)
                         .focused($nameFocused)
-                        .onSubmit(save)
                         .accessibilityLabel("Название проекта")
                         .accessibilityIdentifier("project-name")
                 } header: {
@@ -130,7 +127,7 @@ private struct ProjectNameSheet: View {
                 }
                 if let error {
                     Section {
-                        Text(error).foregroundStyle(.red)
+                        OrbitErrorMessage(error)
                             .accessibilityIdentifier("project-editor-error")
                     }
                 }
@@ -144,6 +141,7 @@ private struct ProjectNameSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Сохранить", action: save)
+                        .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || draft.unicodeScalars.count > ProjectName.maximumLength)
                         .accessibilityIdentifier("project-save")
                 }
             }

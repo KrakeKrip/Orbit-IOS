@@ -9,6 +9,7 @@ struct UpcomingAgendaScreen: View {
     @Binding var showsCalendar: Bool
     @Binding var showsAgenda: Bool
     let referenceDay: String
+    @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.orbitAppearance) private var appearance
     @State private var scrollRequest: AgendaScrollRequest?
     @State private var earliestAllowedDay: String
@@ -67,10 +68,12 @@ struct UpcomingAgendaScreen: View {
             VStack(spacing: 0) {
                 NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: $showsCalendar, agendaMode: $showsAgenda))
                 weekNavigation
-                OverdueTaskBlock(model: model)
+                if typeSize.isAccessibilitySize {
+                    ScrollView { OverdueTaskBlock(model: model) }.frame(maxHeight: 110)
+                } else { OverdueTaskBlock(model: model) }
                 Divider()
                 if let message = model.writeError ?? model.listError {
-                    Text(message).font(.footnote).foregroundStyle(.red).padding(8)
+                    OrbitErrorMessage(message).padding(8)
                 }
                 ScrollViewReader { proxy in
                     ScrollView {
@@ -107,6 +110,7 @@ struct UpcomingAgendaScreen: View {
                         }
                         .padding(.top, 4)
                     }
+                    .contentMargins(.bottom, 88, for: .scrollContent)
                     .coordinateSpace(name: "agenda-viewport")
                     .onPreferenceChange(AgendaDayFrames.self) { frames in
                         if isNavigating, let request = scrollRequest {
@@ -155,23 +159,17 @@ struct UpcomingAgendaScreen: View {
 
     private var weekNavigation: some View {
         VStack(spacing: 4) {
-            HStack(spacing: 0) {
-                MarkedDatePicker(selection: pickerDate, taskDays: Set(model.tasks.compactMap(\.plannedDate)))
-                Spacer(minLength: 0)
-                if selectedDay != referenceDay {
-                    Button("Сегодня") { navigate(to: referenceDay) }.font(.footnote)
-                }
-                Button { if let day = adjacentWeek(-1) { navigate(to: day) } } label: {
-                    Image(systemName: "chevron.left").frame(width: 36, height: 44)
-                }
-                .disabled(adjacentWeek(-1) == nil)
-                .accessibilityLabel("Предыдущая неделя")
-                Button { if let day = adjacentWeek(1) { navigate(to: day) } } label: {
-                    Image(systemName: "chevron.right").frame(width: 36, height: 44)
-                }
-                .disabled(adjacentWeek(1) == nil)
-                .accessibilityLabel("Следующая неделя")
-            }
+            OrbitPeriodControls(
+                date: MarkedDatePicker(selection: pickerDate, taskDays: Set(model.tasks.compactMap(\.plannedDate))),
+                previous: Button { if let day = adjacentWeek(-1) { navigate(to: day) } } label: {
+                    Image(systemName: "chevron.left").frame(width: 44, height: 44)
+                }.disabled(adjacentWeek(-1) == nil).accessibilityLabel("Предыдущая неделя"),
+                next: Button { if let day = adjacentWeek(1) { navigate(to: day) } } label: {
+                    Image(systemName: "chevron.right").frame(width: 44, height: 44)
+                }.disabled(adjacentWeek(1) == nil).accessibilityLabel("Следующая неделя"),
+                today: Group { if selectedDay != referenceDay { Button("Сегодня") { navigate(to: referenceDay) }.frame(minHeight: 44) } }
+            )
+            if !model.isSelecting {
             HStack(spacing: 0) {
                 ForEach(Array(week.enumerated()), id: \.offset) { index, day in
                     VStack(spacing: 2) {
@@ -182,9 +180,9 @@ struct UpcomingAgendaScreen: View {
                                 VStack(spacing: 2) {
                                     Text(String(calendar.component(.day, from: date)))
                                         .font(.body.weight(day == selectedDay ? .semibold : .regular))
-                                        .frame(width: 32, height: 32)
+                                        .frame(minWidth: 32, minHeight: 32)
                                         .foregroundStyle(day == selectedDay ? Color.white : .primary)
-                                        .background(day == selectedDay ? Color.orbitAccent : .clear, in: Circle())
+                                        .background(day == selectedDay ? Color.orbitAccentFill : .clear, in: Circle())
                                     Circle().fill(model.tasks.contains { $0.plannedDate == day } ? Color.orbitAccent : .clear)
                                         .frame(width: 4, height: 4)
                                 }
@@ -197,6 +195,8 @@ struct UpcomingAgendaScreen: View {
                     }
                     .frame(maxWidth: .infinity)
                 }
+            }
+            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             }
         }
         .buttonStyle(.plain)

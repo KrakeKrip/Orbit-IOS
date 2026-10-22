@@ -114,7 +114,7 @@ struct UpcomingListScreen: View {
             }
         }
         .id(selectedDay)
-        .listStyle(.plain)
+        .listStyle(.plain).contentMargins(.bottom, 88, for: .scrollContent)
         .scrollContentBackground(.hidden)
     }
 
@@ -127,28 +127,15 @@ struct UpcomingListScreen: View {
     }
 
     private var listErrorView: some View {
-        ContentUnavailableView {
-            Label("Не удалось загрузить задачи", systemImage: "externaldrive.badge.exclamationmark")
-        } description: {
-            Text(model.listError ?? "")
-        } actions: {
-            Button("Повторить") { model.reload() }
-                .buttonStyle(.borderedProminent)
-                .tint(.orbitAccent)
-        }
+        OrbitTaskLoadFailure(message: model.listError ?? "", retry: { model.reload() })
     }
 
     /// A failed complete/reopen (or another write) on this screen: the shared
     /// model keeps `writeError` until the next successful mutation, so the
     /// reason stays visible without masking the list or empty state.
     private func writeErrorBanner(_ message: String) -> some View {
-        Text(message)
-            .font(.footnote)
-            .foregroundStyle(.red)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(Color(.secondarySystemBackground))
+        OrbitErrorMessage(message)
+            .padding(.horizontal, 16).padding(.vertical, 8)
             .accessibilityIdentifier("upcoming-write-error")
     }
 
@@ -161,30 +148,8 @@ struct UpcomingListScreen: View {
     /// drop to its own compact row via `ViewThatFits`. «Сегодня» recomputes
     /// the current local day at tap time.
     private var dateControls: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) {
-                prevDayButton
-                datePickerField
-                nextDayButton
-                Spacer(minLength: 0)
-                if showsTodayJump {
-                    todayButton
-                }
-            }
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 8) {
-                    prevDayButton
-                    datePickerField
-                    nextDayButton
-                }
-                if showsTodayJump {
-                    todayButton
-                }
-            }
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background(appearance.canvas)
+        OrbitPeriodControls(date: datePickerField, previous: prevDayButton, next: nextDayButton,
+                            today: Group { if showsTodayJump { todayButton } })
     }
 
     /// The jump is visible only away from today, compared as canonical
@@ -234,8 +199,7 @@ struct UpcomingListScreen: View {
         Button("Сегодня") {
             select(TaskDaySelection.currentDay())
         }
-        .buttonStyle(.bordered)
-        .tint(.orbitAccent)
+        .frame(minHeight: 44)
     }
 
     /// ±1 civil day anchored at noon, valid only inside 1900–2199.

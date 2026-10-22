@@ -60,6 +60,7 @@ struct UpcomingWorkspaceScreen: View {
         // The preset is the section's existing selected day — the one
         // selection owner is never duplicated, and creating never resets the
         // selection or the mode.
+        .environment(\.orbitWorkspaceTitle, "Предстоящее")
         .environment(\.orbitMonthMode, $showsMonth)
         .environment(\.orbitThreeDayMode, $showsThreeDays)
         .orbitCreateAction(model: model, datePreset: { selectedDay })

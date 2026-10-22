@@ -16,8 +16,8 @@ struct TimelineTaskHold: ViewModifier {
             .background(TimelineScrollResolver(resolve: { _ in }, acceptsCreation: { point in
                 guard enabled, frame.contains(point) else { return false }
                 if ignoresResizeHandles {
-                    let atStart = abs(point.x - frame.maxX) < 20 && abs(point.y - frame.minY) < 20
-                    let atEnd = abs(point.x - frame.minX) < 20 && abs(point.y - frame.maxY) < 20
+                    let atStart = point.x >= frame.maxX - 44 && point.y <= frame.minY + 44
+                    let atEnd = point.x <= frame.minX + 44 && point.y >= frame.maxY - 44
                     if atStart || atEnd { return false }
                 }
                 return true

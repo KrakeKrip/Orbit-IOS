@@ -40,6 +40,41 @@ enum OrbitAppearance: String, CaseIterable, Identifiable {
     }
 }
 
+extension OrbitAppearance {
+    var surface: Color {
+        switch self {
+        case .ivory: Color(red: 1, green: 0.99, blue: 0.96)
+        case .dark, .oled: Color(red: 0.15, green: 0.15, blue: 0.16)
+        default: Color(uiColor: .secondarySystemBackground)
+        }
+    }
+    var eventSurface: Color { surface }
+    var eventText: Color { .primary }
+    var secondaryText: Color {
+        Color(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark ? UIColor(white: 0.76, alpha: 1) : UIColor(red: 0.37, green: 0.36, blue: 0.34, alpha: 1)
+        })
+    }
+    var eventSecondary: Color { secondaryText }
+}
+private struct OrbitCalendarActionsKey: EnvironmentKey { static let defaultValue: AnyView? = nil }
+private struct OrbitWorkspaceTitleKey: EnvironmentKey { static let defaultValue = "Сегодня" }
+private struct OrbitDayTasksKey: EnvironmentKey { static let defaultValue: (() -> Void)? = nil }
+extension EnvironmentValues {
+    var orbitCalendarActions: AnyView? {
+        get { self[OrbitCalendarActionsKey.self] }
+        set { self[OrbitCalendarActionsKey.self] = newValue }
+    }
+    var orbitWorkspaceTitle: String {
+        get { self[OrbitWorkspaceTitleKey.self] }
+        set { self[OrbitWorkspaceTitleKey.self] = newValue }
+    }
+    var orbitDayTasksAction: (() -> Void)? {
+        get { self[OrbitDayTasksKey.self] }
+        set { self[OrbitDayTasksKey.self] = newValue }
+    }
+}
+
 private struct OrbitAppearanceKey: EnvironmentKey {
     static let defaultValue = OrbitAppearance.system
 }
@@ -83,15 +118,16 @@ private struct OrbitIconStyle: ViewModifier {
                 .frame(minWidth: 44, minHeight: 44)
         } else {
             content.buttonStyle(.bordered).buttonBorderShape(.circle)
+                .frame(minWidth: 44, minHeight: 44)
         }
     }
 }
 private struct OrbitPrimaryStyle: ViewModifier {
     func body(content: Content) -> some View {
         if #available(iOS 26.0, *) {
-            content.buttonStyle(.glassProminent).buttonBorderShape(.capsule).controlSize(.large).tint(.orbitAccent)
+            content.buttonStyle(.glassProminent).buttonBorderShape(.capsule).controlSize(.large).tint(.orbitAccentFill)
         } else {
-            content.buttonStyle(.borderedProminent).controlSize(.large).tint(.orbitAccent)
+            content.buttonStyle(.borderedProminent).controlSize(.large).tint(.orbitAccentFill)
         }
     }
 }
@@ -109,6 +145,7 @@ private struct OrbitEditorSurface: ViewModifier {
     @Environment(\.colorScheme) private var inheritedColorScheme
     func body(content: Content) -> some View {
         content
+            .listSectionSpacing(.custom(8))
             .scrollContentBackground(.hidden)
             .background(appearance.canvas)
             // Keep the system sheet's own backing surface and transition.
@@ -181,12 +218,13 @@ struct OrbitViewModeMenu: View {
                 if monthMode != nil { Label("Месяц", systemImage: "calendar.circle").tag(4) }
             }
         } label: {
-            Image(systemName: mode.wrappedValue == 4 ? "calendar.circle" : mode.wrappedValue == 3 ? "rectangle.split.3x1" : mode.wrappedValue == 2 ? "calendar.badge.clock" : (showsCalendar ? "calendar" : "list.bullet"))
-                .font(.system(size: 18, weight: .medium))
-                .contentTransition(.symbolEffect(.replace))
-                .frame(width: 28, height: 28)
+            HStack(spacing: 6) {
+                Text(title)
+                Image(systemName: "chevron.down").font(.caption.weight(.semibold))
+            }.font(.subheadline.weight(.medium)).frame(minHeight: 44)
+
         }
-        .orbitIconStyle()
+        .buttonStyle(.plain)
         .orbitMenuFeedback()
         .accessibilityLabel("Вид: \(title)")
         .accessibilityIdentifier(identifier)
@@ -207,19 +245,18 @@ struct OrbitSettingsButton: View {
     @Environment(IOSInboxModel.self) private var model
     @Environment(\.orbitAllowsTaskSelection) private var allowsSelection
     @State private var showsSettings = false
+    @Environment(\.orbitDayTasksAction) private var dayTasksAction
+    @Environment(\.orbitCalendarActions) private var calendarActions
     var body: some View {
         Menu {
             Button("Выбрать", systemImage: "checkmark.circle") { model.beginSelection() }
                 .disabled(!allowsSelection || model.tasks.isEmpty)
+            if let calendarActions { calendarActions }
+            if let dayTasksAction { Button("Задачи дня", systemImage: "list.bullet", action: dayTasksAction) }
             Button("Настройки", systemImage: "gearshape") { showsSettings = true }
         } label: {
-            VStack(spacing: 4) {
-                ForEach(0..<3) { _ in
-                    Capsule().fill(Color.orbitAccent).frame(width: 19, height: 1.8)
-                }
-            }
-            .frame(width: 28, height: 28)
-            .accessibilityHidden(true)
+            Image(systemName: "ellipsis").font(.system(size: 20, weight: .medium))
+                .frame(width: 28, height: 28)
         }
         .orbitIconStyle()
         .orbitMenuFeedback()
@@ -290,5 +327,39 @@ struct OrbitSettingsSheet: View {
         }
         .environment(\.orbitAppearance, selectedAppearance)
         .environment(\.colorScheme, selectedAppearance.colorScheme ?? inheritedColorScheme)
+    }
+}
+
+/// One error surface; callers keep their actual message and existing retry action.
+struct OrbitErrorMessage: View {
+    let message: String
+    init(_ message: String) { self.message = message }
+    var body: some View {
+        Label(message, systemImage: "exclamationmark.circle")
+            .font(.footnote).foregroundStyle(Color.orbitError)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(10).background(Color.orbitError.opacity(0.07), in: RoundedRectangle(cornerRadius: 8))
+            .accessibilityElement(children: .combine)
+    }
+}
+extension Color {
+    static var orbitError: Color {
+        Color(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark ? UIColor(red: 1, green: 0.5, blue: 0.45, alpha: 1) : UIColor(red: 0.72, green: 0.13, blue: 0.12, alpha: 1)
+        })
+    }
+}
+
+struct OrbitTaskLoadFailure: View {
+    let message: String
+    let retry: () -> Void
+    var body: some View {
+        ContentUnavailableView {
+            Label("Задачи недоступны", systemImage: "exclamationmark.triangle")
+        } description: {
+            OrbitErrorMessage(message)
+        } actions: {
+            Button("Повторить", action: retry).frame(minHeight: 44).orbitPrimaryStyle()
+        }
     }
 }

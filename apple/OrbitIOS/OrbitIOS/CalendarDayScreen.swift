@@ -20,6 +20,7 @@ import OrbitCore
 /// through to the owner's binding — this screen never keeps a second
 /// selection owner.
 struct CalendarDayScreen: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.orbitAppearance) private var appearance
     let model: IOSInboxModel
@@ -112,7 +113,6 @@ struct CalendarDayScreen: View {
         NavigationStack {
             VStack(spacing: 0) {
                 dayControls
-                OverdueTaskBlock(model: model, projectID: projectID)
                 if let writeError = model.writeError {
                     writeErrorBanner(writeError)
                 }
@@ -122,7 +122,17 @@ struct CalendarDayScreen: View {
                     if isFixedDayMode && isProjectionEmpty {
                         emptyProjectionCaption
                     }
-                    untimedSection
+                    if typeSize.isAccessibilitySize {
+                        ScrollView {
+                            VStack(spacing: 0) {
+                                OverdueTaskBlock(model: model, projectID: projectID)
+                                untimedSection
+                            }.fixedSize(horizontal: false, vertical: true)
+                        }.frame(height: min(190, max(100, contentHeight * 0.28)))
+                    } else {
+                        OverdueTaskBlock(model: model, projectID: projectID)
+                        untimedSection
+                    }
                     DayTimelineView(
                         model: model,
                         day: selectedDay,
@@ -160,6 +170,7 @@ struct CalendarDayScreen: View {
             // bar is hidden — the common mode row is the deterministic top row
             // directly under the safe area in both contexts, matching the
             // list presentations.
+            .environment(\.orbitCalendarActions, AnyView(calendarTaskActions))
             .toolbar(.hidden, for: .navigationBar)
             .background(
                 // Adaptive sizing source: the real height of this content area
@@ -289,11 +300,11 @@ struct CalendarDayScreen: View {
     /// context never receives this Today-specific «всё выполнено» line.
     private var emptyProjectionCaption: some View {
         VStack(spacing: 2) {
-            Text("На сегодня всё")
+            Text(model.tasks.contains { TaskDaySelection.isOverdue($0, before: selectedDay) } ? "На сегодня ничего не запланировано" : "На сегодня всё")
             Text("Можно отдохнуть — или добавить новые планы.")
         }
         .font(.footnote)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(appearance.secondaryText)
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
@@ -326,44 +337,8 @@ struct CalendarDayScreen: View {
     /// narrow widths the caption drops to its own line under the mode row
     /// (same adaptive shape as before R1).
     private var fixedDayControls: some View {
-        Group {
-            if let todayMode {
-                ViewThatFits(in: .horizontal) {
-                    NativeModeHeader(switcher: TodayModeSwitcher(showsCalendar: todayMode)) {
-                        HStack(spacing: 8) {
-                            Text(fixedDayCaption)
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                            calendarMenu
-                        }
-                    }
-                    VStack(alignment: .leading, spacing: 0) {
-                        NativeModeHeader(switcher: TodayModeSwitcher(showsCalendar: todayMode)) {
-                            calendarMenu
-                        }
-                        Text(fixedDayCaption)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 8)
-                            .padding(.top, 2)
-                            .padding(.bottom, 6)
-                            .background(appearance.canvas)
-                    }
-                }
-            } else {
-                HStack(spacing: 8) {
-                    Spacer(minLength: 0)
-                    Text(fixedDayCaption)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                    calendarMenu
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
-                .background(appearance.canvas)
-            }
+        NativeModeHeader(switcher: TodayModeSwitcher(showsCalendar: todayMode ?? .constant(true))) {
+            Text(fixedDayCaption).font(.subheadline)
         }
     }
 
@@ -382,18 +357,8 @@ struct CalendarDayScreen: View {
     private var browserDayControls: some View {
         VStack(alignment: .leading, spacing: 0) {
             browsingModeHeader
-            ViewThatFits(in: .horizontal) {
-                browserDateRow(includesJump: true)
-                VStack(alignment: .leading, spacing: 0) {
-                    browserDateRow(includesJump: false)
-                    if showsTodayJump {
-                        todayButton
-                    }
-                }
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .background(appearance.canvas)
+            OrbitPeriodControls(date: datePickerField, previous: prevDayButton, next: nextDayButton,
+                                today: Group { if showsTodayJump { todayButton } })
         }
     }
 
@@ -406,12 +371,12 @@ struct CalendarDayScreen: View {
                 projectHeader
             } else if let todayMode {
                 NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: todayMode, agendaMode: agendaMode)) {
-                    calendarMenu
+                    EmptyView()
                 }
             } else {
                 HStack(spacing: 8) {
                     Spacer(minLength: 0)
-                    calendarMenu
+                    EmptyView()
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 6)
@@ -482,8 +447,7 @@ struct CalendarDayScreen: View {
         Button("Сегодня") {
             select(TaskDaySelection.currentDay())
         }
-        .buttonStyle(.bordered)
-        .tint(.orbitAccent)
+        .frame(minHeight: 44)
     }
 
     /// Native «⋯» menu next to the date controls. The standalone timed panel
@@ -493,7 +457,11 @@ struct CalendarDayScreen: View {
     /// callbacks. With no timed segments it shows an honest disabled line —
     /// never a fake action.
     private var calendarMenu: some View {
-        Menu {
+        Menu { calendarTaskActions } label: { Image(systemName: "ellipsis") }
+    }
+
+    private var calendarTaskActions: some View {
+        Group {
             if projection.timedSegments.isEmpty {
                 Button("Нет задач с временем") {}
                     .disabled(true)
@@ -518,13 +486,7 @@ struct CalendarDayScreen: View {
                     }
                 }
             }
-        } label: {
-            Image(systemName: "ellipsis")
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(Rectangle())
         }
-        .accessibilityLabel("Меню календаря")
-        .accessibilityIdentifier("calendar-day-menu")
     }
 
     /// Full source title plus the selected-day range with continuation cues
@@ -594,14 +556,14 @@ struct CalendarDayScreen: View {
             if ids.isEmpty {
                 Text("Без времени — нет задач")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(appearance.secondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 6)
             } else {
                 Text("Без времени")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(appearance.secondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16)
                     .padding(.top, 6)
@@ -637,7 +599,7 @@ struct CalendarDayScreen: View {
                 if overLimit && !untimedExpanded {
                     Text("Ещё \(ids.count - Self.collapsedUntimedLimit)")
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(appearance.secondaryText)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.leading, Self.untimedGridLeading)
                         .padding(.top, 2)
@@ -740,25 +702,12 @@ struct CalendarDayScreen: View {
     // MARK: - Errors
 
     private var listErrorView: some View {
-        ContentUnavailableView {
-            Label("Не удалось загрузить задачи", systemImage: "externaldrive.badge.exclamationmark")
-        } description: {
-            Text(model.listError ?? "")
-        } actions: {
-            Button("Повторить") { model.reload() }
-                .buttonStyle(.borderedProminent)
-                .tint(.orbitAccent)
-        }
+        OrbitTaskLoadFailure(message: model.listError ?? "", retry: { model.reload() })
     }
 
     private func writeErrorBanner(_ message: String) -> some View {
-        Text(message)
-            .font(.footnote)
-            .foregroundStyle(.red)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(Color(.secondarySystemBackground))
+        OrbitErrorMessage(message)
+            .padding(.horizontal, 16).padding(.vertical, 8)
             .accessibilityIdentifier("calendar-write-error")
     }
 }

@@ -8,7 +8,10 @@ struct ThreeDayCalendarScreen: View {
     @Binding var selectedDay: String
     @Binding var showsCalendar: Bool
     @Binding var showsAgenda: Bool
+    @Environment(\.orbitThreeDayMode) private var threeDayMode
     let referenceDay: String
+    @Environment(\.scenePhase) private var phase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.orbitAppearance) private var appearance
     @State private var untimedExpanded = false
     @State private var anchorDay: String
@@ -30,8 +33,12 @@ struct ThreeDayCalendarScreen: View {
     private let edgeTicks = Timer.publish(every: 1.0 / 30, on: .main, in: .common).autoconnect()
     @GestureState private var editingGesture = false
     @State private var lastRelease = Date.distantPast
+    @ScaledMetric(relativeTo: .caption) private var calendarFont = 12.0
+    @ScaledMetric(relativeTo: .subheadline) private var untimedRowHeight = 44.0
     private let hourHeight: CGFloat = 64
-    private let gutter: CGFloat = 44
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @State private var availableHeight: CGFloat = 800
+    @ScaledMetric(relativeTo: .caption) private var gutter = 56.0
     private struct Create: Identifiable {
         let id = UUID()
         let day: String
@@ -67,27 +74,47 @@ struct ThreeDayCalendarScreen: View {
         NavigationStack {
             VStack(spacing: 0) {
                 NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: $showsCalendar, agendaMode: $showsAgenda))
-                HStack(spacing: 10) {
-                    Button { page(-3) } label: { Image(systemName: "chevron.left").frame(width: 32, height: 40) }
-                        .disabled(TaskTimelineWindow.shift(days.first ?? anchorDay, by: -3) == nil)
-                        .accessibilityLabel("Предыдущие три дня")
-                    MarkedDatePicker(selection: picker, taskDays: Set(model.tasks.compactMap(\.plannedDate)))
-                    Button { page(3) } label: { Image(systemName: "chevron.right").frame(width: 32, height: 40) }
-                        .disabled(days.last == "2199-12-31")
-                        .accessibilityLabel("Следующие три дня")
-                    Spacer(minLength: 0)
-                }.padding(.horizontal, 12)
-                if selectedDay != referenceDay {
-                    Button("Сегодня") { selectedDay = referenceDay; anchorDay = referenceDay }
-                        .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16)
+                OrbitPeriodControls(
+                    date: MarkedDatePicker(selection: picker, taskDays: Set(model.tasks.compactMap(\.plannedDate))),
+                    previous: Button { page(-3) } label: { Image(systemName: "chevron.left").frame(width: 44, height: 44) }
+                        .disabled(TaskTimelineWindow.shift(days.first ?? anchorDay, by: -3) == nil).accessibilityLabel("Предыдущие три дня"),
+                    next: Button { page(3) } label: { Image(systemName: "chevron.right").frame(width: 44, height: 44) }
+                        .disabled(days.last == "2199-12-31").accessibilityLabel("Следующие три дня"),
+                    today: Group { if selectedDay != referenceDay {
+                        Button("Сегодня") { selectedDay = referenceDay; anchorDay = referenceDay }.frame(minHeight: 44)
+                    } }
+                )
+                if typeSize.isAccessibilitySize {
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            Button("Читать задачи в повестке", systemImage: "list.bullet") { threeDayMode?.wrappedValue = false; showsAgenda = true; showsCalendar = false }.font(.footnote).frame(minHeight: 44)
+                            OverdueTaskBlock(model: model)
+                            dayHeaders
+                            untimedRows
+                        }.fixedSize(horizontal: false, vertical: true)
+                    }.frame(height: min(190, max(100, availableHeight * 0.28)))
+                } else {
+                    OverdueTaskBlock(model: model)
+                    dayHeaders
+                    untimedRows
                 }
-                OverdueTaskBlock(model: model)
-                dayHeaders
-                untimedRows
-                if let error { Text(error).font(.footnote).foregroundStyle(.red).padding(6) }
+                if let error { OrbitErrorMessage(error).padding(6) }
                 timeline
             }
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { availableHeight = $0 }
             .background(appearance.canvas)
+            .environment(\.orbitCalendarActions, AnyView(Menu("Задачи выбранного дня") {
+                if projection(selectedDay).timedSegments.isEmpty { Button("Нет задач с временем") {}.disabled(true) }
+                ForEach(projection(selectedDay).timedSegments, id: \.taskID) { segment in
+                    if let task = task(segment.taskID) {
+                        Menu("\(task.title) · \(clock(segment.startMinute))–\(clock(segment.endMinute))") {
+                            Button("Время и длительность…") { editor = .interval(task) }
+                            Button("Дата…") { editor = .date(task) }
+                            Button(task.isCompleted ? "Вернуть в работу" : "Завершить") { model.setCompleted(!task.isCompleted, for: task) }
+                        }
+                    }
+                }
+            }))
             .toolbar(.hidden, for: .navigationBar)
             .sheet(item: $editor) { item in
                 switch item {
@@ -110,6 +137,9 @@ struct ThreeDayCalendarScreen: View {
         .onChange(of: model.isSelecting) { _, selecting in
             if selecting { edit = nil; latestDrag = nil; selectedTask = nil; creating = nil; creationPoint = nil }
         }
+        .onChange(of: phase) { _, value in
+            if value == .background { edit = nil; latestDrag = nil; creating = nil; creationPoint = nil; selectedTask = nil }
+        }
         .onDisappear { edit = nil; latestDrag = nil; creating = nil; creationPoint = nil; scroll = nil }
     }
     private func page(_ delta: Int) {
@@ -123,15 +153,15 @@ struct ThreeDayCalendarScreen: View {
                 Button { selectedDay = day } label: {
                     VStack(spacing: 3) {
                         Text(TaskPlannedDate.date(fromCivilDateString: day)!.formatted(.dateTime.weekday(.abbreviated).locale(Locale(identifier: "ru_RU"))))
-                            .font(.caption).foregroundStyle(.secondary)
+                            .font(.caption).foregroundStyle(appearance.secondaryText)
                         Text(String(Int(day.suffix(2))!)).font(.headline)
-                            .frame(width: 32, height: 32)
+                            .frame(minWidth: 44, minHeight: 44)
                             .foregroundStyle(day == selectedDay ? .white : .primary)
-                            .background(day == selectedDay ? Color.orbitAccent : .clear, in: Circle())
+                            .background(day == selectedDay ? Color.orbitAccentFill : .clear, in: Circle())
                     }.frame(maxWidth: .infinity).padding(.vertical, 6)
                 }.buttonStyle(.plain).accessibilityLabel(RussianDateCaption.label(day))
             }
-        }.frame(height: 64)
+        }.dynamicTypeSize(...DynamicTypeSize.accessibility1).fixedSize(horizontal: false, vertical: true)
     }
     private var untimedCount: Int { days.map { projection($0).untimedTaskIDs.count }.max() ?? 0 }
     private var untimedRows: some View {
@@ -139,10 +169,10 @@ struct ThreeDayCalendarScreen: View {
             Group {
                 if untimedCount > 3 {
                     Button {
-                        withAnimation(.easeInOut(duration: 0.2)) { untimedExpanded.toggle() }
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { untimedExpanded.toggle() }
                     } label: {
                         VStack(spacing: 6) {
-                            Text("Без\nвремени").font(.system(size: 9)).foregroundStyle(.secondary)
+                            Text("Без\nвремени").font(.caption2).foregroundStyle(appearance.secondaryText)
                             VStack(spacing: 2) {
                                 Image(systemName: untimedExpanded ? "chevron.down" : "chevron.up")
                                 Image(systemName: untimedExpanded ? "chevron.up" : "chevron.down")
@@ -150,28 +180,28 @@ struct ThreeDayCalendarScreen: View {
                             .font(.system(size: 10, weight: .medium))
                             .foregroundStyle(Color.orbitAccent)
                         }
-                        .frame(width: gutter, height: 76)
+                        .frame(width: gutter).frame(minHeight: 76)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(untimedExpanded ? "Свернуть без времени" : "Развернуть без времени")
                 } else {
-                    Text("Без\nвремени").font(.system(size: 9)).foregroundStyle(.secondary)
+                    Text("Без\nвремени").font(.caption2).foregroundStyle(appearance.secondaryText)
                         .frame(width: gutter)
                 }
             }
             ForEach(days, id: \.self) { day in
                 let ids = projection(day).untimedTaskIDs
                 VStack(spacing: 2) {
-                    if untimedExpanded && ids.count > 7 {
+                    if untimedExpanded && (ids.count > 7 || typeSize.isAccessibilitySize) {
                         ScrollView {
                             untimedTasks(ids)
-                        }.frame(height: 7 * 28 + 6 * 3)
+                        }.frame(height: min(7 * untimedRowHeight + 6 * 3, availableHeight * 0.3))
                     } else {
                         untimedTasks(Array(ids.prefix(untimedExpanded ? 7 : 3)))
                     }
                     if !untimedExpanded && ids.count > 3 {
-                        Text("Ещё \(ids.count - 3)").font(.caption2).foregroundStyle(.secondary)
+                        Text("Ещё \(ids.count - 3)").font(.caption2).foregroundStyle(appearance.secondaryText)
                     }
                 }.frame(maxWidth: .infinity, alignment: .top).padding(.horizontal, 2)
             }
@@ -182,10 +212,10 @@ struct ThreeDayCalendarScreen: View {
             ForEach(ids, id: \.self) { id in
                 if let task = task(id) {
                     actionButton(task, range: RussianDateCaption.label(task.plannedDate ?? selectedDay), viewport: nil) {
-                        Text(task.title).font(.caption2).lineLimit(2)
+                        Text(task.title).font(.subheadline).lineLimit(typeSize.isAccessibilitySize ? nil : 2).fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .frame(height: 28).padding(.horizontal, 4)
-                            .background(.quaternary, in: RoundedRectangle(cornerRadius: 4))
+                            .frame(minHeight: untimedRowHeight).padding(.horizontal, 4)
+                            .background(appearance.surface, in: RoundedRectangle(cornerRadius: 8))
                     }
                 }
             }
@@ -200,8 +230,8 @@ struct ThreeDayCalendarScreen: View {
                         VStack(spacing: 0) {
                             ForEach(0...24, id: \.self) { hour in
                                 HStack(spacing: 2) {
-                                    Text(String(format: "%02d:00", hour)).font(.system(size: 9).monospacedDigit())
-                                        .foregroundStyle(.secondary).frame(width: gutter - 2, alignment: .leading)
+                                    Text(String(format: "%02d:00", hour)).font(.caption.monospacedDigit())
+                                        .foregroundStyle(appearance.secondaryText).frame(width: gutter - 2, alignment: .leading)
                                     Rectangle().fill(.quaternary).frame(height: 1)
                                 }.frame(height: hour == 24 ? 20 : hourHeight, alignment: .top).id(hour)
                             }
@@ -239,6 +269,7 @@ struct ThreeDayCalendarScreen: View {
                     }))
                 }
                 .onReceive(edgeTicks) { _ in autoScroll(viewport: viewport) }
+                .contentMargins(.bottom, 88, for: .scrollContent)
                 .scrollDisabled(edit != nil || creating != nil)
                 .onAppear { reader.scrollTo(8, anchor: .top) }
             }
@@ -251,25 +282,12 @@ struct ThreeDayCalendarScreen: View {
         let width = max(1, (columnWidth - 4) / CGFloat(placement.count))
         let height = CGFloat(segment.endMinute - segment.startMinute) / 60 * hourHeight
         return actionButton(task, range: "\(clock(segment.startMinute))–\(clock(segment.endMinute))", viewport: viewport.frame(in: .global)) {
-            VStack(alignment: .leading, spacing: 1) {
-                if height >= 14 { Text(task.title).font(.system(size: 10, weight: .semibold)).lineLimit(height >= 44 ? 2 : 1) }
-                if height >= 28 {
-                    Text("\(clock(segment.startMinute))–\(clock(segment.endMinute))\(segment.continuesFromPreviousDay ? " ↑" : "")")
-                        .font(.system(size: 8)).lineLimit(1).minimumScaleFactor(0.7)
-                }
-                Spacer(minLength: 0)
-            }.foregroundStyle(.white).padding(3).frame(width: width, height: height, alignment: .topLeading)
-                .background(task.isCompleted ? .gray : Color.orbitAccent.opacity(0.85), in: RoundedRectangle(cornerRadius: 3))
-                .clipped()
+            OrbitTimelineCard(title: task.title, range: "\(clock(segment.startMinute))–\(clock(segment.endMinute))",
+                              completed: task.isCompleted, height: height, width: width, font: calendarFont,
+                              continuesFrom: segment.continuesFromPreviousDay, continuesInto: segment.continuesIntoNextDay)
+                .frame(width: width, height: height, alignment: .topLeading)
         }
-        .frame(width: width, height: height)
-        .opacity(edit?.taskID == task.id ? 0.3 : 1)
-        .overlay {
-            if model.isSelecting ? model.selectedTaskIDs.contains(task.id) : selectedTask == task.id {
-                RoundedRectangle(cornerRadius: 3).stroke(.primary, lineWidth: 1.5).allowsHitTesting(false)
-            }
-        }
-        .modifier(TimelineTaskHold(enabled: !model.isSelecting && creating == nil, ignoresResizeHandles: selectedTask == task.id) { state, start, point in
+        .modifier(TimelineTaskHold(enabled: !model.isSelecting && creating == nil, ignoresResizeHandles: selectedTask == task.id && height >= 44 && width >= 88) { state, start, point in
             switch state {
             case .began: begin(task, segment: segment, column: column, edge: .move)
             case .changed:
@@ -283,19 +301,21 @@ struct ThreeDayCalendarScreen: View {
             }
         })
         .overlay(alignment: .topTrailing) {
-            if selectedTask == task.id && !model.isSelecting && !segment.continuesFromPreviousDay {
-                handle(.start, task: task, segment: segment, column: column, viewport: viewport).offset(x: 6, y: -12)
+            if selectedTask == task.id && !model.isSelecting && height >= 44 && width >= 88 && !segment.continuesFromPreviousDay {
+                handle(.start, task: task, segment: segment, column: column, viewport: viewport)
             }
         }
         .overlay(alignment: .bottomLeading) {
-            if selectedTask == task.id && !model.isSelecting && !segment.continuesIntoNextDay {
-                handle(.end, task: task, segment: segment, column: column, viewport: viewport).offset(x: -6, y: 12)
+            if selectedTask == task.id && !model.isSelecting && height >= 44 && width >= 88 && !segment.continuesIntoNextDay {
+                handle(.end, task: task, segment: segment, column: column, viewport: viewport)
             }
         }
+        .accessibilityAction(named: "Изменить время") { editor = .interval(task) }
+        .accessibilityAction(named: "Изменить дату") { editor = .date(task) }
         .zIndex(selectedTask == task.id ? 3 : 1)
         .position(x: gutter + CGFloat(column) * columnWidth + 2 + (CGFloat(placement.lane) + 0.5) * width,
                   y: CGFloat(segment.startMinute) / 60 * hourHeight + height / 2)
-        .accessibilityLabel("\(task.title), \(RussianDateCaption.label(segment.day)), \(clock(segment.startMinute))–\(clock(segment.endMinute))")
+        .accessibilityLabel(InboxRowView.accessibilitySummary(task, notificationsDenied: model.reminders.status.authorization == .denied) + (segment.continuesFromPreviousDay ? ", продолжение с предыдущего дня" : "") + (segment.continuesIntoNextDay ? ", продолжается на следующий день" : ""))
     }
     private func actionButton<Content: View>(_ task: OrbitTask, range: String, viewport: CGRect?, @ViewBuilder content: @escaping () -> Content) -> some View {
         TaskActionPopoverButton(model: model, task: task, range: range, previewWidth: 290,
@@ -353,7 +373,8 @@ struct ThreeDayCalendarScreen: View {
     private func handle(_ edge: TaskTimelineAdjustment.Edge, task: OrbitTask, segment: TaskDayIntervalSegment,
                         column: Int, viewport: GeometryProxy) -> some View {
         Circle().fill(.white).overlay(Circle().stroke(Color.orbitAccent)).frame(width: 10, height: 10)
-            .frame(width: 28, height: 28).contentShape(Rectangle())
+            .frame(width: 44, height: 44).contentShape(Rectangle())
+            .accessibilityHint("Можно также изменить время через меню задачи")
             .accessibilityLabel(edge == .start ? "Изменить начало" : "Изменить конец")
             .highPriorityGesture(DragGesture(minimumDistance: 0, coordinateSpace: .global)
                 .updating($editingGesture) { _, state, _ in state = true }
@@ -368,12 +389,12 @@ struct ThreeDayCalendarScreen: View {
             let bottom = visibleDay == day ? min(1440, start + duration) : start + duration - 1440
             if visibleDay == day || (previous == day && bottom > 0) {
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(title).font(.system(size: 10, weight: .semibold)).lineLimit(2)
-                    Text(time).font(.system(size: 9))
-                }.foregroundStyle(.white).padding(3)
+                    Text(title).font(.system(size: calendarFont, weight: .semibold)).lineLimit(2)
+                    Text("\(time) · \(duration) мин").font(.caption.monospacedDigit())
+                }.foregroundStyle(appearance.eventText).padding(3)
                     .frame(width: columnWidth(width) - 4, height: CGFloat(bottom - top) / 60 * hourHeight, alignment: .topLeading)
-                    .background(Color.orbitAccent, in: RoundedRectangle(cornerRadius: 3))
-                    .overlay(RoundedRectangle(cornerRadius: 3).stroke(.white, lineWidth: 1.5)).clipped()
+                    .background(appearance.eventSurface, in: RoundedRectangle(cornerRadius: 8))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.orbitAccent, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))).clipped()
                     .position(x: gutter + (CGFloat(column) + 0.5) * columnWidth(width), y: CGFloat(top + bottom) / 120 * hourHeight)
                     .allowsHitTesting(false).accessibilityHidden(true)
             }

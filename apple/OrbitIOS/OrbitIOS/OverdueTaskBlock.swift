@@ -27,6 +27,7 @@ private struct OverdueTaskContent: View {
     @State private var request: TaskRescheduleRequest?
     @State private var editor: InboxSheetPresentation?
     @State private var error: String?
+    @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.orbitAppearance) private var appearance
     private var tasks: [OrbitTask] {
         model.tasks.filter { (projectID == nil || $0.projectID == projectID)
@@ -36,27 +37,30 @@ private struct OverdueTaskContent: View {
     var body: some View {
         if !tasks.isEmpty, model.listError == nil {
             VStack(spacing: 0) {
-                HStack {
+                let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 0)) : AnyLayout(HStackLayout())
+                layout {
                     Button { expanded.toggle() } label: {
                         HStack(spacing: 6) {
                             Image(systemName: expanded ? "chevron.down" : "chevron.right").font(.caption.bold())
                             Text("Просрочено · \(tasks.count)").font(.subheadline.weight(.semibold))
-                        }.frame(minHeight: 44)
+                        }.frame(minHeight: 44).fixedSize(horizontal: false, vertical: true)
                     }
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Color.orbitError)
                     .accessibilityValue(expanded ? "Развёрнуто" : "Свёрнуто")
-                    Spacer(minLength: 8)
+                    if !typeSize.isAccessibilitySize { Spacer(minLength: 8) }
                     Menu("Перенести") {
                         moveActions(tasks.map(\.id))
                         Button("Выбрать задачи", systemImage: "checkmark.circle") {
                             model.beginSelection(); expanded = true
                         }
                     }
-                    .font(.subheadline)
+                    .font(.subheadline).frame(minHeight: 44)
                     .disabled(model.isSelecting)
                 }
+                .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 16)
-                if let error { Text(error).font(.footnote).foregroundStyle(.red).padding(.horizontal, 16) }
+                if let error { OrbitErrorMessage(error).padding(.horizontal, 16) }
                 if expanded {
                     ScrollView {
                         LazyVStack(spacing: 0) {
@@ -138,7 +142,7 @@ struct TaskRescheduleSheet: View {
                         .environment(\.calendar, Calendar.orbitCivil)
                 }
                 Section { Text("Время и длительность сохранятся. Дедлайн и напоминание не изменятся.").font(.footnote).foregroundStyle(.secondary) }
-                if let error { Text(error).foregroundStyle(.red) }
+                if let error { OrbitErrorMessage(error) }
             }
             .orbitEditorSurface()
             .navigationTitle("Перенос задач").navigationBarTitleDisplayMode(.inline)

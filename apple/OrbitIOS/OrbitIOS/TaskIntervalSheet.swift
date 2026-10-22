@@ -38,6 +38,7 @@ struct TaskIntervalSheet: View {
     /// legacy stored value remains the effective draft).
     @State private var durationWheelActive = false
     @State private var expandedGroup: ExpandedGroup?
+    @State private var removesInterval = false
     @State private var errorMessage: String?
 
     private static let durationMinuteOptions = Array(stride(from: 0, through: 55, by: 5))
@@ -110,11 +111,7 @@ struct TaskIntervalSheet: View {
                         }
                         .frame(maxWidth: .infinity)
                     }
-                } header: {
-                    Text("Начало")
-                }
 
-                Section {
                     summaryRow(
                         title: "Длительность",
                         value: durationSummaryText,
@@ -150,13 +147,14 @@ struct TaskIntervalSheet: View {
                         if !durationWheelValid {
                             Text(durationRangeHint)
                                 .font(.footnote)
-                                .foregroundStyle(.red)
+                                .foregroundStyle(Color.orbitError)
                         }
                     }
-                } header: {
-                    Text("Длительность")
                 }
 
+                if removesInterval {
+                    Text("После сохранения задача останется без времени; дата сохранится.").font(.footnote).foregroundStyle(.secondary)
+                }
                 Section {
                     LabeledContent("Дата") {
                         Text(dateContext)
@@ -170,28 +168,17 @@ struct TaskIntervalSheet: View {
 
                 if let errorMessage {
                     Section {
-                        Text(errorMessage)
+                        OrbitErrorMessage(errorMessage)
                             .font(.footnote)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Color.orbitError)
                             .accessibilityIdentifier("interval-error")
                     }
                 }
 
                 Section {
-                    Button(action: save) {
-                        Text("Сохранить")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .orbitPrimaryStyle()
-                    .disabled(!saveEnabled)
-                    .accessibilityIdentifier("interval-save")
-                    Button("Отмена") { dismiss() }
-                        .orbitSecondaryStyle()
-                        .frame(maxWidth: .infinity)
-                        .accessibilityIdentifier("interval-cancel")
                     if task.plannedTime != nil {
-                        Button(role: .destructive, action: clearInterval) {
-                            Label("Убрать время", systemImage: "clock.badge.minus")
+                        Button { removesInterval.toggle() } label: {
+                            Label(removesInterval ? "Восстановить время" : "Без времени", systemImage: "clock.badge.minus")
                                 .frame(maxWidth: .infinity)
                         }
                         .accessibilityIdentifier("interval-clear")
@@ -201,6 +188,7 @@ struct TaskIntervalSheet: View {
             .orbitEditorSurface()
             .navigationTitle("Время задачи")
             .navigationBarTitleDisplayMode(.inline)
+            .orbitEditorActions(enabled: removesInterval || saveEnabled, save: { if removesInterval { clearInterval() } else { save() } }, cancel: { dismiss() })
             .interactiveDismissDisabled(false)
         }
         .presentationDetents([.large])

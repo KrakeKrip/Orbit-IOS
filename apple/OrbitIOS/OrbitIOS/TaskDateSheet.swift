@@ -1,16 +1,13 @@
 import SwiftUI
 import OrbitCore
 
-/// Small date editor for one task: native wheel `DatePicker`, explicit
-/// «Сохранить»/«Отмена» buttons in the sheet content, and «Убрать дату» for an
-/// assigned date. Opening and cancelling never write; a failed save keeps the
-/// draft and shows the error for retry. The draft starts from the actual saved
-/// date, or today's local civil day when none is set.
+/// Optional civil date draft with pinned native actions; opening and cancellation never write.
 struct TaskDateSheet: View {
     let task: OrbitTask
     let model: IOSInboxModel
 
     @Environment(\.dismiss) private var dismiss
+    @State private var hasDate: Bool
     @State private var draftDate: Date
     @State private var errorMessage: String?
 
@@ -24,6 +21,7 @@ struct TaskDateSheet: View {
             initial = Date.now
         }
         _draftDate = State(initialValue: initial)
+        _hasDate = State(initialValue: task.plannedDate != nil)
     }
 
     var body: some View {
@@ -35,42 +33,33 @@ struct TaskDateSheet: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Section("Дата") {
+                    Toggle("Назначить дату", isOn: $hasDate)
                     DatePicker("Дата", selection: $draftDate, in: dateRange, displayedComponents: [.date])
                         .datePickerStyle(.wheel)
-                        .labelsHidden()
+                        .labelsHidden().disabled(!hasDate)
                         .environment(\.locale, Locale(identifier: "ru_RU"))
                         .environment(\.calendar, Calendar.orbitCivil)
                 }
                 if let errorMessage {
                     Section {
-                        Text(errorMessage)
+                        OrbitErrorMessage(errorMessage)
                             .font(.footnote)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Color.orbitError)
                             .accessibilityIdentifier("date-error")
                     }
                 }
-                Section {
-                    Button(action: save) {
-                        Text("Сохранить").frame(maxWidth: .infinity)
-                    }
-                    .orbitPrimaryStyle()
-                    Button("Отмена") { dismiss() }
-                        .orbitSecondaryStyle()
-                        .frame(maxWidth: .infinity)
-                    if task.plannedDate != nil {
-                        Button(role: .destructive, action: clearDate) {
-                            Label("Убрать дату", systemImage: "calendar.badge.minus")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .orbitSecondaryStyle()
-                    }
+                if !hasDate {
+                    Text("Без даты. Время и длительность тоже будут убраны после сохранения.")
+                        .font(.footnote).foregroundStyle(.secondary)
                 }
+
             }
             .orbitEditorSurface()
             .navigationTitle("Дата задачи")
             .navigationBarTitleDisplayMode(.inline)
+            .orbitEditorActions(save: save, cancel: { dismiss() })
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large])
         .orbitEditorSurface()
     }
 
@@ -81,7 +70,7 @@ struct TaskDateSheet: View {
     }
 
     private func save() {
-        let value = TaskPlannedDate.civilDateString(from: draftDate)
+        let value: String? = hasDate ? TaskPlannedDate.civilDateString(from: draftDate) : nil
         if let message = model.setPlannedDate(value, for: task) {
             errorMessage = message
         } else {
@@ -89,11 +78,4 @@ struct TaskDateSheet: View {
         }
     }
 
-    private func clearDate() {
-        if let message = model.setPlannedDate(nil, for: task) {
-            errorMessage = message
-        } else {
-            dismiss()
-        }
-    }
 }

@@ -62,7 +62,7 @@ struct OrbitSoundSettings: View {
                 Text("Один звук для всех напоминаний, включая уже назначенные. Режим без звука, громкость и настройки уведомлений iPhone влияют на воспроизведение. Для прослушивания стандартного звука нужно разрешение на уведомления.")
             }
             if let error = service.soundPreviewError {
-                Section { Text(error).foregroundStyle(.red) }
+                Section { OrbitErrorMessage(error) }
             }
         }
         .orbitEditorSurface()

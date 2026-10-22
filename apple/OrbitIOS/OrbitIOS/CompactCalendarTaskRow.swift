@@ -11,6 +11,8 @@ import OrbitCore
 /// rows and never overlap. Accessibility sizes grow the card with Dynamic
 /// Type; the full source title always stays in the accessibility label.
 struct CompactCalendarTaskRow: View {
+    @Environment(\.orbitAppearance) private var appearance
+    @Environment(\.dynamicTypeSize) private var typeSize
     let task: OrbitTask
     let model: IOSInboxModel
     let onEditDate: () -> Void
@@ -20,30 +22,29 @@ struct CompactCalendarTaskRow: View {
     let onBeginDrag: () -> NSItemProvider
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(alignment: .top, spacing: 0) {
             Button {
                 if model.isSelecting { model.toggleSelection(task) }
                 else { model.setCompleted(!task.isCompleted, for: task) }
             } label: {
                 ZStack {
                     Circle()
-                        .fill((model.isSelecting ? model.selectedTaskIDs.contains(task.id) : task.isCompleted) ? Color.orbitAccent : Color.clear)
+                        .fill((model.isSelecting ? model.selectedTaskIDs.contains(task.id) : task.isCompleted) ? Color.orbitAccentFill : Color.clear)
                     Circle()
                         .strokeBorder(
-                            (model.isSelecting ? model.selectedTaskIDs.contains(task.id) : task.isCompleted) ? Color.orbitAccent : Color(.systemGray3),
+                            (model.isSelecting ? model.selectedTaskIDs.contains(task.id) : task.isCompleted) ? Color.orbitAccent : appearance.secondaryText.opacity(0.75),
                             lineWidth: 1.25
                         )
                     if !model.isSelecting && task.isCompleted {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 7, weight: .bold))
+                            .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(Color.white)
                     }
                 }
-                .frame(width: 13, height: 13)
+                .frame(width: 22, height: 22)
                 // Hit cell matches the card height; it stays inside this
                 // leading column and never reaches the title's area.
-                .padding(.horizontal, 6.5)
-                .padding(.vertical, 6.5)
+                .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -68,21 +69,22 @@ struct CompactCalendarTaskRow: View {
                     Text(task.title)
                 }
                     .font(.subheadline)
-                    .foregroundStyle(task.isCompleted ? Color.secondary : Color.primary)
-                    .lineLimit(1)
+                    .foregroundStyle(task.isCompleted ? appearance.secondaryText : Color.primary)
+                    .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
+                    .fixedSize(horizontal: false, vertical: true)
                     .truncationMode(.tail)
                     .padding(.vertical, 3)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                     .padding(.trailing, 12)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .onDrag(onBeginDrag) {
-                Text(task.title).font(.subheadline).lineLimit(1)
-                    .padding(8).background(Color.orbitAccent, in: RoundedRectangle(cornerRadius: 7))
+                Text(task.title).font(.subheadline).lineLimit(typeSize.isAccessibilitySize ? nil : 2)
+                    .padding(8).background(Color.orbitAccentFill, in: RoundedRectangle(cornerRadius: 8))
                     .foregroundStyle(.white)
             }
-            .accessibilityLabel(task.title + TaskDeadlineBadge.accessibilitySuffix(task) + TaskReminderBadge.accessibilitySuffix(task))
+            .accessibilityLabel(InboxRowView.accessibilitySummary(task, notificationsDenied: model.reminders.status.authorization == .denied))
             .accessibilityHint("Нажмите для меню; удерживайте и перенесите на временную сетку")
             .orbitMenuFeedback()
         }
@@ -102,12 +104,12 @@ struct CompactCalendarTaskRow: View {
             }
         }
         .background(
-            RoundedRectangle(cornerRadius: 7).fill(
-                task.isCompleted ? Color(.tertiarySystemFill) : Color(.secondarySystemBackground)
+            RoundedRectangle(cornerRadius: 8).fill(
+                task.isCompleted ? Color(.tertiarySystemFill) : appearance.surface
             )
         )
-        .overlay(RoundedRectangle(cornerRadius: 7).stroke(model.isSelecting && model.selectedTaskIDs.contains(task.id) ? Color.orbitAccent : .clear, lineWidth: 2))
-        .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 7))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(model.isSelecting && model.selectedTaskIDs.contains(task.id) ? Color.orbitAccent : .clear, lineWidth: 2))
+        .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 8))
     }
 
 }

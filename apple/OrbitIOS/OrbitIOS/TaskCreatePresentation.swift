@@ -22,12 +22,12 @@ struct OrbitCreateButton: View {
                 Button(action: action) { symbol }
                     .buttonStyle(.glassProminent)
                     .buttonBorderShape(.circle)
-                    .tint(.orbitAccent)
+                    .tint(.orbitAccentFill)
             } else {
                 Button(action: action) { symbol }
                     .buttonStyle(.borderedProminent)
                     .buttonBorderShape(.circle)
-                    .tint(.orbitAccent)
+                    .tint(.orbitAccentFill)
             }
         }
         .accessibilityLabel(label)
@@ -36,8 +36,8 @@ struct OrbitCreateButton: View {
 
     private var symbol: some View {
         Image(systemName: "plus")
-            .font(.system(size: 27, weight: .medium))
-            .frame(width: 48, height: 48)
+            .font(.system(size: 24, weight: .medium))
+            .frame(width: 40, height: 40)
     }
 }
 
@@ -175,6 +175,7 @@ struct TaskCreateSheet: View {
     @State private var draftDurationMinutes = 30
     @State private var expandedGroup: ExpandedGroup?
     @State private var showsAdditional = false
+    @State private var showsTime = false
     @Environment(\.orbitAppearance) private var appearance
 
     private static let durationMinuteOptions = Array(stride(from: 0, through: 55, by: 5))
@@ -216,10 +217,12 @@ struct TaskCreateSheet: View {
                     }
                     .accessibilityIdentifier("create-project-picker")
                     dateSection
-                    timeSection
+                    DisclosureGroup(isExpanded: $showsTime) { timeSection } label: {
+                        LabeledContent("Время", value: timeEnabled ? (endPreview ?? startString) : "Без времени")
+                    }
                 }
                 Section {
-                    DisclosureGroup("Дополнительно", isExpanded: $showsAdditional) {
+                    DisclosureGroup(additionalCaption, isExpanded: $showsAdditional) {
                         TaskDeadlineFields(value: $draftDeadline, expanded: Binding(
                             get: { expandedGroup == .deadline },
                             set: { value in
@@ -239,7 +242,7 @@ struct TaskCreateSheet: View {
                 }
                 if let errorMessage {
                     Section {
-                        Text(errorMessage).font(.footnote).foregroundStyle(.red)
+                        OrbitErrorMessage(errorMessage)
                             .accessibilityIdentifier("create-error")
                     }
                 }
@@ -248,9 +251,10 @@ struct TaskCreateSheet: View {
             .contentMargins(.top, 8, for: .scrollContent)
             .scrollDismissesKeyboard(.interactively)
             .orbitEditorSurface()
-            .safeAreaInset(edge: .top, spacing: 0) { createHeader }
-            .toolbar(.hidden, for: .navigationBar)
-            .onAppear { titleFieldFocused = true }
+            .navigationTitle("Новая задача")
+            .navigationBarTitleDisplayMode(.inline)
+            .orbitEditorActions(enabled: addEnabled, confirm: "Добавить", save: submit, cancel: { titleFieldFocused = false; dismiss() })
+            .onAppear { titleFieldFocused = true; showsTime = timeEnabled }
         }
         // A single detent avoids a downward scroll first shrinking the sheet.
         // The fixed Cancel control stays available with keyboard and wheels.
@@ -259,31 +263,19 @@ struct TaskCreateSheet: View {
         .orbitEditorSurface()
     }
 
-    private var createHeader: some View {
-        HStack(spacing: 8) {
-            Button("Отмена") { titleFieldFocused = false; dismiss() }
-                .accessibilityIdentifier("create-cancel-button")
-            Spacer(minLength: 0)
-            Text("Новая задача").font(.subheadline.weight(.semibold))
-                .accessibilityAddTraits(.isHeader)
-            Spacer(minLength: 0)
-            Button("Добавить", action: submit)
-                .fontWeight(.semibold)
-                .disabled(!addEnabled)
-                .accessibilityIdentifier("create-add-button")
-        }
-        .font(.subheadline)
-        .padding(.horizontal, 16).padding(.top, 20).padding(.bottom, 12)
-        .background(appearance.canvas)
-    }
-
     // MARK: - Sections
 
+    private var additionalCaption: String {
+        var parts = ["Дополнительно"]
+        if let date = draftDeadline { parts.append("Срок: " + RussianDateCaption.label(date)) }
+        if let reminder = draftReminder { parts.append("Напомнить: " + TaskReminderFields.caption(reminder)) }
+        return parts.joined(separator: " · ")
+    }
+
     private var titleField: some View {
-        TextField("Название задачи", text: $title, prompt: Text("Название задачи"))
+        TextField("Название задачи", text: $title, axis: .vertical)
+            .lineLimit(1...4)
             .focused($titleFieldFocused)
-            .submitLabel(.done)
-            .onSubmit(submit)
             .accessibilityIdentifier("create-title-field")
     }
 
@@ -297,6 +289,13 @@ struct TaskCreateSheet: View {
                 toggleGroup(.date)
             }
             if expandedGroup == .date {
+                Toggle("Назначить дату", isOn: Binding(get: { draftDate != nil }, set: { enabled in
+                    draftDate = enabled ? TaskPlannedDate.civilDateString(from: pickerDate) : nil
+                    if !enabled { timeEnabled = false }
+                }))
+                if draftDate == nil {
+                    Text("Без даты. Включите дату, чтобы выбрать день.").font(.footnote).foregroundStyle(.secondary)
+                }
                 DatePicker(
                     "Дата",
                     selection: $pickerDate,
@@ -304,40 +303,14 @@ struct TaskCreateSheet: View {
                     displayedComponents: [.date]
                 )
                 .datePickerStyle(.wheel)
-                .labelsHidden()
+                .labelsHidden().disabled(draftDate == nil)
                 .environment(\.locale, Locale(identifier: "ru_RU"))
                 .environment(\.calendar, Calendar.orbitCivil)
                 .accessibilityIdentifier("create-date-picker")
                 .onChange(of: pickerDate) { _, newDate in
-                    draftDate = TaskPlannedDate.civilDateString(from: newDate)
+                    if draftDate != nil { draftDate = TaskPlannedDate.civilDateString(from: newDate) }
                 }
-                // NATIVE-ADD-004-R1: explicit confirmation of the date the
-                // wheel currently shows — assigns the draft even when the
-                // wheel value did not change. This covers the undated Inbox
-                // opening (today already centered) and re-selecting after
-                // «Убрать дату» (the wheel keeps its last position). Opening
-                // or closing the group alone never assigns anything.
-                Button {
-                    draftDate = TaskPlannedDate.civilDateString(from: pickerDate)
-                } label: {
-                    Label("Выбрать эту дату", systemImage: "calendar.badge.checkmark")
-                        .frame(maxWidth: .infinity)
-                }
-                .orbitPrimaryStyle()
-                .accessibilityIdentifier("create-confirm-date")
-                if draftDate != nil {
-                    Button(role: .destructive) {
-                        // Clearing the date disables the pair in the draft;
-                        // «Добавить» then sends nil/nil.
-                        draftDate = nil
-                        timeEnabled = false
-                    } label: {
-                        Label("Убрать дату", systemImage: "calendar.badge.minus")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .orbitSecondaryStyle()
-                    .accessibilityIdentifier("create-clear-date")
-                }
+
             }
         }
     }
@@ -413,7 +386,7 @@ struct TaskCreateSheet: View {
                     if !durationWheelValid {
                         Text(durationRangeHint)
                             .font(.footnote)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Color.orbitError)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .accessibilityIdentifier("create-duration-hint")
                     }
@@ -426,16 +399,7 @@ struct TaskCreateSheet: View {
                     .accessibilityIdentifier("create-end-preview")
                 }
 
-                Button(role: .destructive) {
-                    // Remove the whole pair; the date stays.
-                    timeEnabled = false
-                    expandedGroup = nil
-                } label: {
-                    Label("Убрать время", systemImage: "clock.badge.minus")
-                        .frame(maxWidth: .infinity)
-                }
-                .orbitSecondaryStyle()
-                .accessibilityIdentifier("create-clear-time")
+
             }
         }
     }
@@ -492,7 +456,7 @@ struct TaskCreateSheet: View {
     }
 
     private var addEnabled: Bool {
-        if isTitleBlank { return false }
+        if isTitleBlank || title.unicodeScalars.count > TaskTitle.maximumLength || created { return false }
         if timeEnabled && !durationWheelValid { return false }
         return true
     }

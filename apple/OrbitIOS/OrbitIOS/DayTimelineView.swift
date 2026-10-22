@@ -6,6 +6,7 @@ import OrbitCore
 /// Civil day timeline: tap for actions, hold-and-drag to move, handles to resize.
 /// A gesture edits only a local frozen draft; one validated write on release.
 struct DayTimelineView: View {
+    @Environment(\.scenePhase) private var phase
     @Environment(\.orbitAppearance) private var appearance
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let model: IOSInboxModel
@@ -33,6 +34,7 @@ struct DayTimelineView: View {
     @State private var dragTranslation: CGFloat = 0
     @State private var dragOriginOffset: CGFloat = 0
     @State private var creationStartMinute: Double?
+    @ScaledMetric(relativeTo: .caption) private var calendarFont = 13.0
     private let edgeTicks = Timer.publish(every: 1.0 / 30, on: .main, in: .common).autoconnect()
     @State private var timelineScrollOffset: CGFloat = 0
     @State private var untimedCandidate: TaskTimelineAdjustment.Candidate?
@@ -45,7 +47,7 @@ struct DayTimelineView: View {
 
     /// Uniform linear hour height.
     private let hourHeight: CGFloat = 64
-    private static let laneInset: CGFloat = 56
+    @ScaledMetric(relativeTo: .caption) private var laneInset = 56.0
     private static let laneTrailing: CGFloat = 10
     /// Visible gutter between side-by-side lanes.
     private static let laneGutter: CGFloat = 2
@@ -79,7 +81,7 @@ struct DayTimelineView: View {
                             let frame = scrollView.convert(scrollView.bounds, to: nil)
                             let x = point.x - frame.minX
                             let minute = Double((point.y - frame.minY + scrollView.contentOffset.y) / hourHeight * 60)
-                            guard x >= Self.laneInset, x <= geometry.size.width - Self.laneTrailing else { return false }
+                            guard x >= laneInset, x <= geometry.size.width - Self.laneTrailing else { return false }
                             return !displaySegments.contains { minute >= Double($0.startMinute) && minute <= Double($0.endMinute) }
                         }, creation: { state, start, point in
                             switch state {
@@ -132,10 +134,11 @@ struct DayTimelineView: View {
                 .onReceive(edgeTicks) { _ in
                     autoScroll(viewport: geometry.frame(in: .global))
                 }
+                .contentMargins(.bottom, 88, for: .scrollContent)
                 .scrollDisabled(editing != nil || creationDraft != nil)
                 .overlay(alignment: .top) {
                     if let gestureError {
-                        Text(gestureError).font(.footnote).foregroundStyle(.red)
+                        OrbitErrorMessage(gestureError)
                             .padding(10).background(appearance.canvas)
                             .onTapGesture { self.gestureError = nil }
                     }
@@ -159,6 +162,9 @@ struct DayTimelineView: View {
             if selecting { dragPoint = nil; creationDraft = nil; creationDay = nil; editing = nil; selectedTaskID = nil; untimedDrag = nil; untimedCandidate = nil }
         }
         .onChange(of: untimedDrag?.token) { _, _ in untimedCandidate = nil }
+        .onChange(of: phase) { _, value in
+            if value == .background { editing = nil; dragPoint = nil; creationDraft = nil; creationDay = nil; selectedTaskID = nil; untimedCandidate = nil; returningUntimed = false; _ = onReturnHover(nil) }
+        }
         .onDisappear { dragPoint = nil; scrollView = nil; creationDraft = nil; creationDay = nil; editing = nil; selectedTaskID = nil; untimedCandidate = nil; returningUntimed = false; _ = onReturnHover(nil) }
     }
 
@@ -222,18 +228,18 @@ struct DayTimelineView: View {
 
     @ViewBuilder private func creationPreview(containerWidth: CGFloat) -> some View {
         if let draft = creationDraft {
-            let width = max(1, containerWidth - Self.laneInset - Self.laneTrailing)
+            let width = max(1, containerWidth - laneInset - Self.laneTrailing)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Новая задача").font(.caption.weight(.semibold))
-                Text("\(draft.time) · \(draft.duration) мин").font(.caption2)
+                Text("\(draft.time) · \(draft.duration) мин").font(.caption)
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(appearance.eventText)
             .padding(.horizontal, 6)
             .frame(width: width, height: max(5, CGFloat(draft.duration) / 60 * hourHeight), alignment: .topLeading)
-            .background(Color.orbitAccent.opacity(0.8), in: RoundedRectangle(cornerRadius: 3))
-            .overlay(RoundedRectangle(cornerRadius: 3).stroke(.white, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])))
+            .background(appearance.eventSurface, in: RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color.orbitAccent, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])))
             .clipped()
-            .position(x: Self.laneInset + width / 2,
+            .position(x: laneInset + width / 2,
                       y: CGFloat(draft.startMinute) / 60 * hourHeight + CGFloat(draft.duration) / 120 * hourHeight)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
@@ -251,15 +257,15 @@ struct DayTimelineView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(source.title).font(.caption.weight(.semibold)).lineLimit(1)
                 Text("\(candidate.time)–\(clockString(end % 1440))\(end >= 1440 ? " (+1 день)" : "")")
-                    .font(.caption2.monospacedDigit()).lineLimit(1)
+                    .font(.caption.monospacedDigit()).lineLimit(1)
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(appearance.eventText)
             .padding(.horizontal, 6)
-            .frame(width: max(1, containerWidth - Self.laneInset - Self.laneTrailing), height: height, alignment: .topLeading)
-            .background(Color.orbitAccent.opacity(0.75), in: RoundedRectangle(cornerRadius: 3))
-            .overlay(RoundedRectangle(cornerRadius: 3).stroke(.white, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])))
+            .frame(width: max(1, containerWidth - laneInset - Self.laneTrailing), height: height, alignment: .topLeading)
+            .background(appearance.eventSurface, in: RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color.orbitAccent, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])))
             .clipped()
-            .position(x: Self.laneInset + (containerWidth - Self.laneInset - Self.laneTrailing) / 2,
+            .position(x: laneInset + (containerWidth - laneInset - Self.laneTrailing) / 2,
                       y: CGFloat(candidate.startMinute) / 60 * hourHeight + height / 2)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
@@ -273,11 +279,11 @@ struct DayTimelineView: View {
             ForEach(0..<24, id: \.self) { hour in
                 HStack(spacing: 8) {
                     Text(String(format: "%02d:00", hour))
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.secondary)
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(appearance.secondaryText)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                        .frame(width: 44, alignment: .leading)
+
+                        .frame(width: laneInset - 12, alignment: .leading)
                     Rectangle()
                         .fill(Color(.systemGray5))
                         .frame(height: 1)
@@ -289,11 +295,11 @@ struct DayTimelineView: View {
             // 24:00 end boundary: a label on the closing line, not a 25th hour.
             HStack(spacing: 8) {
                 Text("24:00")
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(appearance.secondaryText)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                    .frame(width: 44, alignment: .leading)
+
+                    .frame(width: laneInset - 12, alignment: .leading)
                 Rectangle()
                     .fill(Color(.systemGray5))
                     .frame(height: 1)
@@ -355,44 +361,9 @@ struct DayTimelineView: View {
             case .delete: onDelete(task)
             }
         } label: {
-            ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(task.isCompleted ? Color(.systemGray4) : Color.orbitAccent.opacity(0.85))
-                if paintedHeight >= 24 {
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 3) {
-                            TaskDeadlineBadge(task: task, compact: true, preview: true)
-                            TaskReminderBadge(task: task, service: model.reminders, compact: true, preview: true)
-                            Text(task.title)
-                        }
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(task.isCompleted ? Color(.systemGray5) : .white)
-                            .lineLimit(1)
-                        Text(range)
-                            .font(.caption2)
-                            .foregroundStyle(task.isCompleted ? Color(.systemGray5) : .white.opacity(0.95))
-                    }
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                }
-                if segment.continuesFromPreviousDay {
-                    Image(systemName: "arrow.up.to.line")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.9))
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                        .padding(.trailing, 3)
-                }
-                if segment.continuesIntoNextDay {
-                    VStack {
-                        Spacer(minLength: 0)
-                        Image(systemName: "arrow.down.to.line")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(.white.opacity(0.9))
-                            .frame(maxWidth: .infinity, alignment: .trailing)
-                            .padding(.trailing, 3)
-                    }
-                }
-            }
+            OrbitTimelineCard(title: task.title, range: range, completed: task.isCompleted,
+                              height: paintedHeight, width: laneWidth(laneCount: laneCount, containerWidth: containerWidth), font: calendarFont,
+                              continuesFrom: segment.continuesFromPreviousDay, continuesInto: segment.continuesIntoNextDay)
         }
         .buttonStyle(TimelineTaskButtonStyle())
         .frame(
@@ -401,7 +372,7 @@ struct DayTimelineView: View {
             alignment: .top
         )
         .clipped()
-        .modifier(TimelineTaskHold(enabled: !model.isSelecting && untimedDrag == nil && creationDraft == nil, ignoresResizeHandles: selectedTaskID == task.id) { state, start, point in
+        .modifier(TimelineTaskHold(enabled: !model.isSelecting && untimedDrag == nil && creationDraft == nil, ignoresResizeHandles: selectedTaskID == task.id && paintedHeight >= 44 && laneWidth(laneCount: laneCount, containerWidth: containerWidth) >= 88) { state, start, point in
             switch state {
             case .began:
                 begin(.move, task: task, segment: segment)
@@ -420,25 +391,28 @@ struct DayTimelineView: View {
         })
         .overlay {
             if model.isSelecting ? model.selectedTaskIDs.contains(task.id) : selectedTaskID == task.id {
-                RoundedRectangle(cornerRadius: 3).stroke(model.isSelecting ? Color.primary : .white, lineWidth: 2)
+                RoundedRectangle(cornerRadius: 3).stroke(Color.orbitAccent, lineWidth: 2)
                     .allowsHitTesting(false)
             }
         }
         .overlay(alignment: .topTrailing) {
-            if !model.isSelecting && selectedTaskID == task.id && !segment.continuesFromPreviousDay {
-                resizeHandle(.start, task: task, segment: segment).offset(x: 8, y: -16)
+            if !model.isSelecting && selectedTaskID == task.id && paintedHeight >= 44 && laneWidth(laneCount: laneCount, containerWidth: containerWidth) >= 88 && !segment.continuesFromPreviousDay {
+                resizeHandle(.start, task: task, segment: segment)
             }
         }
         .overlay(alignment: .bottomLeading) {
-            if !model.isSelecting && selectedTaskID == task.id && !segment.continuesIntoNextDay {
-                resizeHandle(.end, task: task, segment: segment).offset(x: -8, y: 16)
+            if !model.isSelecting && selectedTaskID == task.id && paintedHeight >= 44 && laneWidth(laneCount: laneCount, containerWidth: containerWidth) >= 88 && !segment.continuesIntoNextDay {
+                resizeHandle(.end, task: task, segment: segment)
             }
         }
         .zIndex(selectedTaskID == task.id ? 2 : 0)
         .orbitMenuFeedback()
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(task.title), \(range)" + TaskDeadlineBadge.accessibilitySuffix(task) + TaskReminderBadge.accessibilitySuffix(task))
-        .accessibilityHint("Нажмите для меню; удерживайте для переноса и изменения границ")
+        .accessibilityLabel(InboxRowView.accessibilitySummary(task, notificationsDenied: model.reminders.status.authorization == .denied) + (segment.continuesFromPreviousDay ? ", продолжение с предыдущего дня" : "") + (segment.continuesIntoNextDay ? ", продолжается на следующий день" : ""))
+        .accessibilityHint("Нажмите для меню; удерживайте для переноса и изменения границ. Короткие задачи доступны также в меню «Задачи дня».")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction(named: "Изменить время") { onEditInterval(task) }
+        .accessibilityAction(named: "Изменить дату") { onEditDate(task) }
         .accessibilityAddTraits(task.isCompleted ? [.isSelected] : [])
         // Position is outside the local gesture and popover source.
         .position(
@@ -457,13 +431,13 @@ struct DayTimelineView: View {
     }
 
     private func laneWidth(laneCount: Int, containerWidth: CGFloat) -> CGFloat {
-        let available = containerWidth - Self.laneInset - Self.laneTrailing
+        let available = containerWidth - laneInset - Self.laneTrailing
         let count = CGFloat(max(laneCount, 1))
         return max(1, (available - (count - 1) * Self.laneGutter) / count)
     }
 
     private func blockX(laneIndex: Int, laneCount: Int, containerWidth: CGFloat) -> CGFloat {
-        Self.laneInset + CGFloat(laneIndex) * (laneWidth(laneCount: laneCount, containerWidth: containerWidth) + Self.laneGutter)
+        laneInset + CGFloat(laneIndex) * (laneWidth(laneCount: laneCount, containerWidth: containerWidth) + Self.laneGutter)
     }
 
     private func clockString(_ minute: Int) -> String {
@@ -594,7 +568,7 @@ struct DayTimelineView: View {
         Circle().fill(.white)
             .overlay(Circle().stroke(Color.orbitAccent, lineWidth: 1.5))
             .frame(width: 12, height: 12)
-            .frame(width: 32, height: 32)
+            .frame(width: 44, height: 44)
             .contentShape(Rectangle())
             .accessibilityLabel(edge == .start ? "Изменить начало" : "Изменить конец")
             .highPriorityGesture(

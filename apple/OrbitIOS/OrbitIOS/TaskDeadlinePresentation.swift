@@ -38,26 +38,20 @@ struct TaskDeadlineFields: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier("deadline-summary")
             if expanded {
+                Toggle("Назначить срок", isOn: Binding(get: { value != nil }, set: { enabled in
+                    value = enabled ? TaskPlannedDate.civilDateString(from: pickerDate) : nil
+                }))
                 DatePicker("Дедлайн", selection: $pickerDate,
                            in: TaskPlannedDate.date(fromCivilDateString: "1900-01-01")! ... TaskPlannedDate.date(fromCivilDateString: "2199-12-31")!,
                            displayedComponents: .date)
-                    .datePickerStyle(.wheel).labelsHidden()
+                    .datePickerStyle(.wheel).labelsHidden().disabled(value == nil)
                     .environment(\.locale, Locale(identifier: "ru_RU"))
                     .environment(\.calendar, Calendar.orbitCivil)
                     .accessibilityIdentifier("deadline-picker")
                     .onChange(of: pickerDate) { _, date in
-                        value = TaskPlannedDate.civilDateString(from: date)
+                        if value != nil { value = TaskPlannedDate.civilDateString(from: date) }
                     }
-                Button("Выбрать этот срок") {
-                    value = TaskPlannedDate.civilDateString(from: pickerDate)
-                    expanded = false
-                }
-                .orbitPrimaryStyle()
-                .accessibilityIdentifier("deadline-confirm")
-                if value != nil {
-                    Button("Убрать дедлайн", role: .destructive) { value = nil; expanded = false }
-                        .accessibilityIdentifier("deadline-clear")
-                }
+
             }
             Text("Срок до конца дня. Дата и время выполнения задаются отдельно.")
                 .font(.footnote).foregroundStyle(.secondary)
@@ -98,7 +92,7 @@ struct TaskDeadlineSheet: View {
             Form {
                 Section("Задача") { Text(task.title) }
                 Section { TaskDeadlineFields(value: $draft, expanded: $expanded) }
-                if let error { Section { Text(error).foregroundStyle(.red) } }
+                if let error { Section { OrbitErrorMessage(error) } }
             }
             .orbitEditorSurface()
             .navigationTitle("Дедлайн")
@@ -122,6 +116,8 @@ struct TaskDeadlineSheet: View {
 
 /// Minute refresh also updates overdue status across midnight without a store write.
 struct TaskDeadlineBadge: View {
+    @Environment(\.orbitAppearance) private var badgeAppearance
+
     let task: OrbitTask
     var compact = false
     var preview = false
@@ -135,12 +131,12 @@ struct TaskDeadlineBadge: View {
                     if compact {
                         Image(systemName: overdue ? "flag.badge.ellipsis" : "flag.fill")
                     } else {
-                        Label((overdue ? "Просрочено · " : "Дедлайн · ") + RussianDateCaption.label(deadline),
+                        Label((overdue ? "Срок истёк · " : "Дедлайн · ") + RussianDateCaption.label(deadline),
                               systemImage: "flag")
                     }
                 }
-                .font(.caption)
-                .foregroundStyle(preview ? Color.white : overdue ? Color.red : Color.secondary)
+                .font(compact ? .caption : .footnote)
+                .foregroundStyle(overdue ? Color.orbitError : badgeAppearance.secondaryText)
                 .accessibilityLabel(Self.accessibilitySuffix(task, today: today))
                 .accessibilityIdentifier("task-deadline-badge")
             }
@@ -150,6 +146,6 @@ struct TaskDeadlineBadge: View {
     static func accessibilitySuffix(_ task: OrbitTask, today: String = TaskDaySelection.currentDay()) -> String {
         guard let date = task.deadlineDate else { return "" }
         let overdue = TaskDeadline.isOverdue(date, completed: task.isCompleted, today: today)
-        return ", " + (overdue ? "Просрочено, дедлайн " : "Дедлайн ") + RussianDateCaption.label(date)
+        return ", " + (overdue ? "Срок истёк, дедлайн " : "Дедлайн ") + RussianDateCaption.label(date)
     }
 }

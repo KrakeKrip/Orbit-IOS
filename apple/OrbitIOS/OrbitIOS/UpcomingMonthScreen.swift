@@ -20,23 +20,23 @@ struct UpcomingMonthScreen: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: $showsCalendar, agendaMode: $showsAgenda))
+                NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: $showsCalendar, agendaMode: $showsAgenda)) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Выбрано: " + RussianDateCaption.label(selectedDay))
+                        if selectedDay != referenceDay { Button("Сегодня") { selectedDay = TaskDaySelection.currentDay() }.frame(minHeight: 44) }
+                    }
+                }
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
                         MarkedMonthCalendar(selection: selection, taskDays: Set(model.tasks.compactMap(\.plannedDate))) {}
-                        if selectedDay != referenceDay {
-                            Button("Сегодня") { selectedDay = TaskDaySelection.currentDay() }
-                                .frame(minHeight: 44)
-                        }
                         OverdueTaskBlock(model: model)
                         Divider()
                         Text(RussianDateCaption.label(selectedDay)).font(.headline).padding(.vertical, 8)
-                        if let error = model.writeError { Text(error).font(.footnote).foregroundStyle(.red) }
+                        if let error = model.writeError { OrbitErrorMessage(error) }
                         if let error = model.listError {
-                            Text(error).foregroundStyle(.secondary)
-                            Button("Повторить") { model.reload() }
+                            OrbitTaskLoadFailure(message: error, retry: { model.reload() })
                         } else if tasks.isEmpty {
-                            Text("На этот день задач нет").foregroundStyle(.secondary).padding(.vertical, 12)
+                            Text("На этот день задач нет").foregroundStyle(appearance.secondaryText).padding(.vertical, 12)
                         } else {
                             ForEach(tasks) { task in
                                 InboxRowView(task: task, model: model, showsDateLabel: false) {
@@ -46,8 +46,9 @@ struct UpcomingMonthScreen: View {
                                 }
                             }
                         }
-                    }.padding(.horizontal, 16).padding(.bottom, 110)
+                    }.padding(.horizontal, 16).padding(.bottom, 16)
                 }
+                .contentMargins(.bottom, 88, for: .scrollContent)
             }
             .background(appearance.canvas)
             .toolbar(.hidden, for: .navigationBar)

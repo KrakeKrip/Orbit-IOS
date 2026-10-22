@@ -14,9 +14,13 @@ struct ReminderPermissionView: View {
                 Button("Настройки уведомлений") { service.openSettings() }
                     .accessibilityIdentifier("reminder-open-settings")
             }
-            if service.status.error != nil || service.authorizationError != nil {
-                Button("Повторить проверку") { Task { await service.requestAuthorization() } }
-                    .accessibilityIdentifier("reminder-retry")
+            if service.status.authorization == .denied {
+                Text("Не доставится: уведомления выключены").font(.footnote).foregroundStyle(Color.orbitError)
+            } else if service.status.error != nil || service.authorizationError != nil {
+                Button("Повторить проверку") {
+                    if service.authorizationError != nil { Task { await service.requestAuthorization() } }
+                    else { service.refresh() }
+                }.frame(minHeight: 44).accessibilityIdentifier("reminder-retry")
             }
         }
     }
@@ -64,6 +68,7 @@ struct TaskReminderFields: View {
                     DatePicker("Дата", selection: $pickerDate,
                                in: TaskPlannedDate.date(fromCivilDateString: "1900-01-01")! ... TaskPlannedDate.date(fromCivilDateString: "2199-12-31")!,
                                displayedComponents: .date)
+                        .datePickerStyle(.wheel).labelsHidden()
                         .environment(\.locale, Locale(identifier: "ru_RU"))
                         .environment(\.calendar, Calendar.orbitCivil)
                         .accessibilityIdentifier("reminder-date-picker")
@@ -76,7 +81,7 @@ struct TaskReminderFields: View {
                 TimelineView(.periodic(from: .now, by: 30)) { context in
                     if value <= context.date {
                         Text("Время уже прошло. Выберите будущее время, чтобы получить напоминание.")
-                            .font(.footnote).foregroundStyle(.red)
+                            .font(.footnote).foregroundStyle(Color.orbitError)
                             .accessibilityIdentifier("reminder-past-hint")
                     }
                 }
@@ -118,13 +123,13 @@ struct TaskReminderSheet: View {
                 Section {
                     if task.isCompleted {
                         Text("Задача завершена. Напоминание отменено. Снова откройте задачу, чтобы назначить новое.")
-                        if draft != nil { Button("Убрать напоминание", role: .destructive) { draft = nil } }
+                        if draft != nil { Button("Без напоминания") { draft = nil } }
                     } else {
                         TaskReminderFields(value: $draft, expanded: $expanded, service: model.reminders,
                                            plannedDate: task.plannedDate, plannedTime: task.plannedTime)
                     }
                 }
-                if let error { Section { Text(error).foregroundStyle(.red) } }
+                if let error { Section { OrbitErrorMessage(error) } }
             }
             .orbitEditorSurface().navigationTitle("Напоминание").navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -144,6 +149,8 @@ struct TaskReminderSheet: View {
 }
 
 struct TaskReminderBadge: View {
+    @Environment(\.orbitAppearance) private var badgeAppearance
+
     let task: OrbitTask
     let service: OrbitReminderScheduler
     var compact = false
@@ -159,8 +166,8 @@ struct TaskReminderBadge: View {
                     Label(TaskReminderFields.caption(date) + suffix, systemImage: "bell")
                 }
             }
-            .font(.caption)
-            .foregroundStyle(preview ? Color.white : service.status.authorization == .denied || service.status.error != nil ? Color.orange : Color.secondary)
+            .font(compact ? .caption : .footnote)
+            .foregroundStyle(service.status.authorization == .denied || service.status.error != nil ? Color.orbitError : badgeAppearance.secondaryText)
             .accessibilityIdentifier("task-reminder-badge")
         }
     }

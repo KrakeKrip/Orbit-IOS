@@ -16,6 +16,7 @@ struct OrbitIOSApp: App {
         case projects
     }
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @State private var launch: Launch
     @AppStorage("orbit.ui.appearance") private var appearanceRaw = OrbitAppearance.system.rawValue
@@ -73,7 +74,7 @@ struct OrbitIOSApp: App {
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
-                .animation(.easeInOut(duration: 0.25), value: model.isSelecting)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: model.isSelecting)
                 .environment(model)
                 .environment(model.reminders)
                 .onAppear { model.reminders.start() }

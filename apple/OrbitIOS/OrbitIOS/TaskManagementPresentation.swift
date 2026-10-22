@@ -32,13 +32,12 @@ struct TaskManagementHostModifier: ViewModifier {
             .sheet(item: $renamePresentation) { item in
                 TaskRenameSheet(model: model, task: item.task)
             }
-            .confirmationDialog(
+            .alert(
                 "Удалить задачу?",
                 isPresented: Binding(
                     get: { deletePresentation != nil },
                     set: { if !$0 { deletePresentation = nil } }
                 ),
-                titleVisibility: .visible,
                 presenting: deletePresentation
             ) { item in
                 // One destructive action per confirmation: the presentation is
@@ -51,9 +50,9 @@ struct TaskManagementHostModifier: ViewModifier {
                 }
                 Button("Отмена", role: .cancel) { }
             } message: { item in
-                // The full title stays visible and wraps on long names; the
+                // A bounded title context avoids an excessively tall confirmation; the
                 // wording states honestly that this hard delete has no undo.
-                Text("«\(item.task.title)» будет удалена безвозвратно — восстановить задачу нельзя.")
+                Text("«\(String(item.task.title.prefix(120)))» будет удалена безвозвратно — восстановить задачу нельзя.")
             }
     }
 }
@@ -109,40 +108,30 @@ struct TaskRenameSheet: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Название задачи", text: $title, prompt: Text("Название задачи"))
+                    TextField("Название задачи", text: $title, axis: .vertical)
+                        .lineLimit(1...4)
                         .focused($titleFieldFocused)
-                        .submitLabel(.done)
-                        .onSubmit(save)
 
                         .accessibilityIdentifier("rename-title-field")
                 }
                 Section {
                     if let errorMessage {
-                        Text(errorMessage)
+                        OrbitErrorMessage(errorMessage)
                             .font(.footnote)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Color.orbitError)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .accessibilityIdentifier("rename-error")
                     }
-                    Button(action: save) {
-                        Text("Сохранить")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .orbitPrimaryStyle()
-                    .accessibilityIdentifier("rename-save-button")
 
-                    Button("Отмена") { dismiss() }
-                        .orbitSecondaryStyle()
-                        .frame(maxWidth: .infinity)
-                        .accessibilityIdentifier("rename-cancel-button")
                 }
             }
             .orbitEditorSurface()
             .navigationTitle("Переименовать")
             .navigationBarTitleDisplayMode(.inline)
+            .orbitEditorActions(enabled: !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && title.unicodeScalars.count <= TaskTitle.maximumLength && !saved, save: save, cancel: { dismiss() })
             .onAppear { titleFieldFocused = true }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large])
         .orbitEditorSurface()
     }
 

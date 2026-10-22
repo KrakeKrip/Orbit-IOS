@@ -25,14 +25,13 @@ struct ProjectWorkspaceScreen: View {
     private var tasks: [OrbitTask] { model.tasks.filter { $0.projectID == project.id } }
 
     private var header: some View {
-        NativeModeHeader(switcher: OrbitViewModeMenu(showsCalendar: $showsCalendar, identifier: "project-mode-switcher")) {
+        NativeModeHeader(title: project.name, switcher: OrbitViewModeMenu(showsCalendar: $showsCalendar, identifier: "project-mode-switcher")) {
             Button(action: onBack) {
-                Image(systemName: "chevron.left").frame(minWidth: 32, minHeight: 44)
+                Image(systemName: "chevron.left").frame(minWidth: 44, minHeight: 44)
             }
             .accessibilityLabel("Все проекты")
             .accessibilityIdentifier("project-back")
-            Text(project.name).font(.headline).lineLimit(1)
-                .accessibilityIdentifier("project-title")
+
         }
     }
 
@@ -48,26 +47,25 @@ struct ProjectWorkspaceScreen: View {
                         header
                         OverdueTaskBlock(model: model, projectID: project.id)
                         if let error = model.listError {
-                            ContentUnavailableView("Задачи недоступны", systemImage: "exclamationmark.triangle", description: Text(error))
-                            Button("Повторить") { model.reload() }
+                            OrbitTaskLoadFailure(message: error, retry: { model.reload() })
                         } else if tasks.isEmpty {
                             ContentUnavailableView("В проекте пока нет задач", systemImage: "folder", description: Text("Добавьте первую задачу кнопкой «+»."))
                         } else {
                             List {
-                                if let error = model.writeError { Text(error).foregroundStyle(.red) }
+                                if let error = model.writeError { OrbitErrorMessage(error) }
                                 ForEach([false, true], id: \.self) { completed in
                                     let rows = tasks.filter { $0.isCompleted == completed && !TaskDaySelection.isOverdue($0, before: referenceDay) }
                                     if !rows.isEmpty {
                                         Section(completed ? "Завершённые" : "Открытые") {
                                             ForEach(rows) { task in
-                                                InboxRowView(task: task, model: model) { editor = .date(task) }
+                                                InboxRowView(task: task, model: model, showsProjectLabel: false) { editor = .date(task) }
                                                     onEditInterval: { editor = .interval(task) }
                                             }
                                         }
                                     }
                                 }
                             }
-                            .listStyle(.plain).scrollContentBackground(.hidden)
+                            .listStyle(.plain).contentMargins(.bottom, 88, for: .scrollContent).scrollContentBackground(.hidden)
                         }
                     }
                     .background(appearance.canvas)
@@ -120,7 +118,7 @@ struct TaskProjectSheet: View {
                 }
                 .pickerStyle(.inline)
                 .accessibilityIdentifier("task-project-picker")
-                if let error { Text(error).foregroundStyle(.red) }
+                if let error { OrbitErrorMessage(error) }
             }
             .orbitEditorSurface()
             .navigationTitle("Проект задачи")

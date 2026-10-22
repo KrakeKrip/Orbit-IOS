@@ -5,7 +5,12 @@ import OrbitCore
 /// Single accent of the screen: a restrained coral/red for the primary action
 /// and completed state. Everything else stays system gray.
 extension Color {
-    static let orbitAccent = Color(red: 0.906, green: 0.345, blue: 0.286)
+    static let orbitAccentFill = Color(red: 0.73, green: 0.22, blue: 0.18)
+    static var orbitAccent: Color {
+        Color(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark ? UIColor(red: 1, green: 0.52, blue: 0.45, alpha: 1) : UIColor(red: 0.73, green: 0.22, blue: 0.18, alpha: 1)
+        })
+    }
 }
 
 /// Which editor sheet is presented; identified by kind + task UUID so only
@@ -42,9 +47,7 @@ struct InboxScreen: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                NativeModeHeader(switcher: EmptyView()) {
-                    Text("Входящие").font(.title2.bold()).lineLimit(1)
-                }
+                NativeModeHeader(title: "Входящие", switcher: EmptyView())
                 OverdueTaskBlock(model: model)
                 if let writeError = model.writeError {
                     writeErrorBanner(writeError)
@@ -84,7 +87,7 @@ struct InboxScreen: View {
     private var taskList: some View {
         List {
             if !currentOpenTasks.isEmpty {
-                Section("Открытые") {
+                Section("Все открытые") {
                     ForEach(currentOpenTasks) { task in
                         InboxRowView(task: task, model: model) {
                             presentation = .date(task)
@@ -108,7 +111,7 @@ struct InboxScreen: View {
                 }
             }
         }
-        .listStyle(.plain)
+        .listStyle(.plain).contentMargins(.bottom, 88, for: .scrollContent)
         .scrollContentBackground(.hidden)
     }
 
@@ -121,15 +124,7 @@ struct InboxScreen: View {
     }
 
     private var listErrorView: some View {
-        ContentUnavailableView {
-            Label("Не удалось загрузить задачи", systemImage: "externaldrive.badge.exclamationmark")
-        } description: {
-            Text(model.listError ?? "")
-        } actions: {
-            Button("Повторить") { model.reload() }
-                .buttonStyle(.borderedProminent)
-                .tint(.orbitAccent)
-        }
+        OrbitTaskLoadFailure(message: model.listError ?? "", retry: { model.reload() })
     }
 
     /// A failed complete/reopen or date/interval write on this screen: the
@@ -138,13 +133,8 @@ struct InboxScreen: View {
     /// the empty state or a read failure. It is never shown inside the modal
     /// create sheet, which reports its own attempts in the form.
     private func writeErrorBanner(_ message: String) -> some View {
-        Text(message)
-            .font(.footnote)
-            .foregroundStyle(.red)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(Color(.secondarySystemBackground))
+        OrbitErrorMessage(message)
+            .padding(.horizontal, 16).padding(.vertical, 8)
             .accessibilityIdentifier("inbox-write-error")
     }
 }
@@ -165,6 +155,7 @@ struct InboxRowView: View {
     /// day-grouped Upcoming sections pass false — their section headers
     /// already carry the date. Presentation only, no metadata loss.
     var showsDateLabel: Bool = true
+    var showsProjectLabel: Bool = true
     let onEditDate: () -> Void
     let onEditInterval: () -> Void
 
@@ -206,8 +197,22 @@ struct InboxRowView: View {
         return "\(time)–\(end.time) (+1 день)"
     }
 
+    static func accessibilitySummary(_ task: OrbitTask, project: String? = nil, notificationsDenied: Bool = false) -> String {
+        var parts = [task.isCompleted ? "Выполнено" : "", task.title]
+        parts.append(task.plannedDate.map(RussianDateCaption.label) ?? "Без даты")
+        if let date = task.plannedDate, let time = task.plannedTime, let duration = task.durationMinutes,
+           let end = TaskTimeInterval.end(plannedDate: date, plannedTime: time, durationMinutes: duration) {
+            parts.append(time + " — " + (end.date != date ? RussianDateCaption.label(end.date) + " " : "") + end.time)
+        } else { parts.append("Без времени") }
+        if let project { parts.append("Проект: " + project) }
+        parts.append(TaskDeadlineBadge.accessibilitySuffix(task).trimmingCharacters(in: CharacterSet(charactersIn: ", ")))
+        parts.append(TaskReminderBadge.accessibilitySuffix(task).trimmingCharacters(in: CharacterSet(charactersIn: ", ")))
+        if notificationsDenied, task.reminderAt != nil, !task.isCompleted { parts.append("Не доставится: уведомления выключены") }
+        return parts.filter { !$0.isEmpty }.joined(separator: ", ")
+    }
+
     var body: some View {
-        HStack(alignment: .center, spacing: 14) {
+        HStack(alignment: .top, spacing: 12) {
             CompletionButton(isCompleted: model.isSelecting ? model.selectedTaskIDs.contains(task.id) : task.isCompleted, showsCheckmark: !model.isSelecting) {
                 if model.isSelecting { model.toggleSelection(task) }
                 else { model.setCompleted(!task.isCompleted, for: task) }
@@ -234,7 +239,7 @@ struct InboxRowView: View {
         }
         // Keep natural multiline/metadata height and 44pt controls, while
         // replacing List's default top/bottom insets with a compact gap.
-        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
         .listRowBackground(model.isSelecting && model.selectedTaskIDs.contains(task.id) ? Color.orbitAccent.opacity(0.12) : appearance.canvas)
         .alignmentGuide(.listRowSeparatorLeading) { dimensions in
             dimensions[.leading] + 44 + 14
@@ -267,35 +272,37 @@ struct InboxRowView: View {
             case .delete: deletePresentation = TaskDeletePresentation(task: task)
             }
         } label: {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(task.title)
                     .font(.body)
-                    .foregroundStyle(task.isCompleted ? Color.secondary : Color.primary)
+                    .foregroundStyle(task.isCompleted ? appearance.secondaryText : Color.primary)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
-                TaskDeadlineBadge(task: task)
-                TaskReminderBadge(task: task, service: model.reminders)
                 if showsDateLabel, let plannedDate = task.plannedDate {
                     TimelineView(.periodic(from: .now, by: 60)) { context in
                         let today = TaskDaySelection.currentDay(from: context.date)
                         let missed = !task.isCompleted && TaskPlannedDate.isValid(plannedDate) && plannedDate < today
-                        Text(RussianDateCaption.label(plannedDate))
+                        Text((missed ? "Было запланировано · " : "") + RussianDateCaption.label(plannedDate))
                             .font(.footnote)
-                            .foregroundStyle(missed ? Color.red : Color.secondary)
+                            .foregroundStyle(missed ? Color.orbitError : appearance.secondaryText)
                             .accessibilityLabel(RussianDateCaption.label(plannedDate) + (missed ? ", запланированная дата прошла" : ""))
                     }
                 }
                 if let interval = Self.intervalLabel(task) {
-                    Text(interval)
-                        .font(.footnote)
-                        .foregroundStyle(Color.secondary)
+                    Text(interval).font(.footnote.monospacedDigit()).foregroundStyle(appearance.secondaryText)
                 }
+                if showsProjectLabel, let id = task.projectID, let project = model.projects.first(where: { $0.id == id }) {
+                    Label(project.name, systemImage: "folder").font(.footnote).foregroundStyle(appearance.secondaryText)
+                }
+                TaskDeadlineBadge(task: task)
+                TaskReminderBadge(task: task, service: model.reminders)
+
             }
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .contentShape(Rectangle())
         }
         .orbitMenuFeedback()
-        .accessibilityLabel(task.title + TaskDeadlineBadge.accessibilitySuffix(task) + TaskReminderBadge.accessibilitySuffix(task))
+        .accessibilityLabel(Self.accessibilitySummary(task, project: model.projects.first { $0.id == task.projectID }?.name, notificationsDenied: model.reminders.status.authorization == .denied))
     }
 
 
@@ -304,6 +311,8 @@ struct InboxRowView: View {
 /// Round Todoist-like completion control: calm gray outline, coral fill with a
 /// white checkmark once completed; ≥ 44pt tappable.
 struct CompletionButton: View {
+    @Environment(\.orbitAppearance) private var appearance
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let isCompleted: Bool
     var showsCheckmark: Bool = true
     let action: () -> Void
@@ -312,21 +321,21 @@ struct CompletionButton: View {
         Button(action: action) {
             ZStack {
                 Circle()
-                    .fill(isCompleted ? Color.orbitAccent : Color.clear)
+                    .fill(isCompleted ? Color.orbitAccentFill : Color.clear)
                 Circle()
-                    .strokeBorder(isCompleted ? Color.orbitAccent : Color(.systemGray3), lineWidth: 1.5)
+                    .strokeBorder(isCompleted ? Color.orbitAccent : appearance.secondaryText.opacity(0.75), lineWidth: 1.5)
                 if isCompleted && showsCheckmark {
                     Image(systemName: "checkmark")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(Color.white)
                 }
             }
-            .frame(width: 26, height: 26)
+            .frame(width: 22, height: 22)
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .animation(.easeInOut(duration: 0.15), value: isCompleted)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.15), value: isCompleted)
     }
 }
 
