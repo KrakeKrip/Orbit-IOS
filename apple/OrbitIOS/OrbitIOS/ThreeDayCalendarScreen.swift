@@ -33,12 +33,15 @@ struct ThreeDayCalendarScreen: View {
     private let edgeTicks = Timer.publish(every: 1.0 / 30, on: .main, in: .common).autoconnect()
     @GestureState private var editingGesture = false
     @State private var lastRelease = Date.distantPast
-    @ScaledMetric(relativeTo: .caption) private var calendarFont = 12.0
+    @ScaledMetric(relativeTo: .caption) private var scaledCalendarFont = 12.0
+    private var calendarFont: CGFloat { min(scaledCalendarFont, 20) }
     @ScaledMetric(relativeTo: .subheadline) private var untimedRowHeight = 44.0
     private let hourHeight: CGFloat = 64
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var availableHeight: CGFloat = 800
-    @ScaledMetric(relativeTo: .caption) private var gutter = 56.0
+    @ScaledMetric(relativeTo: .caption) private var scaledGutter = 56.0
+    private var gutter: CGFloat { min(scaledGutter, 72) }
+    @State private var showsReadableDay = false
     private struct Create: Identifiable {
         let id = UUID()
         let day: String
@@ -85,9 +88,12 @@ struct ThreeDayCalendarScreen: View {
                     } }
                 )
                 if typeSize.isAccessibilitySize {
+                    Button("Задачи дня", systemImage: "list.bullet") { showsReadableDay = true }
+                        .font(.subheadline).frame(maxWidth: .infinity, minHeight: 44)
+                        .accessibilityLabel("Задачи за " + RussianDateCaption.label(selectedDay))
+                        .accessibilityIdentifier("calendar-readable-day")
                     ScrollView {
                         VStack(spacing: 0) {
-                            Button("Читать задачи в повестке", systemImage: "list.bullet") { threeDayMode?.wrappedValue = false; showsAgenda = true; showsCalendar = false }.font(.footnote).frame(minHeight: 44)
                             OverdueTaskBlock(model: model)
                             dayHeaders
                             untimedRows
@@ -116,6 +122,9 @@ struct ThreeDayCalendarScreen: View {
                 }
             }))
             .toolbar(.hidden, for: .navigationBar)
+            .sheet(isPresented: $showsReadableDay) {
+                OrbitCalendarDayTasks(model: model, day: selectedDay)
+            }
             .sheet(item: $editor) { item in
                 switch item {
                 case .date(let task): TaskDateSheet(task: task, model: model)
@@ -251,7 +260,7 @@ struct ThreeDayCalendarScreen: View {
                         VStack(spacing: 0) {
                             ForEach(0...24, id: \.self) { hour in
                                 HStack(spacing: 2) {
-                                    Text(String(format: "%02d:00", hour)).font(.caption.monospacedDigit())
+                                    Text(String(format: "%02d:00", hour)).font(.system(size: min(calendarFont, 16)).monospacedDigit()).lineLimit(1)
                                         .foregroundStyle(appearance.secondaryText).frame(width: gutter - 2, alignment: .leading)
                                     Rectangle().fill(.quaternary).frame(height: 1)
                                 }.frame(height: hour == 24 ? 20 : hourHeight, alignment: .top).id(hour)

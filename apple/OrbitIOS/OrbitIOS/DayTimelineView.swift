@@ -34,7 +34,8 @@ struct DayTimelineView: View {
     @State private var dragTranslation: CGFloat = 0
     @State private var dragOriginOffset: CGFloat = 0
     @State private var creationStartMinute: Double?
-    @ScaledMetric(relativeTo: .caption) private var calendarFont = 13.0
+    @ScaledMetric(relativeTo: .caption) private var scaledCalendarFont = 13.0
+    private var calendarFont: CGFloat { min(scaledCalendarFont, 20) }
     private let edgeTicks = Timer.publish(every: 1.0 / 30, on: .main, in: .common).autoconnect()
     @State private var timelineScrollOffset: CGFloat = 0
     @State private var untimedCandidate: TaskTimelineAdjustment.Candidate?
@@ -47,7 +48,8 @@ struct DayTimelineView: View {
 
     /// Uniform linear hour height.
     private let hourHeight: CGFloat = 64
-    @ScaledMetric(relativeTo: .caption) private var laneInset = 56.0
+    @ScaledMetric(relativeTo: .caption) private var scaledLaneInset = 56.0
+    private var laneInset: CGFloat { min(scaledLaneInset, 72) }
     private static let laneTrailing: CGFloat = 10
     /// Visible gutter between side-by-side lanes.
     private static let laneGutter: CGFloat = 2
@@ -293,7 +295,7 @@ struct DayTimelineView: View {
             ForEach(0..<24, id: \.self) { hour in
                 HStack(spacing: 8) {
                     Text(String(format: "%02d:00", hour))
-                        .font(.caption.monospacedDigit())
+                        .font(.system(size: min(calendarFont, 16)).monospacedDigit())
                         .foregroundStyle(appearance.secondaryText)
                         .lineLimit(1)
 
@@ -309,7 +311,7 @@ struct DayTimelineView: View {
             // 24:00 end boundary: a label on the closing line, not a 25th hour.
             HStack(spacing: 8) {
                 Text("24:00")
-                    .font(.caption.monospacedDigit())
+                    .font(.system(size: min(calendarFont, 16)).monospacedDigit())
                     .foregroundStyle(appearance.secondaryText)
                     .lineLimit(1)
 

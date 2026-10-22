@@ -46,3 +46,5 @@ Web: https://github.com/KrakeKrip/Orbit-Web. macOS ожидает собстве
 - Маркеры календаря: центры на верхней/нижней границах, боковой отступ сохранён; оба resize проверены на synthetic Simulator. [Отчёт](reports/CALENDAR-HANDLE-POSITION/README.md).
 
 - D06/D07: полный диапазон в форме создания, возврат Today к текущему месяцу даже при уже выбранной сегодняшней дате. [Проверки](reports/AUDIT-TIME-DATE-CLARITY/README.md).
+
+- D08, первый этап: ограничен gutter календаря, добавлен читаемый список проекции дня при AX-размерах (включая overnight). [Проверки и оставшаяся адаптивность](reports/CALENDAR-LARGE-TEXT/README.md).

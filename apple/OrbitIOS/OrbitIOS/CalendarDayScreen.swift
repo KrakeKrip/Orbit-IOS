@@ -20,6 +20,7 @@ import OrbitCore
 /// through to the owner's binding — this screen never keeps a second
 /// selection owner.
 struct CalendarDayScreen: View {
+    @State private var showsReadableDay = false
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.orbitAppearance) private var appearance
@@ -123,6 +124,9 @@ struct CalendarDayScreen: View {
                         emptyProjectionCaption
                     }
                     if typeSize.isAccessibilitySize {
+                        Button("Задачи дня", systemImage: "list.bullet") { showsReadableDay = true }
+                            .font(.subheadline).frame(maxWidth: .infinity, minHeight: 44)
+                            .accessibilityIdentifier("calendar-readable-day")
                         ScrollView {
                             VStack(spacing: 0) {
                                 OverdueTaskBlock(model: model, projectID: projectID)
@@ -181,6 +185,9 @@ struct CalendarDayScreen: View {
                         .onChange(of: proxy.size.height) { _, height in contentHeight = height }
                 }
             )
+            .sheet(isPresented: $showsReadableDay) {
+                OrbitCalendarDayTasks(model: model, day: selectedDay, projectID: projectID)
+            }
             .sheet(item: $createDraft) { value in
                 TaskCreateSheet(model: model, datePreset: value.day, projectPreset: projectID,
                                 timePreset: value.time, durationPreset: value.duration)
