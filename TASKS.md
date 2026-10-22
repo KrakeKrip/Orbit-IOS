@@ -38,3 +38,5 @@ Web: https://github.com/KrakeKrip/Orbit-Web. macOS ожидает собстве
 - refined-01: реализован выбор 12 иконок с предпросмотром, применением и обработкой ошибки; установленное обновление запущено на iPhone. [Проверки](reports/REFINED-ICON-PICKER/README.md).
 
 - Экран «Оформление» в настройках приведён к стилю refined-01: preview, варианты, Apply, отмена выходом. [Проверки](reports/APPEARANCE-SETTINGS/README.md).
+
+- Для «Как на устройстве» реализован выбор светлой/тёмной пары с сохранением и переключением по системе. [Проверки](reports/SYSTEM-THEME-PAIR/README.md).

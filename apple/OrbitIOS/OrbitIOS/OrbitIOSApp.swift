@@ -19,8 +19,6 @@ struct OrbitIOSApp: App {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @State private var launch: Launch
-    @AppStorage("orbit.ui.appearance") private var appearanceRaw = OrbitAppearance.system.rawValue
-    private var appearance: OrbitAppearance { OrbitAppearance(rawValue: appearanceRaw) ?? .system }
     private let reminderTimer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
     @State private var selectedTab: Tab = .today
 
@@ -82,9 +80,7 @@ struct OrbitIOSApp: App {
                     if scenePhase == .active { model.reminders.refresh() }
                 }
                 .tint(.orbitAccent)
-                .background(appearance.canvas.ignoresSafeArea())
-                .environment(\.orbitAppearance, appearance)
-                .preferredColorScheme(appearance.colorScheme)
+                .modifier(OrbitTheme())
                 .onChange(of: selectedTab) { _, _ in model.endSelection(); OrbitHaptics.selection() }
                 .onChange(of: scenePhase) { _, phase in
                     // Returning to the foreground re-reads the shared store so

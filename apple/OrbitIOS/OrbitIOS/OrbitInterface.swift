@@ -291,6 +291,7 @@ struct OrbitSettingsButton: View {
 }
 
 struct OrbitSettingsSheet: View {
+    @Environment(\.orbitAppearance) private var inheritedAppearance
     @Environment(OrbitReminderScheduler.self) private var reminders
     @Environment(\.dismiss) private var dismiss
     @AppStorage("orbit.ui.appearance") private var appearanceRaw = OrbitAppearance.system.rawValue
@@ -333,8 +334,7 @@ struct OrbitSettingsSheet: View {
                 }
             }
         }
-        .environment(\.orbitAppearance, selectedAppearance)
-        .preferredColorScheme(selectedAppearance.colorScheme)
+        .preferredColorScheme(inheritedAppearance.colorScheme)
     }
 }
 
