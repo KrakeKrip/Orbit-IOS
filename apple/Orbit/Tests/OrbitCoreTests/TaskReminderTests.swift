@@ -146,6 +146,64 @@ struct TaskReminderTests {
         #expect(client.requests.count == 1 && client.requests.first?.title == "New" && client.requests.first?.fireAt == changed.fireAt)
     }
 
+    @Test("Elapsed delivery refills the bounded queue and stays visible until completion")
+    @MainActor func deliveryRefillsQueue() async {
+        let client = FakeNotifications()
+        var clock = now
+        var status = ReminderSyncStatus()
+        let sync = ReminderSynchronizer(client: client, clock: { clock }) { status = $0 }
+        let entries = (0..<65).map { index in
+            ReminderEntry(taskID: UUID(), title: "Task \(index)",
+                          fireAt: now.addingTimeInterval(Double(index + 1) * 60), completed: false)
+        }
+        let foreign = ReminderRequest(identifier: "another.feature", title: "Foreign", fireAt: now.addingTimeInterval(10_000))
+        client.requests = [foreign]
+        sync.update(entries); await sync.waitUntilIdle()
+        #expect(status.scheduledIDs.count == 63 && status.deferredCount == 2)
+        let deliveredID = ReminderRequest.prefix + entries[0].taskID.uuidString
+        // The OS fires the first request while Orbit is not running. On return,
+        // the newer snapshot must fill the freed slot without replaying delivery.
+        client.requests.removeAll { $0.identifier == deliveredID }
+        client.delivered = [deliveredID, "foreign.delivered"]
+        clock = now.addingTimeInterval(61)
+        sync.update(entries); await sync.waitUntilIdle()
+        #expect(status.error == nil && status.scheduledIDs.count == 63 && status.deferredCount == 1)
+        #expect(!status.scheduledIDs.contains(deliveredID))
+        #expect(status.scheduledIDs.contains(ReminderRequest.prefix + entries[63].taskID.uuidString))
+        #expect(client.delivered.contains(deliveredID) && client.requests.contains(foreign))
+        let additions = client.addCount
+        sync.update(entries); await sync.waitUntilIdle()
+        #expect(client.addCount == additions)
+        var completed = entries
+        completed[0] = ReminderEntry(taskID: entries[0].taskID, title: entries[0].title,
+                                     fireAt: entries[0].fireAt, completed: true)
+        sync.update(completed); await sync.waitUntilIdle()
+        #expect(client.delivered == ["foreign.delivered"])
+    }
+
+    @Test("Delivery during asynchronous verification is not a false scheduling failure")
+    @MainActor func deliveryDuringVerification() async {
+        let client = FakeNotifications()
+        var clock = now
+        var status = ReminderSyncStatus()
+        let sync = ReminderSynchronizer(client: client, clock: { clock }) { status = $0 }
+        let entry = ReminderEntry(taskID: UUID(), title: "Soon", fireAt: now.addingTimeInterval(1), completed: false)
+        // The first read sees no pending requests; the verification read happens
+        // after the OS has delivered the just-added notification.
+        var reads = 0
+        client.beforePending = {
+            reads += 1
+            if reads == 2 {
+                clock = now.addingTimeInterval(2)
+                client.requests = []
+                client.delivered = [ReminderRequest.prefix + entry.taskID.uuidString]
+            }
+        }
+        sync.update([entry]); await sync.waitUntilIdle()
+        #expect(status.error == nil && status.scheduledIDs.isEmpty)
+        #expect(client.addCount == 1 && client.delivered.count == 1)
+    }
+
     @Test("Global sound replaces existing pending without changing task identity or schedule")
     @MainActor func globalSound() async {
         let client = FakeNotifications()
@@ -214,10 +272,11 @@ private final class FakeNotifications: ReminderNotificationClient {
     var failAdd = false
     var holdAdd = false
     var addCount = 0
+    var beforePending: (() -> Void)?
     private var held: CheckedContinuation<Void, Never>?
     private var entered: CheckedContinuation<Void, Never>?
     func authorization() async -> ReminderAuthorization { permission }
-    func pending() async -> [ReminderRequest] { requests }
+    func pending() async -> [ReminderRequest] { beforePending?(); return requests }
     func deliveredIDs() async -> [String] { delivered }
     func add(_ request: ReminderRequest) async throws {
         addCount += 1

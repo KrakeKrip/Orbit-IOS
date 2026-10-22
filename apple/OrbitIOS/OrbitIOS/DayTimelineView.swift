@@ -88,8 +88,9 @@ struct DayTimelineView: View {
                             case .began: activateCreation(start: start)
                             case .changed: updateCreation(point: point, translation: point.y - start.y)
                             case .ended:
+                                updateCreation(point: point, translation: point.y - start.y)
                                 if let candidate = creationDraft, creationDay == day,
-                                   !model.isSelecting, editing == nil {
+                                   phase == .active, !model.isSelecting, editing == nil {
                                     selectedTaskID = nil
                                     // Freeze the visible ghost during the modal handoff.
                                     // The host clears it only when that form closes.
@@ -163,7 +164,11 @@ struct DayTimelineView: View {
         }
         .onChange(of: untimedDrag?.token) { _, _ in untimedCandidate = nil }
         .onChange(of: phase) { _, value in
-            if value == .background { editing = nil; dragPoint = nil; creationDraft = nil; creationDay = nil; selectedTaskID = nil; untimedCandidate = nil; returningUntimed = false; _ = onReturnHover(nil) }
+            if value != .active {
+                editing = nil; clearCreation(); selectedTaskID = nil
+                untimedDrag = nil; untimedCandidate = nil; returningUntimed = false
+                _ = onReturnHover(nil)
+            }
         }
         .onDisappear { dragPoint = nil; scrollView = nil; creationDraft = nil; creationDay = nil; editing = nil; selectedTaskID = nil; untimedCandidate = nil; returningUntimed = false; _ = onReturnHover(nil) }
     }
@@ -205,7 +210,7 @@ struct DayTimelineView: View {
     }
 
     private func activateCreation(start: CGPoint) {
-        guard !model.isSelecting, editing == nil, untimedDrag == nil,
+        guard phase == .active, !model.isSelecting, editing == nil, untimedDrag == nil,
               creationDay == nil, let scrollView else { return }
         let frame = scrollView.convert(scrollView.bounds, to: nil)
         creationDay = day
@@ -381,7 +386,11 @@ struct DayTimelineView: View {
                 returningUntimed = onReturnHover(point)
                 trackDrag(point, translation: point.y - start.y)
             case .ended:
-                if editing?.taskID == task.id { finish() }
+                if editing?.taskID == task.id {
+                    returningUntimed = onReturnHover(point)
+                    trackDrag(point, translation: point.y - start.y)
+                    finish()
+                }
             case .cancelled, .failed:
                 if editing?.taskID == task.id {
                     editing = nil; dragPoint = nil; returningUntimed = false; _ = onReturnHover(nil)
@@ -496,7 +505,7 @@ struct DayTimelineView: View {
     }
 
     private func begin(_ edge: TaskTimelineAdjustment.Edge, task: OrbitTask, segment: TimelineSegment) {
-        guard !model.isSelecting, editing == nil, let date = task.plannedDate,
+        guard phase == .active, !model.isSelecting, editing == nil, let date = task.plannedDate,
               let time = task.plannedTime, let duration = task.durationMinutes else { return }
         selectedTaskID = task.id
         gestureError = nil
@@ -578,7 +587,10 @@ struct DayTimelineView: View {
                         begin(edge, task: task, segment: segment)
                         trackDrag(value.location, translation: value.translation.height)
                     }
-                    .onEnded { _ in finish() }
+                    .onEnded { value in
+                        trackDrag(value.location, translation: value.translation.height)
+                        finish()
+                    }
             )
     }
 
@@ -670,7 +682,19 @@ struct TimelineScrollResolver: UIViewRepresentable {
             recognizer.delegate = self
             return recognizer
         }()
-        init(parent: TimelineScrollResolver) { self.parent = parent }
+        init(parent: TimelineScrollResolver) {
+            self.parent = parent
+            super.init()
+            NotificationCenter.default.addObserver(self, selector: #selector(interrupt),
+                name: UIApplication.willResignActiveNotification, object: nil)
+        }
+        deinit { NotificationCenter.default.removeObserver(self) }
+        @objc private func interrupt() {
+            // Cancel at UIKit's interruption boundary, including Control Center
+            // and permission dialogs, before a later release can save a draft.
+            hold.isEnabled = false
+            hold.isEnabled = true
+        }
         func attach(_ scroll: UIScrollView) {
             guard self.scroll !== scroll else { return }
             detach()

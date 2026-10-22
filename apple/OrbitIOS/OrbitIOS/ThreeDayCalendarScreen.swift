@@ -138,7 +138,10 @@ struct ThreeDayCalendarScreen: View {
             if selecting { edit = nil; latestDrag = nil; selectedTask = nil; creating = nil; creationPoint = nil }
         }
         .onChange(of: phase) { _, value in
-            if value == .background { edit = nil; latestDrag = nil; creating = nil; creationPoint = nil; selectedTask = nil }
+            if value != .active {
+                edit = nil; latestDrag = nil; creating = nil; creationPoint = nil
+                creationStart = nil; creationOrigin = nil; selectedTask = nil
+            }
         }
         .onDisappear { edit = nil; latestDrag = nil; creating = nil; creationPoint = nil; scroll = nil }
     }
@@ -294,7 +297,10 @@ struct ThreeDayCalendarScreen: View {
                 guard edit?.taskID == task.id else { return }
                 update(Pointer(location: point, translation: CGSize(width: point.x - start.x, height: point.y - start.y)), viewport: viewport)
             case .ended:
-                if edit?.taskID == task.id { finish() }
+                if edit?.taskID == task.id {
+                    update(Pointer(location: point, translation: CGSize(width: point.x - start.x, height: point.y - start.y)), viewport: viewport)
+                    finish()
+                }
             case .cancelled, .failed:
                 if edit?.taskID == task.id { edit = nil; latestDrag = nil }
             default: break
@@ -332,7 +338,7 @@ struct ThreeDayCalendarScreen: View {
             .buttonStyle(.plain)
     }
     private func begin(_ task: OrbitTask, segment: TaskDayIntervalSegment, column: Int, edge: TaskTimelineAdjustment.Edge) {
-        guard !model.isSelecting, edit == nil, let date = task.plannedDate,
+        guard phase == .active, !model.isSelecting, edit == nil, let date = task.plannedDate,
               let time = task.plannedTime, let duration = task.durationMinutes else { return }
         selectedTask = task.id
         error = nil
@@ -379,7 +385,7 @@ struct ThreeDayCalendarScreen: View {
             .highPriorityGesture(DragGesture(minimumDistance: 0, coordinateSpace: .global)
                 .updating($editingGesture) { _, state, _ in state = true }
                 .onChanged { value in begin(task, segment: segment, column: column, edge: edge); update(value, viewport: viewport) }
-                .onEnded { _ in finish() })
+                .onEnded { value in update(value, viewport: viewport); finish() })
     }
     private func ghost(day: String, time: String, duration: Int, title: String, width: CGFloat) -> some View {
         let start = (Int(time.prefix(2)) ?? 0) * 60 + (Int(time.suffix(2)) ?? 0)
@@ -401,7 +407,7 @@ struct ThreeDayCalendarScreen: View {
         }
     }
     private func createGesture(_ state: UIGestureRecognizer.State, start: CGPoint, point: CGPoint, width: CGFloat) {
-        guard let scroll else { return }
+        guard phase == .active, let scroll else { return }
         let frame = scroll.convert(scroll.bounds, to: nil)
         switch state {
         case .began:
@@ -421,7 +427,9 @@ struct ThreeDayCalendarScreen: View {
                 if candidate.duration != creating.duration { OrbitHaptics.timelineStep() }
                 self.creating = Create(day: creating.day, time: candidate.time, duration: candidate.duration)
             }
-        case .ended: create = creating; creationOrigin = nil; creationPoint = nil; creationStart = nil
+        case .ended:
+            createGesture(.changed, start: start, point: point, width: width)
+            create = creating; creationOrigin = nil; creationPoint = nil; creationStart = nil
         case .cancelled, .failed: creating = nil; creationOrigin = nil; creationPoint = nil; creationStart = nil
         default: break
         }
