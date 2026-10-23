@@ -68,8 +68,8 @@ public final class OrbitTask {
     }
 
     /// NATIVE-EDIT-001-R1: internal (module-only) title setter. It assigns
-    /// the string as-is without validation — `OrbitTaskStore.renameTask` is
-    /// the one validated entry point and the only caller, so no public raw
+    /// the string as-is without validation — `OrbitTaskStore.renameTask` and `updateTask` are
+    /// validated entry points, so no public raw
     /// bypass exists outside OrbitCore.
     func setTitle(_ value: String) {
         title = value

@@ -308,6 +308,23 @@ final class IOSInboxModel {
         }
     }
 
+    func updateTask(_ task: OrbitTask, title: String, date: String?, time: String?, duration: Int?,
+                    project: UUID?, deadline: String?, reminder: Date?, completed: Bool? = nil) -> String? {
+        let newlyCompleted = completed == true && !task.isCompleted
+        do {
+            try store.updateTask(id: task.id, title: title, plannedDate: date, plannedTime: time,
+                                 durationMinutes: duration, projectID: project, deadlineDate: deadline,
+                                 reminderAt: reminder, completed: completed)
+            writeError = nil
+            reload()
+            if newlyCompleted { OrbitCompletionFeedback.shared.completed() }
+            return nil
+        } catch {
+            reload()
+            return IOSInboxFormatting.createMessage(error)
+        }
+    }
+
     /// NATIVE-EDIT-002: renames one task through the accepted validated
     /// `store.renameTask` (trim + title rules; UUID/date/time/completion are
     /// never touched and a normalized identical title is a store no-op — the

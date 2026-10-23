@@ -140,6 +140,7 @@ extension View {
 /// later read failure is not turned back into a write error).
 struct TaskCreateSheet: View {
     let model: IOSInboxModel
+    private let editingTask: OrbitTask?
     /// The host's civil date at the moment of opening; only seeds the draft.
     let datePreset: String?
 
@@ -178,22 +179,34 @@ struct TaskCreateSheet: View {
     @State private var expandedGroup: ExpandedGroup?
     @State private var showsAdditional = false
     @State private var showsTime = false
+    @State private var confirmsDelete = false
     @Environment(\.orbitAppearance) private var appearance
 
-    private static let durationMinuteOptions = Array(stride(from: 0, through: 55, by: 5))
+    private var durationMinuteOptions: [Int] {
+        let standard = Array(stride(from: 0, through: 55, by: 5))
+        guard let minutes = editingTask?.durationMinutes else { return standard }
+        return Array(Set(standard + [minutes % 60])).sorted()
+    }
     private static let rangeLowerBound = TaskPlannedDate.date(fromCivilDateString: "1900-01-01") ?? Date.distantPast
     private static let rangeUpperBound = TaskPlannedDate.date(fromCivilDateString: "2199-12-31") ?? Date.distantFuture
 
     init(model: IOSInboxModel, datePreset: String?, projectPreset: UUID? = nil,
-         timePreset: String? = nil, durationPreset: Int? = nil) {
+         timePreset: String? = nil, durationPreset: Int? = nil, editingTask: OrbitTask? = nil) {
         self.model = model
+        self.editingTask = editingTask
+        let datePreset = editingTask?.plannedDate ?? datePreset
+        let timePreset = editingTask?.plannedTime ?? timePreset
+        let durationPreset = editingTask?.durationMinutes ?? durationPreset
         self.datePreset = datePreset
-        _draftProjectID = State(initialValue: projectPreset)
+        _title = State(initialValue: editingTask?.title ?? "")
+        _draftReminder = State(initialValue: editingTask?.reminderAt)
+        _draftDeadline = State(initialValue: editingTask?.deadlineDate)
+        _draftProjectID = State(initialValue: editingTask?.projectID ?? projectPreset)
         // The preset seeds the draft only when it is a valid civil date; an
         // invalid preset is never silently replaced by today.
         let seeded = datePreset.flatMap { TaskPlannedDate.isValid($0) ? $0 : nil }
         if let seeded, let timePreset, let durationPreset,
-           TaskTimeInterval.isWritableDuration(durationPreset),
+           (TaskTimeInterval.isWritableDuration(durationPreset) || (editingTask != nil && TaskTimeInterval.isValidDuration(durationPreset))),
            TaskTimeInterval.end(plannedDate: seeded, plannedTime: timePreset, durationMinutes: durationPreset) != nil {
             let parts = timePreset.split(separator: ":").compactMap { Int($0) }
             _timeEnabled = State(initialValue: true)
@@ -213,6 +226,18 @@ struct TaskCreateSheet: View {
             ScrollViewReader { scroll in
                 Form {
                     Section { titleField }
+                    if let editingTask {
+                        Section {
+                            Button {
+                                submit(completed: !editingTask.isCompleted)
+                            } label: {
+                                Label(completionCaption, systemImage: editingTask.isCompleted ? "arrow.uturn.backward" : "checkmark.circle")
+                                    .frame(minHeight: 44)
+                            }
+                            .disabled(!addEnabled)
+                            .accessibilityIdentifier("task-editor-completion")
+                        }
+                    }
                     Section {
                         Menu {
                             Picker("Проект", selection: $draftProjectID) {
@@ -252,6 +277,13 @@ struct TaskCreateSheet: View {
                         .accessibilityIdentifier("create-additional")
                         .onChange(of: showsAdditional) { _, _ in titleFieldFocused = false }
                     }
+                    if editingTask != nil {
+                        Section {
+                            Button("Удалить задачу…", role: .destructive) { confirmsDelete = true }
+                                .frame(minHeight: 44)
+                                .accessibilityIdentifier("task-editor-delete")
+                        }
+                    }
                     if let errorMessage {
                         Section {
                             OrbitErrorMessage(errorMessage)
@@ -264,10 +296,10 @@ struct TaskCreateSheet: View {
                 .contentMargins(.top, 8, for: .scrollContent)
                 .scrollDismissesKeyboard(.interactively)
                 .orbitEditorSurface()
-                .navigationTitle("Новая задача")
+                .navigationTitle(editingTask == nil ? "Новая задача" : "Задача")
                 .navigationBarTitleDisplayMode(.inline)
-                .orbitEditorActions(enabled: addEnabled, confirm: "Добавить", save: submit, cancel: { titleFieldFocused = false; dismiss() })
-                .onAppear { titleFieldFocused = true; showsTime = timeEnabled }
+                .orbitEditorActions(enabled: addEnabled, confirm: editingTask == nil ? "Добавить" : "Сохранить", save: { submit() }, cancel: { titleFieldFocused = false; dismiss() })
+                .onAppear { titleFieldFocused = editingTask == nil; showsTime = timeEnabled }
                 .onChange(of: errorMessage) { _, message in
                     if message != nil {
                         titleFieldFocused = false
@@ -278,6 +310,16 @@ struct TaskCreateSheet: View {
         }
         // A single detent avoids a downward scroll first shrinking the sheet.
         // The fixed Cancel control stays available with keyboard and wheels.
+        .alert("Удалить задачу?", isPresented: $confirmsDelete) {
+            Button("Удалить", role: .destructive) {
+                if let editingTask {
+                    model.delete(editingTask)
+                    if let message = model.writeError { errorMessage = message }
+                    else { dismiss() }
+                }
+            }
+            Button("Отмена", role: .cancel) { }
+        } message: { Text("Задача будет удалена безвозвратно. Изменения черновика не сохранятся.") }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .orbitEditorSurface()
@@ -395,7 +437,7 @@ struct TaskCreateSheet: View {
                             $draftDurationHours
                         }
                         wheelColumn("Минуты") {
-                            ForEach(Self.durationMinuteOptions, id: \.self) { minute in
+                            ForEach(durationMinuteOptions, id: \.self) { minute in
                                 Text("\(minute) мин").tag(minute)
                             }
                         } selection: {
@@ -403,7 +445,7 @@ struct TaskCreateSheet: View {
                         }
                     }
                     .frame(maxWidth: .infinity)
-                    if !durationWheelValid {
+                    if !validEditorDuration {
                         Text(durationRangeHint)
                             .font(.footnote)
                             .foregroundStyle(Color.orbitError)
@@ -447,7 +489,7 @@ struct TaskCreateSheet: View {
     }
 
     private var durationSummary: String {
-        durationWheelValid
+        validEditorDuration
             ? RussianDurationText.text(draftDurationTotal)
             : "недопустимая длительность"
     }
@@ -480,9 +522,27 @@ struct TaskCreateSheet: View {
         title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private var validEditorDuration: Bool {
+        durationWheelValid || (editingTask?.durationMinutes == draftDurationTotal && draftDate == editingTask?.plannedDate && startString == editingTask?.plannedTime && TaskTimeInterval.isValidDuration(draftDurationTotal))
+    }
+
+    private var draftChanged: Bool {
+        guard let task = editingTask else { return false }
+        return title != task.title || draftDate != task.plannedDate ||
+            (timeEnabled ? startString : nil) != task.plannedTime ||
+            (timeEnabled ? draftDurationTotal : nil) != task.durationMinutes ||
+            draftProjectID != task.projectID || draftDeadline != task.deadlineDate || draftReminder != task.reminderAt
+    }
+
+    private var completionCaption: String {
+        guard let task = editingTask else { return "Завершить" }
+        if task.isCompleted { return draftChanged ? "Сохранить и снова открыть" : "Снова открыть" }
+        return draftChanged ? "Сохранить и завершить" : "Завершить"
+    }
+
     private var addEnabled: Bool {
         if isTitleBlank || title.unicodeScalars.count > TaskTitle.maximumLength || created { return false }
-        if timeEnabled && !durationWheelValid { return false }
+        if timeEnabled && !validEditorDuration { return false }
         return true
     }
 
@@ -513,7 +573,7 @@ struct TaskCreateSheet: View {
         expandedGroup = expandedGroup == group ? nil : group
     }
 
-    private func submit() {
+    private func submit(completed: Bool? = nil) {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         // The «Добавить» button is disabled while blank; this guard covers the
         // keyboard submit path with the same refusal.
@@ -521,7 +581,7 @@ struct TaskCreateSheet: View {
             errorMessage = "Введите название задачи."
             return
         }
-        if timeEnabled && !durationWheelValid {
+        if timeEnabled && !validEditorDuration {
             errorMessage = durationRangeHint
             return
         }
@@ -530,15 +590,21 @@ struct TaskCreateSheet: View {
         // draft; a cleared date always sends nil/nil. The core stays the
         // final validation.
         let sendInterval = timeEnabled && draftDate != nil
-        if let message = model.create(
-            title: trimmedTitle,
-            plannedDate: draftDate,
-            plannedTime: sendInterval ? startString : nil,
-            durationMinutes: sendInterval ? draftDurationTotal : nil,
-            projectID: draftProjectID,
-            deadlineDate: draftDeadline,
-            reminderAt: draftReminder
-        ) {
+        let message: String?
+        if let editingTask {
+            message = model.updateTask(editingTask, title: trimmedTitle, date: draftDate,
+                                       time: sendInterval ? startString : nil,
+                                       duration: sendInterval ? draftDurationTotal : nil,
+                                       project: draftProjectID, deadline: draftDeadline,
+                                       reminder: draftReminder, completed: completed)
+        } else {
+            message = model.create(title: trimmedTitle, plannedDate: draftDate,
+                                   plannedTime: sendInterval ? startString : nil,
+                                   durationMinutes: sendInterval ? draftDurationTotal : nil,
+                                   projectID: draftProjectID, deadlineDate: draftDeadline,
+                                   reminderAt: draftReminder)
+        }
+        if let message {
             // The sheet and every draft stay up for retry; the list itself
             // was rolled back to persisted truth by the model.
             errorMessage = message

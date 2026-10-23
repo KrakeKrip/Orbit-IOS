@@ -431,7 +431,7 @@ struct DayTimelineView: View {
         .orbitMenuFeedback()
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(InboxRowView.accessibilitySummary(task, notificationsDenied: model.reminders.status.authorization == .denied) + (segment.continuesFromPreviousDay ? ", продолжение с предыдущего дня" : "") + (segment.continuesIntoNextDay ? ", продолжается на следующий день" : ""))
-        .accessibilityHint(model.isSelecting ? "Нажмите, чтобы изменить выбор задачи." : "Нажмите для меню; удерживайте для переноса и изменения границ. Короткие задачи доступны также в меню «Задачи дня».")
+        .accessibilityHint(model.isSelecting ? "Нажмите, чтобы изменить выбор задачи." : "Нажмите, чтобы открыть задачу; удерживайте для переноса и изменения границ. Короткие задачи доступны также в меню «Задачи дня».")
         .accessibilityAddTraits(.isButton)
         .accessibilityAction(named: "Изменить время") { onEditInterval(task) }
         .accessibilityAction(named: "Изменить дату") { onEditDate(task) }

@@ -145,6 +145,50 @@ public final class OrbitTaskStore {
         return task
     }
 
+    /// Validates the entire editor draft before mutating, then commits once.
+    /// Identity, creation time and unchanged legacy intervals/reminders survive.
+    public func updateTask(id: UUID, title rawTitle: String, plannedDate: String?,
+                           plannedTime: String?, durationMinutes: Int?, projectID: UUID?,
+                           deadlineDate: String?, reminderAt: Date?, completed: Bool? = nil,
+                           now: Date = .now) throws {
+        let title = try TaskTitle.validated(rawTitle)
+        let descriptor = FetchDescriptor<OrbitTask>(predicate: #Predicate { $0.id == id })
+        guard let task = try context.fetch(descriptor).first else { throw OrbitStoreError.taskNotFound(id: id) }
+        if let plannedDate, !TaskPlannedDate.isValid(plannedDate) { throw TaskPlannedDateError.invalid(plannedDate) }
+        guard TaskTimeInterval.isCompletePair(time: plannedTime, durationMinutes: durationMinutes) else {
+            throw TaskTimeIntervalError.incompletePair(time: plannedTime, durationMinutes: durationMinutes)
+        }
+        if let plannedTime, !TaskTimeInterval.isValidTime(plannedTime) { throw TaskTimeIntervalError.invalidTime(plannedTime) }
+        if let durationMinutes {
+            guard TaskTimeInterval.isWritableDuration(durationMinutes) ||
+                (durationMinutes == task.durationMinutes && plannedDate == task.plannedDate && plannedTime == task.plannedTime && TaskTimeInterval.isValidDuration(durationMinutes)) else {
+                throw TaskTimeIntervalError.invalidDuration(durationMinutes)
+            }
+        }
+        if let plannedTime, let durationMinutes {
+            guard let plannedDate else { throw TaskTimeIntervalError.missingDate }
+            guard TaskTimeInterval.end(plannedDate: plannedDate, plannedTime: plannedTime, durationMinutes: durationMinutes) != nil else {
+                throw TaskTimeIntervalError.endOutOfRange
+            }
+        }
+        try validateProject(projectID)
+        try TaskDeadline.validate(deadlineDate)
+        if reminderAt != task.reminderAt { try TaskReminder.validate(reminderAt, now: now) }
+        if reminderAt != nil && task.isCompleted && completed != false && reminderAt != task.reminderAt {
+            throw TaskReminderError.completedTask
+        }
+        task.setTitle(title)
+        task.setPlannedDate(plannedDate)
+        task.setPlannedInterval(plannedTime: plannedTime, durationMinutes: durationMinutes)
+        task.setProject(projectID)
+        task.setDeadlineDate(deadlineDate)
+        task.setReminderAt(reminderAt)
+        if let completed {
+            if completed { task.complete(at: now) } else { task.reopen() }
+        }
+        do { try context.save() } catch { context.rollback(); throw error }
+    }
+
     /// A reminder is independent of scheduling. Past stored values remain readable.
     public func setReminderAt(_ value: Date?, for id: UUID, now: Date = .now) throws {
         let descriptor = FetchDescriptor<OrbitTask>(predicate: #Predicate { $0.id == id })

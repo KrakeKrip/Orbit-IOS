@@ -85,7 +85,7 @@ struct CompactCalendarTaskRow: View {
                     .foregroundStyle(.white)
             }
             .accessibilityLabel(InboxRowView.accessibilitySummary(task, notificationsDenied: model.reminders.status.authorization == .denied))
-            .accessibilityHint("Нажмите для меню; удерживайте и перенесите на временную сетку")
+            .accessibilityHint("Нажмите, чтобы открыть задачу; удерживайте и перенесите на временную сетку")
             .orbitMenuFeedback()
         }
         .frame(maxWidth: .infinity)
