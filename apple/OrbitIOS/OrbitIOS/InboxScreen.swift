@@ -307,6 +307,9 @@ struct InboxRowView: View {
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .contentShape(Rectangle())
         }
+        // Explicit style keeps the body button independent from List's
+        // automatic row-button routing and the separate completion control.
+        .buttonStyle(.plain)
         .orbitMenuFeedback()
         .accessibilityLabel(Self.accessibilitySummary(task, project: model.projects.first { $0.id == task.projectID }?.name, notificationsDenied: model.reminders.status.authorization == .denied))
     }
