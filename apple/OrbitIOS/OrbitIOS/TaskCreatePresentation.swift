@@ -210,62 +210,71 @@ struct TaskCreateSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section { titleField }
-                Section {
-                    Menu {
-                        Picker("Проект", selection: $draftProjectID) {
-                            Text("Без проекта").tag(nil as UUID?)
-                            ForEach(model.projects) { Text($0.name).tag(Optional($0.id)) }
-                        }
-                    } label: {
-                        OrbitEditorSummary(title: "Проект", value: model.projects.first { $0.id == draftProjectID }?.name ?? "Без проекта", expanded: false)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("create-project-picker")
-                    dateSection
-                    DisclosureGroup(isExpanded: $showsTime) { timeSection } label: {
-                        LabeledContent("Время") {
-                            Text(timeEnabled ? intervalSummary : "Без времени")
-                                .accessibilityIdentifier("create-interval-summary")
-                                .foregroundStyle(appearance.secondaryText)
-                        }
-                    }
-                }
-                Section {
-                    DisclosureGroup(additionalCaption, isExpanded: $showsAdditional) {
-                        TaskDeadlineFields(value: $draftDeadline, expanded: Binding(
-                            get: { expandedGroup == .deadline },
-                            set: { value in
-                                titleFieldFocused = false
-                                expandedGroup = value ? .deadline : nil
-                            }))
-                        TaskReminderFields(value: $draftReminder, expanded: Binding(
-                            get: { expandedGroup == .reminder },
-                            set: { flag in
-                                titleFieldFocused = false
-                                expandedGroup = flag ? .reminder : nil
-                            }), service: model.reminders, plannedDate: draftDate,
-                           plannedTime: timeEnabled ? startString : nil)
-                    }
-                    .accessibilityIdentifier("create-additional")
-                    .onChange(of: showsAdditional) { _, _ in titleFieldFocused = false }
-                }
-                if let errorMessage {
+            ScrollViewReader { scroll in
+                Form {
+                    Section { titleField }
                     Section {
-                        OrbitErrorMessage(errorMessage)
-                            .accessibilityIdentifier("create-error")
+                        Menu {
+                            Picker("Проект", selection: $draftProjectID) {
+                                Text("Без проекта").tag(nil as UUID?)
+                                ForEach(model.projects) { Text($0.name).tag(Optional($0.id)) }
+                            }
+                        } label: {
+                            OrbitEditorSummary(title: "Проект", value: model.projects.first { $0.id == draftProjectID }?.name ?? "Без проекта", expanded: false)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("create-project-picker")
+                        dateSection
+                        DisclosureGroup(isExpanded: $showsTime) { timeSection } label: {
+                            LabeledContent("Время") {
+                                Text(timeEnabled ? intervalSummary : "Без времени")
+                                    .accessibilityIdentifier("create-interval-summary")
+                                    .foregroundStyle(appearance.secondaryText)
+                            }
+                        }
+                    }
+                    Section {
+                        DisclosureGroup(additionalCaption, isExpanded: $showsAdditional) {
+                            TaskDeadlineFields(value: $draftDeadline, expanded: Binding(
+                                get: { expandedGroup == .deadline },
+                                set: { value in
+                                    titleFieldFocused = false
+                                    expandedGroup = value ? .deadline : nil
+                                }))
+                            TaskReminderFields(value: $draftReminder, expanded: Binding(
+                                get: { expandedGroup == .reminder },
+                                set: { flag in
+                                    titleFieldFocused = false
+                                    expandedGroup = flag ? .reminder : nil
+                                }), service: model.reminders, plannedDate: draftDate,
+                               plannedTime: timeEnabled ? startString : nil)
+                        }
+                        .accessibilityIdentifier("create-additional")
+                        .onChange(of: showsAdditional) { _, _ in titleFieldFocused = false }
+                    }
+                    if let errorMessage {
+                        Section {
+                            OrbitErrorMessage(errorMessage)
+                                .accessibilityIdentifier("create-error")
+                                .id("create-error")
+                        }
+                    }
+                }
+                .listSectionSpacing(.custom(8))
+                .contentMargins(.top, 8, for: .scrollContent)
+                .scrollDismissesKeyboard(.interactively)
+                .orbitEditorSurface()
+                .navigationTitle("Новая задача")
+                .navigationBarTitleDisplayMode(.inline)
+                .orbitEditorActions(enabled: addEnabled, confirm: "Добавить", save: submit, cancel: { titleFieldFocused = false; dismiss() })
+                .onAppear { titleFieldFocused = true; showsTime = timeEnabled }
+                .onChange(of: errorMessage) { _, message in
+                    if message != nil {
+                        titleFieldFocused = false
+                        scroll.scrollTo("create-error", anchor: .bottom)
                     }
                 }
             }
-            .listSectionSpacing(.custom(8))
-            .contentMargins(.top, 8, for: .scrollContent)
-            .scrollDismissesKeyboard(.interactively)
-            .orbitEditorSurface()
-            .navigationTitle("Новая задача")
-            .navigationBarTitleDisplayMode(.inline)
-            .orbitEditorActions(enabled: addEnabled, confirm: "Добавить", save: submit, cancel: { titleFieldFocused = false; dismiss() })
-            .onAppear { titleFieldFocused = true; showsTime = timeEnabled }
         }
         // A single detent avoids a downward scroll first shrinking the sheet.
         // The fixed Cancel control stays available with keyboard and wheels.
