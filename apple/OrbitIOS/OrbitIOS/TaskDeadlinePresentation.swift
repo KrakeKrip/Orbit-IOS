@@ -18,22 +18,7 @@ struct TaskDeadlineFields: View {
     var body: some View {
         VStack(spacing: 12) {
             Button { expanded.toggle() } label: {
-                ViewThatFits(in: .horizontal) {
-                    HStack {
-                        deadlineTitle.fixedSize()
-                        Spacer(minLength: 8)
-                        deadlineCaption.fixedSize()
-                        disclosure
-                    }
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            deadlineTitle
-                            Spacer(minLength: 8)
-                            disclosure
-                        }
-                        deadlineCaption
-                    }
-                }
+                OrbitEditorSummary(title: "Дедлайн", value: value.map(RussianDateCaption.label) ?? "Без срока", expanded: expanded)
                 .frame(minHeight: 44).contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -58,18 +43,6 @@ struct TaskDeadlineFields: View {
                 .font(.footnote).foregroundStyle(appearance.secondaryText)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-    }
-    private var deadlineTitle: some View {
-        HStack(spacing: 8) { Image(systemName: "flag"); Text("Дедлайн") }
-            .fixedSize(horizontal: true, vertical: true)
-    }
-    private var deadlineCaption: some View {
-        Text(value.map(RussianDateCaption.label) ?? "Без срока")
-            .foregroundStyle(appearance.secondaryText)
-            .fixedSize(horizontal: false, vertical: true)
-    }
-    private var disclosure: some View {
-        Image(systemName: expanded ? "chevron.up" : "chevron.down").font(.footnote)
     }
 
 }

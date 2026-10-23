@@ -59,11 +59,8 @@ struct TaskReminderFields: View {
                 .accessibilityIdentifier("reminder-toggle")
             if let value {
                 Button { expanded.toggle() } label: {
-                    HStack {
-                        Text(Self.caption(value)).multilineTextAlignment(.leading)
-                        Spacer(minLength: 8)
-                        Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                    }.frame(minHeight: 44).contentShape(Rectangle())
+                    OrbitEditorSummary(title: "Когда", value: Self.caption(value), expanded: expanded)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain).accessibilityIdentifier("reminder-summary")
                 if expanded {

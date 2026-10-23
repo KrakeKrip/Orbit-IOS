@@ -213,10 +213,15 @@ struct TaskCreateSheet: View {
             Form {
                 Section { titleField }
                 Section {
-                    Picker("Проект", selection: $draftProjectID) {
-                        Text("Без проекта").tag(nil as UUID?)
-                        ForEach(model.projects) { Text($0.name).tag(Optional($0.id)) }
+                    Menu {
+                        Picker("Проект", selection: $draftProjectID) {
+                            Text("Без проекта").tag(nil as UUID?)
+                            ForEach(model.projects) { Text($0.name).tag(Optional($0.id)) }
+                        }
+                    } label: {
+                        OrbitEditorSummary(title: "Проект", value: model.projects.first { $0.id == draftProjectID }?.name ?? "Без проекта", expanded: false)
                     }
+                    .buttonStyle(.plain)
                     .accessibilityIdentifier("create-project-picker")
                     dateSection
                     DisclosureGroup(isExpanded: $showsTime) { timeSection } label: {
