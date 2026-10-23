@@ -303,17 +303,7 @@ struct TaskIntervalSheet: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            HStack {
-                Text(title)
-                Spacer(minLength: 8)
-                Text(value)
-                    .foregroundStyle(appearance.secondaryText)
-                    .multilineTextAlignment(.trailing)
-                Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                    .font(.footnote.weight(.medium))
-                    .foregroundStyle(Color.orbitAccent)
-            }
-            .frame(minHeight: 44)
+            OrbitEditorSummary(title: title, value: value, expanded: expanded)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
