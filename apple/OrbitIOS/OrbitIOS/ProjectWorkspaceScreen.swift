@@ -97,6 +97,7 @@ struct ProjectWorkspaceScreen: View {
             TaskCreateSheet(model: model, datePreset: showsCalendar ? selectedDay : nil, projectPreset: project.id)
         }
         .sheet(item: $projectEditor) { item in ProjectNameSheet(presentation: item, model: model) }
+        .environment(\.orbitSearchProject, project.id)
         .environment(\.orbitTaskSelectionScope, .project(project.id))
         .environment(\.orbitProjectActions, AnyView(
             Button("Переименовать…", systemImage: "pencil") {

@@ -269,10 +269,17 @@ extension EnvironmentValues {
 private struct OrbitTaskSelectionScopeKey: EnvironmentKey {
     static let defaultValue = TaskSelectionScope.all
 }
+private struct OrbitSearchProjectKey: EnvironmentKey {
+    static let defaultValue: UUID? = nil
+}
 private struct OrbitProjectActionsKey: EnvironmentKey {
     static let defaultValue: AnyView? = nil
 }
 extension EnvironmentValues {
+    var orbitSearchProject: UUID? {
+        get { self[OrbitSearchProjectKey.self] }
+        set { self[OrbitSearchProjectKey.self] = newValue }
+    }
     var orbitTaskSelectionScope: TaskSelectionScope {
         get { self[OrbitTaskSelectionScopeKey.self] }
         set { self[OrbitTaskSelectionScopeKey.self] = newValue }
@@ -288,11 +295,14 @@ struct OrbitSettingsButton: View {
     @Environment(\.orbitAllowsTaskSelection) private var allowsSelection
     @Environment(\.orbitTaskSelectionScope) private var selectionScope
     @Environment(\.orbitProjectActions) private var projectActions
+    @Environment(\.orbitSearchProject) private var searchProject
+    @State private var showsSearch = false
     @State private var showsSettings = false
     @Environment(\.orbitDayTasksAction) private var dayTasksAction
     @Environment(\.orbitCalendarActions) private var calendarActions
     var body: some View {
         Menu {
+            Button("Поиск задач", systemImage: "magnifyingglass") { model.endSelection(); showsSearch = true }
             Button("Выбрать", systemImage: "checkmark.circle") { model.beginSelection(scope: selectionScope) }
                 .disabled(!allowsSelection || !model.canBeginSelection(in: selectionScope))
             if let projectActions { Section("Проект") { projectActions } }
@@ -308,6 +318,7 @@ struct OrbitSettingsButton: View {
         .accessibilityLabel(projectActions == nil ? "Действия" : "Действия проекта")
         .accessibilityIdentifier("orbit-settings")
         .sheet(isPresented: $showsSettings) { OrbitSettingsSheet() }
+        .sheet(isPresented: $showsSearch) { TaskSearchScreen(model: model, projectID: searchProject) }
     }
 }
 
