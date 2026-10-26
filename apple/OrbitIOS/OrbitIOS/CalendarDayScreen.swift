@@ -176,6 +176,7 @@ struct CalendarDayScreen: View {
             // bar is hidden — the common mode row is the deterministic top row
             // directly under the safe area in both contexts, matching the
             // list presentations.
+            .environment(\.orbitTaskSelectionScope, .calendar(projectID: projectID, day: selectedDay, today: referenceDay ?? fixedDay ?? TaskDaySelection.currentDay()))
             .environment(\.orbitCalendarActions, AnyView(calendarTaskActions))
             .toolbar(.hidden, for: .navigationBar)
             .background(

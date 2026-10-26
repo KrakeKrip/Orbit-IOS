@@ -1,18 +1,25 @@
 import SwiftUI
+import Combine
 import OrbitCore
 
-private struct ProjectEditorPresentation: Identifiable {
+struct ProjectEditorPresentation: Identifiable {
     let id = UUID()
     var projectID: UUID?
     var name = ""
 }
 
-/// Project folders over the shared task store; rename stays in the row menu.
+/// Project folders with live task context and shared name editor.
 struct ProjectsScreen: View {
     let model: IOSInboxModel
     @Environment(\.orbitAppearance) private var appearance
     @State private var selectedProject: OrbitProject?
     @State private var editor: ProjectEditorPresentation?
+    @Environment(\.scenePhase) private var phase
+    @State private var today = TaskDaySelection.currentDay()
+    private let timer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
+    private var summaries: [UUID: ProjectTaskSummary] {
+        ProjectTaskSummary.grouped(tasks: model.tasks, today: today)
+    }
 
     var body: some View {
         Group {
@@ -47,25 +54,19 @@ struct ProjectsScreen: View {
                             .accessibilityIdentifier("project-create-empty")
                     }
                 } else {
+                    let counts = summaries
                     List {
+                        if let error = model.listError {
+                            OrbitTaskLoadFailure(message: error, retry: { model.reload() })
+                        }
                         ForEach(model.projects) { project in
                             Button {
                                 selectedProject = project
                             } label: {
-                                HStack(spacing: 14) {
-                                    Image(systemName: "folder")
-                                        .font(.title3).foregroundStyle(Color.orbitAccent)
-                                    Text(project.name)
-                                        .foregroundStyle(.primary)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                    Spacer(minLength: 8)
-                                    Image(systemName: "chevron.right").foregroundStyle(.secondary)
-                                }
-                                .frame(minHeight: 44, alignment: .leading)
-                                .contentShape(Rectangle())
+                                ProjectIndexRow(name: project.name, summary: counts[project.id, default: ProjectTaskSummary()],
+                                    unavailable: model.listError != nil)
                             }
                             .buttonStyle(.plain)
-                            .accessibilityLabel(project.name)
                             .accessibilityHint("Открыть задачи проекта")
                             .accessibilityIdentifier("project-row-\(project.id.uuidString)")
                             .contextMenu {
@@ -78,7 +79,7 @@ struct ProjectsScreen: View {
                     }
                     .listStyle(.plain).contentMargins(.bottom, 88, for: .scrollContent)
                     .scrollContentBackground(.hidden)
-                    .refreshable { model.reloadProjects() }
+                    .refreshable { model.reload() }
                 }
             }
             .background(appearance.canvas)
@@ -91,12 +92,60 @@ struct ProjectsScreen: View {
             OrbitHaptics.selection()
             editor = ProjectEditorPresentation()
         }
-        .onAppear { model.reloadProjects() }
+        .onAppear { model.reload(); today = TaskDaySelection.currentDay() }
+        .onReceive(timer) { _ in today = TaskDaySelection.currentDay() }
+        .onChange(of: phase) { _, value in if value == .active { model.reload(); today = TaskDaySelection.currentDay() } }
         .environment(\.orbitAllowsTaskSelection, false)
     }
 }
 
-private struct ProjectNameSheet: View {
+private struct ProjectIndexRow: View {
+    let name: String
+    let summary: ProjectTaskSummary
+    let unavailable: Bool
+    @Environment(\.orbitAppearance) private var appearance
+
+    private var context: Text {
+        if unavailable { return Text("Задачи недоступны") }
+        if summary.total == 0 { return Text("Нет задач") }
+        if summary.open == 0 { return Text("Всё выполнено") }
+        if summary.today > 0 && summary.overdue > 0 {
+            return Text("Сегодня: \(summary.today) · ") + Text("Просрочено: \(summary.overdue)").foregroundColor(.orbitError)
+        }
+        if summary.overdue > 0 { return Text("Просрочено: \(summary.overdue)").foregroundColor(.orbitError) }
+        if summary.today > 0 { return Text("Сегодня: \(summary.today)") }
+        if summary.undated > 0 { return Text("Без даты: \(summary.undated)") }
+        return Text("Запланированы на другие дни")
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "folder").font(.title3).foregroundStyle(Color.orbitAccent)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(name).font(.body.weight(.medium)).foregroundStyle(.primary)
+                context.font(.footnote).foregroundStyle(appearance.secondaryText)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if !unavailable && summary.open > 0 {
+                Text("\(summary.open)").font(.subheadline.monospacedDigit())
+                    .foregroundStyle(appearance.secondaryText)
+                    .padding(.horizontal, 8).frame(minWidth: 28, minHeight: 28)
+                    .background(appearance.surface, in: Capsule())
+                    .accessibilityLabel("Открытых задач: \(summary.open)")
+            }
+            Image(systemName: "chevron.right").font(.caption).foregroundStyle(appearance.secondaryText)
+                .padding(.top, 6).accessibilityHidden(true)
+        }
+        .padding(.vertical, 4)
+        .frame(minHeight: 44, alignment: .leading)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct ProjectNameSheet: View {
     let presentation: ProjectEditorPresentation
     let model: IOSInboxModel
     @Environment(\.dismiss) private var dismiss

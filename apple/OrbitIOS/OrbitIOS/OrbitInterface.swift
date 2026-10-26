@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import OrbitCore
 
 extension Calendar {
     static var orbitCivil: Calendar {
@@ -265,26 +266,46 @@ extension EnvironmentValues {
     }
 }
 
+private struct OrbitTaskSelectionScopeKey: EnvironmentKey {
+    static let defaultValue = TaskSelectionScope.all
+}
+private struct OrbitProjectActionsKey: EnvironmentKey {
+    static let defaultValue: AnyView? = nil
+}
+extension EnvironmentValues {
+    var orbitTaskSelectionScope: TaskSelectionScope {
+        get { self[OrbitTaskSelectionScopeKey.self] }
+        set { self[OrbitTaskSelectionScopeKey.self] = newValue }
+    }
+    var orbitProjectActions: AnyView? {
+        get { self[OrbitProjectActionsKey.self] }
+        set { self[OrbitProjectActionsKey.self] = newValue }
+    }
+}
+
 struct OrbitSettingsButton: View {
     @Environment(IOSInboxModel.self) private var model
     @Environment(\.orbitAllowsTaskSelection) private var allowsSelection
+    @Environment(\.orbitTaskSelectionScope) private var selectionScope
+    @Environment(\.orbitProjectActions) private var projectActions
     @State private var showsSettings = false
     @Environment(\.orbitDayTasksAction) private var dayTasksAction
     @Environment(\.orbitCalendarActions) private var calendarActions
     var body: some View {
         Menu {
-            Button("Выбрать", systemImage: "checkmark.circle") { model.beginSelection() }
-                .disabled(!allowsSelection || model.tasks.isEmpty)
+            Button("Выбрать", systemImage: "checkmark.circle") { model.beginSelection(scope: selectionScope) }
+                .disabled(!allowsSelection || !model.canBeginSelection(in: selectionScope))
+            if let projectActions { Section("Проект") { projectActions } }
             if let calendarActions { calendarActions }
             if let dayTasksAction { Button("Задачи дня", systemImage: "list.bullet", action: dayTasksAction) }
-            Button("Настройки", systemImage: "gearshape") { showsSettings = true }
+            Section { Button(projectActions == nil ? "Настройки" : "Настройки приложения", systemImage: "gearshape") { showsSettings = true } }
         } label: {
             Image(systemName: "ellipsis").font(.system(size: 20, weight: .medium))
                 .frame(width: 28, height: 28)
         }
         .orbitIconStyle()
         .orbitMenuFeedback()
-        .accessibilityLabel("Действия")
+        .accessibilityLabel(projectActions == nil ? "Действия" : "Действия проекта")
         .accessibilityIdentifier("orbit-settings")
         .sheet(isPresented: $showsSettings) { OrbitSettingsSheet() }
     }

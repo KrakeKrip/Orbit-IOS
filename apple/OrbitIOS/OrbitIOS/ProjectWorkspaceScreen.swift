@@ -13,6 +13,7 @@ struct ProjectWorkspaceScreen: View {
     @State private var selectedDay = TaskDaySelection.currentDay()
     @State private var referenceDay = TaskDaySelection.currentDay()
     @State private var create = false
+    @State private var projectEditor: ProjectEditorPresentation?
     @State private var editor: InboxSheetPresentation?
     private let timer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
     init(model: IOSInboxModel, project: OrbitProject, onBack: @escaping () -> Void) {
@@ -49,10 +50,19 @@ struct ProjectWorkspaceScreen: View {
                         if let error = model.listError {
                             OrbitTaskLoadFailure(message: error, retry: { model.reload() })
                         } else if tasks.isEmpty {
-                            ContentUnavailableView("В проекте пока нет задач", systemImage: "folder", description: Text("Добавьте первую задачу кнопкой «+»."))
+                            ContentUnavailableView("Нет задач", systemImage: "folder", description: Text("Добавьте первую задачу кнопкой «+»."))
                         } else {
                             List {
                                 if let error = model.writeError { OrbitErrorMessage(error) }
+                                if tasks.allSatisfy(\.isCompleted) {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Label("Всё выполнено", systemImage: "checkmark.circle")
+                                            .font(.headline).foregroundStyle(Color.orbitAccent)
+                                        Text("Завершённые задачи сохранены ниже.")
+                                            .font(.subheadline).foregroundStyle(appearance.secondaryText)
+                                    }
+                                    .padding(.vertical, 8).listRowBackground(appearance.canvas)
+                                }
                                 ForEach([false, true], id: \.self) { completed in
                                     let rows = tasks.filter { $0.isCompleted == completed && !TaskDaySelection.isOverdue($0, before: referenceDay) }
                                     if !rows.isEmpty {
@@ -86,6 +96,14 @@ struct ProjectWorkspaceScreen: View {
         .sheet(isPresented: $create) {
             TaskCreateSheet(model: model, datePreset: showsCalendar ? selectedDay : nil, projectPreset: project.id)
         }
+        .sheet(item: $projectEditor) { item in ProjectNameSheet(presentation: item, model: model) }
+        .environment(\.orbitTaskSelectionScope, .project(project.id))
+        .environment(\.orbitProjectActions, AnyView(
+            Button("Переименовать…", systemImage: "pencil") {
+                projectEditor = ProjectEditorPresentation(projectID: project.id, name: project.name)
+            }
+            .accessibilityIdentifier("project-rename")
+        ))
         .onChange(of: showsCalendar) { _, _ in model.endSelection() }
         .onChange(of: selectedDay) { _, _ in model.endSelection() }
         .onDisappear { model.endSelection() }

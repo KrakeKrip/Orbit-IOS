@@ -20,6 +20,7 @@ struct TaskRescheduleRequest: Identifiable {
 }
 
 private struct OverdueTaskContent: View {
+    @Environment(\.orbitTaskSelectionScope) private var selectionScope
     let model: IOSInboxModel
     let projectID: UUID?
     let onBeginDrag: ((OrbitTask) -> NSItemProvider)?
@@ -53,7 +54,7 @@ private struct OverdueTaskContent: View {
                     Menu("Перенести") {
                         moveActions(tasks.map(\.id))
                         Button("Выбрать задачи", systemImage: "checkmark.circle") {
-                            model.beginSelection(); expanded = true
+                            model.beginSelection(scope: selectionScope); expanded = true
                         }
                     }
                     .font(.subheadline).frame(minHeight: 44)

@@ -126,18 +126,29 @@ final class IOSInboxModel {
     private(set) var selectedTaskIDs: Set<UUID> = []
     private(set) var selectionError: String?
 
-    func beginSelection() {
+    private var selectionScope = TaskSelectionScope.all
+
+    func canBeginSelection(in scope: TaskSelectionScope) -> Bool {
+        listError == nil && !scope.tasks(in: tasks).isEmpty
+    }
+    func beginSelection(scope: TaskSelectionScope = .all) {
+        guard canBeginSelection(in: scope) else { return }
+        selectionScope = scope
         selectedTaskIDs = []; selectionError = nil; isSelecting = true
     }
+    private func reconcileSelection() {
+        selectedTaskIDs.formIntersection(Set(selectionScope.tasks(in: tasks).map(\.id)))
+    }
     func endSelection() {
-        isSelecting = false; selectedTaskIDs = []; selectionError = nil
+        isSelecting = false; selectedTaskIDs = []; selectionError = nil; selectionScope = .all
     }
     func toggleSelection(_ task: OrbitTask) {
-        guard isSelecting, tasks.contains(where: { $0.id == task.id }) else { return }
+        guard isSelecting, selectionScope.tasks(in: tasks).contains(where: { $0.id == task.id }) else { return }
         if !selectedTaskIDs.insert(task.id).inserted { selectedTaskIDs.remove(task.id) }
         OrbitHaptics.timelineStep()
     }
     func completeSelection() {
+        reconcileSelection()
         let ids = Array(selectedTaskIDs)
         guard !ids.isEmpty else { return }
         let newlyCompleted = tasks.contains { selectedTaskIDs.contains($0.id) && !$0.isCompleted }
@@ -163,6 +174,7 @@ final class IOSInboxModel {
     }
 
     func deleteSelection() {
+        reconcileSelection()
         let ids = Array(selectedTaskIDs)
         guard !ids.isEmpty else { return }
         do {
@@ -191,7 +203,7 @@ final class IOSInboxModel {
         reloadProjects()
         do {
             tasks = try store.tasks()
-            selectedTaskIDs.formIntersection(Set(tasks.map(\.id)))
+            reconcileSelection()
             listError = nil
             reminders.update(tasks)
         } catch {

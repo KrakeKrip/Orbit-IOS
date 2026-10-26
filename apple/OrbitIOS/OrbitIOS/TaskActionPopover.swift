@@ -41,6 +41,7 @@ struct TaskActionPopoverButton<Content: View>: View {
 
 /// Calendar holds remain dedicated to moving/resizing; lists use native menus.
 private struct TaskQuickMenuModifier: ViewModifier {
+    @Environment(\.orbitTaskSelectionScope) private var selectionScope
     let enabled: Bool
     let model: IOSInboxModel
     let task: OrbitTask
@@ -50,7 +51,7 @@ private struct TaskQuickMenuModifier: ViewModifier {
             content.contextMenu {
                 Button(task.isCompleted ? "Снова открыть" : "Завершить", systemImage: "checkmark.circle") { action(.toggle) }
                 Button("Выбрать", systemImage: "checkmark.circle.badge.plus") {
-                    model.beginSelection()
+                    model.beginSelection(scope: selectionScope)
                     model.toggleSelection(task)
                 }
                 Button("Удалить…", systemImage: "trash", role: .destructive) { action(.delete) }
