@@ -45,7 +45,7 @@ import Testing
         #expect(throws: BackupError.self) { try broken.validate() }
         broken = original; broken.tasks[0].plannedTime = "12:00"
         #expect(throws: BackupError.self) { try broken.validate() }
-        var future = original; future.version = 2
+        var future = original; future.version = 3
         #expect(throws: BackupError.self) { try future.validate() }
         #expect(throws: BackupError.self) { try OrbitBackup.decode(Data("garbage".utf8)) }
         #expect(throws: BackupError.self) { try OrbitBackup.decode(Data(repeating: 0, count: OrbitBackup.maximumBytes + 1)) }

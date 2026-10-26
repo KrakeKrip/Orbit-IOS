@@ -32,18 +32,19 @@ struct OrbitBackupScreen: View {
                     candidate = nil; plan = nil; message = nil; error = nil; importing = true
                 }
             } footer: {
-                Text("Копия содержит задачи, проекты, даты и напоминания. Оформление, иконка и разрешения устройства не включены. Файл не зашифрован — храните его в надёжном месте.")
+                Text("Копия содержит задачи, проекты, архив, теги, даты и напоминания. Оформление, иконка и разрешения устройства не включены. Файл не зашифрован — храните его в надёжном месте.")
             }
             if let candidate, let plan {
                 Section("Предпросмотр") {
                     LabeledContent("Создана", value: candidate.exportedAt.formatted(date: .abbreviated, time: .shortened))
+                    LabeledContent("Добавится тегов", value: "\(plan.newTags)")
                     LabeledContent("Добавится проектов", value: "\(plan.newProjects)")
                     LabeledContent("Добавится задач", value: "\(plan.newTasks)")
                     LabeledContent("Уже есть без изменений", value: "\(plan.unchanged)")
                     Text("Текущие записи сохранятся. Повторяющиеся записи не дублируются; при конфликте восстановление остановится.")
                         .font(.footnote).foregroundStyle(.secondary)
                     Button("Восстановить") { confirming = true }
-                        .disabled(plan.newProjects + plan.newTasks == 0)
+                        .disabled(plan.newTags + plan.newProjects + plan.newTasks == 0)
                     Button("Отмена", role: .cancel) { self.candidate = nil; self.plan = nil }
                 }
             }

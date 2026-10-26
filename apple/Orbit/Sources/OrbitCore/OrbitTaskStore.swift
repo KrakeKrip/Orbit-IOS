@@ -11,34 +11,62 @@ public final class OrbitTaskStore {
     public init(storeURL: URL) throws {
         self.storeURL = storeURL
         let configuration = ModelConfiguration(url: storeURL, cloudKitDatabase: .none)
-        self.container = try ModelContainer(for: OrbitTask.self, OrbitProject.self, configurations: configuration)
+        self.container = try ModelContainer(for: OrbitTask.self, OrbitProject.self, OrbitTag.self, configurations: configuration)
         let context = ModelContext(container)
         context.autosaveEnabled = false
         self.context = context
     }
 
     public func backup() throws -> OrbitBackup {
-        OrbitBackup(projects: try projects(), tasks: try tasks())
+        OrbitBackup(projects: try projects(), tasks: try tasks(), tags: try tags())
     }
 
     public func restore(_ backup: OrbitBackup) throws -> OrbitBackup.Plan {
         let current = try self.backup()
         let plan = try backup.plan(against: current)
         // Validate actual SwiftData materialization in an isolated store first.
-        let staging = try ModelContainer(for: OrbitTask.self, OrbitProject.self,
+        let staging = try ModelContainer(for: OrbitTask.self, OrbitProject.self, OrbitTag.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none))
         let stagedContext = ModelContext(staging)
         stagedContext.autosaveEnabled = false
+        for tag in backup.tags ?? [] { stagedContext.insert(tag.model()) }
         for project in backup.projects { stagedContext.insert(project.model()) }
         for task in backup.tasks { stagedContext.insert(task.model()) }
         try stagedContext.save()
         let projects = Set(current.projects.map(\.id)), tasks = Set(current.tasks.map(\.id))
+        let tagIDs = Set((current.tags ?? []).map(\.id))
         do {
+            for tag in backup.tags ?? [] where !tagIDs.contains(tag.id) { context.insert(tag.model()) }
             for project in backup.projects where !projects.contains(project.id) { context.insert(project.model()) }
             for task in backup.tasks where !tasks.contains(task.id) { context.insert(task.model()) }
             try context.save()
         } catch { context.rollback(); throw error }
         return plan
+    }
+
+    public func tags() throws -> [OrbitTag] {
+        try context.fetch(FetchDescriptor<OrbitTag>()).sorted { ($0.name, $0.id) < ($1.name, $1.id) }
+    }
+    public func saveTag(name: String, id: UUID? = nil) throws {
+        let name = try ProjectName.validated(name)
+        let all = try tags()
+        guard !all.contains(where: { $0.id != id && $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame }) else {
+            throw BackupError.invalid("Тег с таким названием уже есть.")
+        }
+        if let id {
+            guard let tag = all.first(where: { $0.id == id }) else { throw BackupError.invalid("Тег не найден.") }
+            tag.rename(name)
+        } else { context.insert(OrbitTag(name: name)) }
+        do { try context.save() } catch { context.rollback(); throw error }
+    }
+    private func validateTags(_ ids: [UUID]) throws {
+        let available = Set(try tags().map(\.id))
+        guard Set(ids).count == ids.count, Set(ids).isSubset(of: available) else { throw BackupError.invalid("Тег не найден или указан повторно.") }
+    }
+    public func setProjectArchived(_ archived: Bool, id: UUID) throws {
+        guard let project = try projects().first(where: { $0.id == id }) else { throw OrbitProjectStoreError.projectNotFound(id: id) }
+        project.setArchived(archived)
+        do { try context.save() } catch { context.rollback(); throw error }
     }
 
     /// Stable local order, independent of store collation; duplicate names allowed.
@@ -114,9 +142,11 @@ public final class OrbitTaskStore {
         durationMinutes: Int? = nil,
         projectID: UUID? = nil,
         deadlineDate: String? = nil,
-        reminderAt: Date? = nil
+        reminderAt: Date? = nil,
+        tagIDs: [UUID] = []
     ) throws -> OrbitTask {
         let title = try TaskTitle.validated(rawTitle)
+        try validateTags(tagIDs)
         if let plannedDate, !TaskPlannedDate.isValid(plannedDate) {
             throw TaskPlannedDateError.invalid(plannedDate)
         }
@@ -157,7 +187,8 @@ public final class OrbitTaskStore {
             durationMinutes: durationMinutes,
             projectID: projectID,
             deadlineDate: deadlineDate,
-            reminderAt: reminderAt
+            reminderAt: reminderAt,
+            tagIDs: tagIDs.isEmpty ? nil : tagIDs.sorted { $0.uuidString < $1.uuidString }
         )
         context.insert(task)
         do {
@@ -173,7 +204,7 @@ public final class OrbitTaskStore {
     /// Identity, creation time and unchanged legacy intervals/reminders survive.
     public func updateTask(id: UUID, title rawTitle: String, plannedDate: String?,
                            plannedTime: String?, durationMinutes: Int?, projectID: UUID?,
-                           deadlineDate: String?, reminderAt: Date?, completed: Bool? = nil,
+                           deadlineDate: String?, reminderAt: Date?, completed: Bool? = nil, tagIDs: [UUID]? = nil,
                            now: Date = .now) throws {
         let title = try TaskTitle.validated(rawTitle)
         let descriptor = FetchDescriptor<OrbitTask>(predicate: #Predicate { $0.id == id })
@@ -201,10 +232,12 @@ public final class OrbitTaskStore {
         if reminderAt != nil && task.isCompleted && completed != false && reminderAt != task.reminderAt {
             throw TaskReminderError.completedTask
         }
+        if let tagIDs { try validateTags(tagIDs) }
         task.setTitle(title)
         task.setPlannedDate(plannedDate)
         task.setPlannedInterval(plannedTime: plannedTime, durationMinutes: durationMinutes)
         task.setProject(projectID)
+        if let tagIDs { task.setTags(tagIDs) }
         task.setDeadlineDate(deadlineDate)
         task.setReminderAt(reminderAt)
         if let completed {

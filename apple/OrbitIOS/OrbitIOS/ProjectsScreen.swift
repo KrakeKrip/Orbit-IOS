@@ -13,6 +13,7 @@ struct ProjectsScreen: View {
     let model: IOSInboxModel
     @Environment(\.orbitAppearance) private var appearance
     @State private var selectedProject: OrbitProject?
+    @State private var showsArchive = false
     @State private var editor: ProjectEditorPresentation?
     @Environment(\.scenePhase) private var phase
     @State private var today = TaskDaySelection.currentDay()
@@ -35,6 +36,10 @@ struct ProjectsScreen: View {
         NavigationStack {
             VStack(spacing: 0) {
                 NativeModeHeader(title: "Проекты", switcher: EmptyView())
+                Picker("Проекты", selection: $showsArchive) {
+                    Text("Активные").tag(false)
+                    Text("Архив").tag(true)
+                }.pickerStyle(.segmented).padding(.horizontal).padding(.bottom, 8)
                 if let error = model.projectListError {
                     ContentUnavailableView {
                         Label("Проекты недоступны", systemImage: "exclamationmark.triangle")
@@ -59,7 +64,11 @@ struct ProjectsScreen: View {
                         if let error = model.listError {
                             OrbitTaskLoadFailure(message: error, retry: { model.reload() })
                         }
-                        ForEach(model.projects) { project in
+                        if model.projects.filter({ $0.isArchived == showsArchive }).isEmpty {
+                            Text(showsArchive ? "В архиве нет проектов" : "Нет активных проектов")
+                                .foregroundStyle(.secondary).listRowBackground(appearance.canvas)
+                        }
+                        ForEach(model.projects.filter { $0.isArchived == showsArchive }) { project in
                             Button {
                                 selectedProject = project
                             } label: {

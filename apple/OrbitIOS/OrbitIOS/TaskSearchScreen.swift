@@ -33,14 +33,18 @@ struct TaskSearchScreen: View {
                             Text("Открытые").tag(TaskSearch.Status.open)
                             Text("Завершённые").tag(TaskSearch.Status.completed)
                         }
+                        Picker("Тег", selection: $query.tagID) {
+                            Text("Все теги").tag(Optional<UUID>.none)
+                            ForEach(model.tags) { Text($0.name).tag(Optional($0.id)) }
+                        }
                         Toggle("Без даты", isOn: $query.undatedOnly)
                         Toggle("Без проекта", isOn: $query.unassignedOnly)
                             .disabled(projectID != nil && thisProject)
                     } label: { Label("Фильтры", systemImage: "line.3.horizontal.decrease") }
                     Spacer()
-                    if query.status != .all || query.undatedOnly || query.unassignedOnly {
+                    if query.tagID != nil || query.status != .all || query.undatedOnly || query.unassignedOnly {
                         Button("Сбросить") {
-                            query.status = .all; query.undatedOnly = false; query.unassignedOnly = false
+                            query.tagID = nil; query.status = .all; query.undatedOnly = false; query.unassignedOnly = false
                         }
                     }
                 }.padding(.horizontal).padding(.vertical, 8)
@@ -77,6 +81,7 @@ struct TaskSearchScreen: View {
 
     private var filterSummary: String {
         var parts = [query.status == .all ? "Все статусы" : query.status == .open ? "Открытые" : "Завершённые"]
+        if let id = query.tagID { parts.append("#" + (model.tags.first { $0.id == id }?.name ?? "Тег")) }
         if query.undatedOnly { parts.append("Без даты") }
         if query.unassignedOnly { parts.append("Без проекта") }
         return parts.joined(separator: " · ")
@@ -92,6 +97,7 @@ struct TaskSearchScreen: View {
         let project = model.projects.first { $0.id == task.projectID }?.name ?? "Без проекта"
         let date = task.plannedDate.flatMap { TaskPlannedDate.date(fromCivilDateString: $0) }
             .map { Self.dateFormatter.string(from: $0) } ?? "Без даты"
-        return [project, date, task.isCompleted ? "Завершена" : "Открыта"].joined(separator: " · ")
+        let tags = model.tags.filter { (task.tagIDs ?? []).contains($0.id) }.map { "#" + $0.name }.joined(separator: " ")
+        return ([project, date, task.isCompleted ? "Завершена" : "Открыта"] + (tags.isEmpty ? [] : [tags])).joined(separator: " · ")
     }
 }

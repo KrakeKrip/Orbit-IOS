@@ -5,6 +5,7 @@ import SwiftData
 public final class OrbitTask {
     public private(set) var id: UUID
     public private(set) var projectID: UUID?
+    public private(set) var tagIDs: [UUID]?
     /// Independent end-of-day civil deadline; optional for additive upgrades.
     public private(set) var deadlineDate: String?
     /// One explicit absolute reminder instant, independent of civil scheduling.
@@ -33,8 +34,10 @@ public final class OrbitTask {
         durationMinutes: Int? = nil,
         projectID: UUID? = nil,
         deadlineDate: String? = nil,
-        reminderAt: Date? = nil
+        reminderAt: Date? = nil,
+        tagIDs: [UUID]? = nil
     ) {
+        self.tagIDs = tagIDs
         self.reminderAt = reminderAt
         self.deadlineDate = deadlineDate
         self.projectID = projectID
@@ -46,6 +49,8 @@ public final class OrbitTask {
         self.plannedTime = plannedTime
         self.durationMinutes = durationMinutes
     }
+
+    func setTags(_ ids: [UUID]) { tagIDs = ids.isEmpty ? nil : ids.sorted { $0.uuidString < $1.uuidString } }
 
     func setReminderAt(_ value: Date?) { reminderAt = value }
 

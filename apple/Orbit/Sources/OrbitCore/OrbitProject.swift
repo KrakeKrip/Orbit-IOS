@@ -5,16 +5,20 @@ import SwiftData
 @Model
 public final class OrbitProject {
     public private(set) var id: UUID
+    public private(set) var archivedAt: Date?
+    public var isArchived: Bool { archivedAt != nil }
     public private(set) var name: String
     public private(set) var createdAt: Date
 
-    public init(id: UUID = UUID(), name: String, createdAt: Date = .now) {
+    public init(id: UUID = UUID(), name: String, createdAt: Date = .now, archivedAt: Date? = nil) {
+        self.archivedAt = archivedAt
         self.id = id
         self.name = name
         self.createdAt = createdAt
     }
 
     // Only the validated store rename operation calls this setter.
+    func setArchived(_ archived: Bool) { archivedAt = archived ? .now : nil }
     func setName(_ value: String) {
         name = value
     }

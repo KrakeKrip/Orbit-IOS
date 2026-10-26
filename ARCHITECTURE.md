@@ -18,8 +18,12 @@ IOSStore открывает Library/Application Support/Orbit/store.sqlite вн�
 
 swift test на macOS проверяет ядро, но не GUI. Simulator проверяет реальные экраны и собственные синтетические stores. Физический touch, haptics и VoiceOver проверяются отдельно. Не читать личные базы в QA, не менять schema без проверки upgrade. Веб-стек и macOS executable здесь отсутствуют; см. docs/REPOSITORIES.md.
 
-## Резервная копия v1
+## Резервная копия v2
 
-OrbitBackup — Codable snapshot значений, без SQLite-файлов и model references. JSON содержит format=`orbit-backup`, version=1, exportedAt, projects и tasks; Foundation Date кодируется числом секунд от reference date (2001-01-01 UTC). Все текущие поля моделей включены; настройки устройства не включены.
+OrbitBackup — Codable snapshot значений, без SQLite-файлов и model references. JSON содержит format=`orbit-backup`, version=2, exportedAt, projects, tasks и tags; Foundation Date кодируется числом секунд от reference date (2001-01-01 UTC). Все текущие поля моделей включены; настройки устройства не включены.
 
 Импорт ограничен 20 МБ, 100000 задачами и 10000 проектами. Проверяются версия, уникальные UUID, принадлежность проектов, civil-даты, интервалы и напоминания (прошедшие допустимы как история). Одноимённые проекты с разными UUID различаются. Preview ничего не записывает. При применении plan пересчитывается; конфликт UUID/содержимого отменяет весь импорт. Отсутствующие записи сначала материализуются в отдельном in-memory SwiftData store, затем добавляются в текущий context одним save с rollback при ошибке. Файлы рабочей базы не заменяются; существующие записи не удаляются. После успеха модель перечитывается и scheduler согласует уведомления.
+
+OrbitTag хранит UUID/name/createdAt. У OrbitTask добавлен optional массив tagIDs, у OrbitProject — optional archivedAt: старые значения остаются nil. Все новые записи тегов валидируются до мутаций; выбор тегов записывается одним save с task draft. Поиск по одному тегу пересекается с другими фильтрами. Архив влияет только на индекс проектов, не на глобальные выборки задач или уведомления. Архивные проекты доступны в picker с подписью и остаются редактируемыми.
+
+Backup читает v1 (отсутствующие новые поля → nil) и v2. Связи тегов и уникальные UUID проверяются; staging store включает OrbitTag. Старое приложение v1 не должно читать v2: версия отклоняется. Миграция проверена на синтетическом store, созданном исходниками `42e8304`, включая UUID, completion, interval, deadline и reminder.

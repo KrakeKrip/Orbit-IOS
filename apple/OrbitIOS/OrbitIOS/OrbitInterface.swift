@@ -323,6 +323,7 @@ struct OrbitSettingsButton: View {
 }
 
 struct OrbitSettingsSheet: View {
+    @Environment(IOSInboxModel.self) private var model
     @Environment(\.orbitAppearance) private var inheritedAppearance
     @Environment(OrbitReminderScheduler.self) private var reminders
     @Environment(\.dismiss) private var dismiss
@@ -352,6 +353,7 @@ struct OrbitSettingsSheet: View {
                     }.accessibilityIdentifier("reminder-sound-settings")
                 }
                 Section("Данные") {
+                    NavigationLink("Теги") { OrbitTagsScreen(model: model) }
                     NavigationLink("Резервная копия") { OrbitBackupScreen() }
                 }
                 Section("Отклик") {

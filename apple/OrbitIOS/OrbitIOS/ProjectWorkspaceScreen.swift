@@ -13,6 +13,8 @@ struct ProjectWorkspaceScreen: View {
     @State private var selectedDay = TaskDaySelection.currentDay()
     @State private var referenceDay = TaskDaySelection.currentDay()
     @State private var create = false
+    @State private var archiveConfirmation = false
+    @State private var archiveError: String?
     @State private var projectEditor: ProjectEditorPresentation?
     @State private var editor: InboxSheetPresentation?
     private let timer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
@@ -26,7 +28,7 @@ struct ProjectWorkspaceScreen: View {
     private var tasks: [OrbitTask] { model.tasks.filter { $0.projectID == project.id } }
 
     private var header: some View {
-        NativeModeHeader(title: project.name, switcher: OrbitViewModeMenu(showsCalendar: $showsCalendar, identifier: "project-mode-switcher")) {
+        NativeModeHeader(title: project.name + (project.isArchived ? " · Архив" : ""), switcher: OrbitViewModeMenu(showsCalendar: $showsCalendar, identifier: "project-mode-switcher")) {
             Button(action: onBack) {
                 Image(systemName: "chevron.left").frame(minWidth: 44, minHeight: 44)
             }
@@ -100,11 +102,23 @@ struct ProjectWorkspaceScreen: View {
         .environment(\.orbitSearchProject, project.id)
         .environment(\.orbitTaskSelectionScope, .project(project.id))
         .environment(\.orbitProjectActions, AnyView(
+            Group {
+            Button(project.isArchived ? "Восстановить проект" : "В архив", systemImage: "archivebox") { archiveConfirmation = true }
             Button("Переименовать…", systemImage: "pencil") {
                 projectEditor = ProjectEditorPresentation(projectID: project.id, name: project.name)
             }
             .accessibilityIdentifier("project-rename")
+            }
         ))
+        .confirmationDialog(project.isArchived ? "Восстановить проект?" : "Переместить проект в архив?", isPresented: $archiveConfirmation, titleVisibility: .visible) {
+            Button(project.isArchived ? "Восстановить" : "В архив") {
+                if let error = model.archiveProject(project) { archiveError = error } else { onBack() }
+            }
+            Button("Отмена", role: .cancel) { }
+        } message: { Text("Задачи останутся в общих списках и календарях. Напоминания продолжат работать.") }
+        .alert("Не удалось изменить проект", isPresented: Binding(get: { archiveError != nil }, set: { if !$0 { archiveError = nil } })) {
+            Button("OK") { archiveError = nil }
+        } message: { Text(archiveError ?? "") }
         .onChange(of: showsCalendar) { _, _ in model.endSelection() }
         .onChange(of: selectedDay) { _, _ in model.endSelection() }
         .onDisappear { model.endSelection() }
@@ -133,7 +147,7 @@ struct TaskProjectSheet: View {
                 Section { Text(task.title) }
                 Picker("Проект", selection: $draft) {
                     Text("Без проекта").tag(nil as UUID?)
-                    ForEach(model.projects) { Text($0.name).tag(Optional($0.id)) }
+                    ForEach(model.projects) { Text($0.name + ($0.isArchived ? " · Архив" : "")).tag(Optional($0.id)) }
                 }
                 .pickerStyle(.inline)
                 .accessibilityIdentifier("task-project-picker")

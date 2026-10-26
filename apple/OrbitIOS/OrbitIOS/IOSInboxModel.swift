@@ -124,6 +124,16 @@ final class IOSInboxModel {
     private let store: OrbitTaskStore
     let reminders = OrbitReminderScheduler()
 
+    private(set) var tags: [OrbitTag] = []
+    private(set) var tagError: String?
+    func saveTag(name: String, id: UUID? = nil) -> String? {
+        do { try store.saveTag(name: name, id: id); reload(); return nil }
+        catch { return error.localizedDescription }
+    }
+    func archiveProject(_ project: OrbitProject) -> String? {
+        do { try store.setProjectArchived(!project.isArchived, id: project.id); reload(); return nil }
+        catch { return error.localizedDescription }
+    }
     private(set) var projects: [OrbitProject] = []
     private(set) var projectListError: String?
     private(set) var tasks: [OrbitTask] = []
@@ -255,6 +265,7 @@ final class IOSInboxModel {
     }
 
     func reloadProjects() {
+        do { tags = try store.tags(); tagError = nil } catch { tagError = error.localizedDescription }
         do {
             projects = try store.projects()
             projectListError = nil
@@ -306,7 +317,8 @@ final class IOSInboxModel {
         durationMinutes: Int? = nil,
         projectID: UUID? = nil,
         deadlineDate: String? = nil,
-        reminderAt: Date? = nil
+        reminderAt: Date? = nil,
+        tagIDs: [UUID] = []
     ) -> String? {
         do {
             _ = try store.addTask(
@@ -316,7 +328,7 @@ final class IOSInboxModel {
                 durationMinutes: durationMinutes,
                 projectID: projectID,
                 deadlineDate: deadlineDate,
-                reminderAt: reminderAt
+                reminderAt: reminderAt, tagIDs: tagIDs
             )
             writeError = nil
             reload()
@@ -328,12 +340,12 @@ final class IOSInboxModel {
     }
 
     func updateTask(_ task: OrbitTask, title: String, date: String?, time: String?, duration: Int?,
-                    project: UUID?, deadline: String?, reminder: Date?, completed: Bool? = nil) -> String? {
+                    project: UUID?, deadline: String?, reminder: Date?, completed: Bool? = nil, tagIDs: [UUID]? = nil) -> String? {
         let newlyCompleted = completed == true && !task.isCompleted
         do {
             try store.updateTask(id: task.id, title: title, plannedDate: date, plannedTime: time,
                                  durationMinutes: duration, projectID: project, deadlineDate: deadline,
-                                 reminderAt: reminder, completed: completed)
+                                 reminderAt: reminder, completed: completed, tagIDs: tagIDs)
             writeError = nil
             reload()
             if newlyCompleted { OrbitCompletionFeedback.shared.completed() }

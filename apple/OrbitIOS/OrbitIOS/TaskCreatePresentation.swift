@@ -161,6 +161,7 @@ struct TaskCreateSheet: View {
     @State private var created = false
 
     /// Local draft: optional civil date `YYYY-MM-DD` (nil = undated).
+    @State private var draftTagIDs: Set<UUID> = []
     @State private var draftProjectID: UUID?
     @State private var draftReminder: Date?
     @State private var draftDeadline: String?
@@ -201,6 +202,7 @@ struct TaskCreateSheet: View {
         _title = State(initialValue: editingTask?.title ?? "")
         _draftReminder = State(initialValue: editingTask?.reminderAt)
         _draftDeadline = State(initialValue: editingTask?.deadlineDate)
+        _draftTagIDs = State(initialValue: Set(editingTask?.tagIDs ?? []))
         _draftProjectID = State(initialValue: editingTask?.projectID ?? projectPreset)
         // The preset seeds the draft only when it is a valid civil date; an
         // invalid preset is never silently replaced by today.
@@ -242,13 +244,19 @@ struct TaskCreateSheet: View {
                         Menu {
                             Picker("Проект", selection: $draftProjectID) {
                                 Text("Без проекта").tag(nil as UUID?)
-                                ForEach(model.projects) { Text($0.name).tag(Optional($0.id)) }
+                                ForEach(model.projects) { Text($0.name + ($0.isArchived ? " · Архив" : "")).tag(Optional($0.id)) }
                             }
                         } label: {
                             OrbitEditorSummary(title: "Проект", value: model.projects.first { $0.id == draftProjectID }?.name ?? "Без проекта", expanded: false)
                         }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("create-project-picker")
+                        NavigationLink {
+                            OrbitTagsScreen(model: model, selection: $draftTagIDs)
+                        } label: {
+                            LabeledContent("Теги", value: draftTagIDs.isEmpty ? "Нет" : "Выбрано: \(draftTagIDs.count)")
+                                .frame(minHeight: 44)
+                        }
                         dateSection
                         DisclosureGroup(isExpanded: $showsTime) { timeSection } label: {
                             LabeledContent("Время") {
@@ -531,7 +539,7 @@ struct TaskCreateSheet: View {
         return title != task.title || draftDate != task.plannedDate ||
             (timeEnabled ? startString : nil) != task.plannedTime ||
             (timeEnabled ? draftDurationTotal : nil) != task.durationMinutes ||
-            draftProjectID != task.projectID || draftDeadline != task.deadlineDate || draftReminder != task.reminderAt
+            draftTagIDs != Set(task.tagIDs ?? []) || draftProjectID != task.projectID || draftDeadline != task.deadlineDate || draftReminder != task.reminderAt
     }
 
     private var completionCaption: String {
@@ -596,13 +604,13 @@ struct TaskCreateSheet: View {
                                        time: sendInterval ? startString : nil,
                                        duration: sendInterval ? draftDurationTotal : nil,
                                        project: draftProjectID, deadline: draftDeadline,
-                                       reminder: draftReminder, completed: completed)
+                                       reminder: draftReminder, completed: completed, tagIDs: Array(draftTagIDs))
         } else {
             message = model.create(title: trimmedTitle, plannedDate: draftDate,
                                    plannedTime: sendInterval ? startString : nil,
                                    durationMinutes: sendInterval ? draftDurationTotal : nil,
                                    projectID: draftProjectID, deadlineDate: draftDeadline,
-                                   reminderAt: draftReminder)
+                                   reminderAt: draftReminder, tagIDs: Array(draftTagIDs))
         }
         if let message {
             // The sheet and every draft stay up for retry; the list itself
