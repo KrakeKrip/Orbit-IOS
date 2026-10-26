@@ -114,6 +114,13 @@ enum IOSInboxFormatting {
 @MainActor
 @Observable
 final class IOSInboxModel {
+    func exportBackup() throws -> Data { try store.backup().encoded() }
+    func backupPlan(_ backup: OrbitBackup) throws -> OrbitBackup.Plan { try backup.plan(against: store.backup()) }
+    func restoreBackup(_ backup: OrbitBackup) throws {
+        _ = try store.restore(backup)
+        endSelection(); reload()
+    }
+
     private let store: OrbitTaskStore
     let reminders = OrbitReminderScheduler()
 

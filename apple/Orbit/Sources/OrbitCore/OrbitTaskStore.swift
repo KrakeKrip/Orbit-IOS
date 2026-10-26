@@ -17,6 +17,30 @@ public final class OrbitTaskStore {
         self.context = context
     }
 
+    public func backup() throws -> OrbitBackup {
+        OrbitBackup(projects: try projects(), tasks: try tasks())
+    }
+
+    public func restore(_ backup: OrbitBackup) throws -> OrbitBackup.Plan {
+        let current = try self.backup()
+        let plan = try backup.plan(against: current)
+        // Validate actual SwiftData materialization in an isolated store first.
+        let staging = try ModelContainer(for: OrbitTask.self, OrbitProject.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none))
+        let stagedContext = ModelContext(staging)
+        stagedContext.autosaveEnabled = false
+        for project in backup.projects { stagedContext.insert(project.model()) }
+        for task in backup.tasks { stagedContext.insert(task.model()) }
+        try stagedContext.save()
+        let projects = Set(current.projects.map(\.id)), tasks = Set(current.tasks.map(\.id))
+        do {
+            for project in backup.projects where !projects.contains(project.id) { context.insert(project.model()) }
+            for task in backup.tasks where !tasks.contains(task.id) { context.insert(task.model()) }
+            try context.save()
+        } catch { context.rollback(); throw error }
+        return plan
+    }
+
     /// Stable local order, independent of store collation; duplicate names allowed.
     public func projects() throws -> [OrbitProject] {
         let fetched = try context.fetch(FetchDescriptor<OrbitProject>())

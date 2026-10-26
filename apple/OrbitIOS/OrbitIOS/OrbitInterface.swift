@@ -351,6 +351,9 @@ struct OrbitSettingsSheet: View {
                         }
                     }.accessibilityIdentifier("reminder-sound-settings")
                 }
+                Section("Данные") {
+                    NavigationLink("Резервная копия") { OrbitBackupScreen() }
+                }
                 Section("Отклик") {
                     Toggle("Виброотклик", isOn: $haptics)
                     Toggle("Звук выполнения", isOn: $completionSound)
