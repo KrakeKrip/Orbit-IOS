@@ -157,6 +157,7 @@ struct InboxRowView: View {
     /// already carry the date. Presentation only, no metadata loss.
     var showsDateLabel: Bool = true
     var showsProjectLabel: Bool = true
+    var opensOnHold = true
     let onEditDate: () -> Void
     let onEditInterval: () -> Void
 
@@ -268,7 +269,7 @@ struct InboxRowView: View {
         TaskActionPopoverButton(
             model: model, task: task,
             range: Self.intervalLabel(task) ?? task.plannedDate.map(RussianDateCaption.label) ?? "Без даты",
-            previewWidth: 300
+            previewWidth: 300, opensOnHold: opensOnHold
         ) { action in
             switch action {
             case .toggle: model.setCompleted(!task.isCompleted, for: task)

@@ -130,13 +130,13 @@ struct CalendarDayScreen: View {
                             .environment(\.dynamicTypeSize, .xxxLarge)
                         ScrollView {
                             VStack(spacing: 0) {
-                                OverdueTaskBlock(model: model, projectID: projectID)
+                                OverdueTaskBlock(model: model, projectID: projectID, onBeginDrag: beginOverdueDrag)
                                 untimedSection
                             }.environment(\.dynamicTypeSize, .xxxLarge)
                             .fixedSize(horizontal: false, vertical: true)
                         }.frame(height: min(190, max(100, contentHeight * 0.28)))
                     } else {
-                        OverdueTaskBlock(model: model, projectID: projectID)
+                        OverdueTaskBlock(model: model, projectID: projectID, onBeginDrag: beginOverdueDrag)
                         untimedSection
                     }
                     DayTimelineView(
@@ -242,6 +242,17 @@ struct CalendarDayScreen: View {
         }
     }
 
+    private func beginOverdueDrag(_ task: OrbitTask) -> NSItemProvider {
+        guard !model.isSelecting, TaskDaySelection.isOverdue(task, before: TaskDaySelection.currentDay()) else { return NSItemProvider() }
+        let source = UntimedCalendarDrag(token: UUID(), taskID: task.id, day: selectedDay,
+            projectID: task.projectID, completed: task.isCompleted, title: task.title,
+            sourceDate: task.plannedDate, sourceTime: task.plannedTime,
+            sourceDuration: task.durationMinutes, isOverdue: true)
+        untimedDrag = source
+        OrbitHaptics.longPress()
+        return source.provider()
+    }
+
     private func beginUntimedDrag(_ task: OrbitTask) -> NSItemProvider {
         guard !model.isSelecting, task.plannedDate == selectedDay, task.plannedTime == nil, task.durationMinutes == nil else {
             return NSItemProvider()
@@ -261,12 +272,11 @@ struct CalendarDayScreen: View {
         // Consume once. A duplicate/delayed provider callback cannot save twice.
         untimedDrag = nil
         guard selectedDay == source.day, let current = task(withID: source.taskID),
-              current.plannedDate == source.day, current.plannedTime == nil, current.durationMinutes == nil,
-              current.projectID == source.projectID, current.isCompleted == source.completed,
+              source.matches(current),
               projectID == nil || current.projectID == projectID else {
             return "Задача или выбранный день изменились. Повторите перенос."
         }
-        let error = model.setPlannedInterval(plannedTime: candidate.time, durationMinutes: candidate.duration, for: current)
+        let error = model.setPlannedSchedule(date: selectedDay, time: candidate.time, duration: candidate.duration, for: current)
         if error == nil { OrbitHaptics.selection() }
         return error
     }

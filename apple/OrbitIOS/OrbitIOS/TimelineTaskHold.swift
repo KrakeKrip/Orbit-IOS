@@ -24,3 +24,16 @@ struct TimelineTaskHold: ViewModifier {
             }, creation: action))
     }
 }
+
+/// Native immediate boundary drag competes with the scroll pan before it wins.
+/// Unlike a SwiftUI child drag, it is not cancelled by the card button's sheet.
+struct TimelineResizeDrag: ViewModifier {
+    let action: (UIGestureRecognizer.State, CGPoint, CGPoint) -> Void
+    @State private var frame = CGRect.zero
+    func body(content: Content) -> some View {
+        content
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
+            .background(TimelineScrollResolver(minimumDuration: 0, exclusive: true,
+                resolve: { _ in }, acceptsCreation: { frame.insetBy(dx: 0, dy: -12).contains($0) }, creation: action))
+    }
+}

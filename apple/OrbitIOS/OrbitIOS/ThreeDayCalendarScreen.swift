@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import UniformTypeIdentifiers
 import OrbitCore
 
 /// One scroll surface and one hour scale for three consecutive civil days.
@@ -13,6 +14,9 @@ struct ThreeDayCalendarScreen: View {
     @Environment(\.scenePhase) private var phase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.orbitAppearance) private var appearance
+    @State private var externalDrag: UntimedCalendarDrag?
+    @State private var externalPreview: Create?
+    @State private var dropOffset: CGFloat = 0
     @State private var untimedExpanded = false
     @State private var anchorDay: String
     @State private var selectedTask: UUID?
@@ -31,7 +35,6 @@ struct ThreeDayCalendarScreen: View {
     @State private var creationStart: CGPoint?
     @State private var creationScrollOrigin: CGFloat = 0
     private let edgeTicks = Timer.publish(every: 1.0 / 30, on: .main, in: .common).autoconnect()
-    @GestureState private var editingGesture = false
     @State private var lastRelease = Date.distantPast
     @ScaledMetric(relativeTo: .caption) private var scaledCalendarFont = 12.0
     private var calendarFont: CGFloat { min(scaledCalendarFont, 20) }
@@ -95,14 +98,14 @@ struct ThreeDayCalendarScreen: View {
                             .environment(\.dynamicTypeSize, .xxxLarge)
                     ScrollView {
                         VStack(spacing: 0) {
-                            OverdueTaskBlock(model: model)
+                            OverdueTaskBlock(model: model, onBeginDrag: beginOverdueDrag)
                             dayHeaders
                             untimedRows
                         }.environment(\.dynamicTypeSize, .xxxLarge)
                         .fixedSize(horizontal: false, vertical: true)
                     }.frame(height: min(190, max(100, availableHeight * 0.28)))
                 } else {
-                    OverdueTaskBlock(model: model)
+                    OverdueTaskBlock(model: model, onBeginDrag: beginOverdueDrag)
                     dayHeaders
                     untimedRows
                 }
@@ -149,21 +152,19 @@ struct ThreeDayCalendarScreen: View {
         }
         .onChange(of: selectedDay) { _, day in
             if !days.contains(day) { anchorDay = day }
-            edit = nil; selectedTask = nil
-        }
-        .onChange(of: editingGesture) { _, active in
-            if !active { DispatchQueue.main.async { if !editingGesture { edit = nil; latestDrag = nil } } }
+            externalDrag = nil; externalPreview = nil; edit = nil; selectedTask = nil
         }
         .onChange(of: model.isSelecting) { _, selecting in
-            if selecting { edit = nil; latestDrag = nil; selectedTask = nil; creating = nil; creationPoint = nil }
+            if selecting { externalDrag = nil; externalPreview = nil; edit = nil; latestDrag = nil; selectedTask = nil; creating = nil; creationPoint = nil }
         }
         .onChange(of: phase) { _, value in
             if value != .active {
+                externalDrag = nil; externalPreview = nil
                 edit = nil; latestDrag = nil; creating = nil; creationPoint = nil
                 creationStart = nil; creationOrigin = nil; selectedTask = nil
             }
         }
-        .onDisappear { edit = nil; latestDrag = nil; creating = nil; creationPoint = nil; scroll = nil; selectedTask = nil }
+        .onDisappear { externalDrag = nil; externalPreview = nil; edit = nil; latestDrag = nil; creating = nil; creationPoint = nil; scroll = nil; selectedTask = nil }
     }
     private func page(_ delta: Int) {
         guard let next = TaskTimelineWindow.shift(days.first ?? anchorDay, by: delta) else { return }
@@ -253,6 +254,16 @@ struct ThreeDayCalendarScreen: View {
             }
         }
     }
+    private func beginOverdueDrag(_ task: OrbitTask) -> NSItemProvider {
+        guard !model.isSelecting, TaskDaySelection.isOverdue(task, before: referenceDay) else { return NSItemProvider() }
+        let source = UntimedCalendarDrag(token: UUID(), taskID: task.id, day: selectedDay,
+            projectID: task.projectID, completed: task.isCompleted, title: task.title,
+            sourceDate: task.plannedDate, sourceTime: task.plannedTime, sourceDuration: task.durationMinutes, isOverdue: true)
+        externalDrag = source
+        OrbitHaptics.longPress()
+        return source.provider()
+    }
+
     private var timeline: some View {
         GeometryReader { viewport in
             ScrollViewReader { reader in
@@ -282,6 +293,9 @@ struct ThreeDayCalendarScreen: View {
                             ghost(day: edit.targetDate, time: candidate.time, duration: candidate.duration,
                                   title: task(edit.taskID)?.title ?? "", width: viewport.size.width)
                         }
+                        if let preview = externalPreview {
+                            ghost(day: preview.day, time: preview.time, duration: preview.duration, title: externalDrag?.title ?? "", width: viewport.size.width)
+                        }
                         if let creating {
                             ghost(day: creating.day, time: creating.time, duration: creating.duration,
                                   title: "Новая задача", width: viewport.size.width)
@@ -300,7 +314,25 @@ struct ThreeDayCalendarScreen: View {
                         createGesture(state, start: start, point: point, width: viewport.size.width)
                     }))
                 }
-                .onReceive(edgeTicks) { _ in autoScroll(viewport: viewport) }
+                .onDrop(of: [UTType.text.identifier], delegate: UntimedTimelineDropDelegate(
+                    source: $externalDrag, day: selectedDay, targetDays: days, gutter: gutter,
+                    width: viewport.size.width, hourHeight: hourHeight, viewportHeight: viewport.size.height,
+                    scrollOffset: $dropOffset,
+                    acceptsSource: { source in
+                        !model.isSelecting && edit == nil && creating == nil && task(source.taskID).map(source.matches) == true
+                    }, preview: { _ in }, commit: { _, _ in },
+                    failure: { externalDrag = nil; externalPreview = nil; error = "Не удалось перенести задачу." },
+                    previewDay: { day, candidate in
+                        externalPreview = candidate.map { Create(day: day, time: $0.time, duration: $0.duration) }
+                    }, commitDay: { day, source, candidate in
+                        guard externalDrag?.token == source.token else { return }
+                        externalDrag = nil; externalPreview = nil
+                        guard days.contains(day), !model.isSelecting,
+                            let current = task(source.taskID), source.matches(current) else { return }
+                        error = model.setPlannedSchedule(date: day, time: candidate.time, duration: candidate.duration, for: current)
+                        if error == nil { OrbitHaptics.selection() }
+                    }))
+                .onReceive(edgeTicks) { _ in dropOffset = scroll?.contentOffset.y ?? 0; autoScroll(viewport: viewport) }
                 .contentMargins(.bottom, 88, for: .scrollContent)
                 .scrollDisabled(edit != nil || creating != nil)
                 .onAppear { reader.scrollTo(8, anchor: .top) }
@@ -321,7 +353,7 @@ struct ThreeDayCalendarScreen: View {
                               selectionMode: model.isSelecting)
                 .frame(width: width, height: height, alignment: .topLeading)
         }
-        .modifier(TimelineTaskHold(enabled: !model.isSelecting && creating == nil, ignoresResizeHandles: selectedTask == task.id && height >= 44 && width >= 88) { state, start, point in
+        .modifier(TimelineTaskHold(enabled: !model.isSelecting && creating == nil, ignoresResizeHandles: selectedTask == task.id && width >= 88) { state, start, point in
             switch state {
             case .began: begin(task, segment: segment, column: column, edge: .move)
             case .changed:
@@ -338,12 +370,12 @@ struct ThreeDayCalendarScreen: View {
             }
         })
         .overlay(alignment: .topTrailing) {
-            if selectedTask == task.id && !model.isSelecting && height >= 44 && width >= 88 && !segment.continuesFromPreviousDay {
+            if selectedTask == task.id && !model.isSelecting && width >= 88 && !segment.continuesFromPreviousDay {
                 handle(.start, task: task, segment: segment, column: column, viewport: viewport)
             }
         }
         .overlay(alignment: .bottomLeading) {
-            if selectedTask == task.id && !model.isSelecting && height >= 44 && width >= 88 && !segment.continuesIntoNextDay {
+            if selectedTask == task.id && !model.isSelecting && width >= 88 && !segment.continuesIntoNextDay {
                 handle(.end, task: task, segment: segment, column: column, viewport: viewport)
             }
         }
@@ -415,10 +447,18 @@ struct ThreeDayCalendarScreen: View {
             .contentShape(Rectangle())
             .accessibilityHint("Можно также изменить время через меню задачи")
             .accessibilityLabel(edge == .start ? "Изменить начало" : "Изменить конец")
-            .highPriorityGesture(DragGesture(minimumDistance: 0, coordinateSpace: .global)
-                .updating($editingGesture) { _, state, _ in state = true }
-                .onChanged { value in begin(task, segment: segment, column: column, edge: edge); update(value, viewport: viewport) }
-                .onEnded { value in update(value, viewport: viewport); finish() })
+            .modifier(TimelineResizeDrag { state, start, point in
+                switch state {
+                case .began: begin(task, segment: segment, column: column, edge: edge)
+                case .changed:
+                    update(Pointer(location: point, translation: CGSize(width: point.x - start.x, height: point.y - start.y)), viewport: viewport)
+                case .ended:
+                    update(Pointer(location: point, translation: CGSize(width: point.x - start.x, height: point.y - start.y)), viewport: viewport)
+                    finish()
+                case .cancelled, .failed: edit = nil; latestDrag = nil
+                default: break
+                }
+            })
     }
     private func ghost(day: String, time: String, duration: Int, title: String, width: CGFloat) -> some View {
         let start = (Int(time.prefix(2)) ?? 0) * 60 + (Int(time.suffix(2)) ?? 0)

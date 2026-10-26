@@ -44,7 +44,6 @@ struct DayTimelineView: View {
     @State private var editing: TimelineGestureEdit?
     @State private var gestureError: String?
     @State private var lastGestureFinish = Date.distantPast
-    @GestureState private var gestureActive = false
 
     /// Uniform linear hour height.
     private let hourHeight: CGFloat = 64
@@ -121,9 +120,7 @@ struct DayTimelineView: View {
                         viewportHeight: geometry.size.height, scrollOffset: $timelineScrollOffset,
                         acceptsSource: { source in
                             guard !model.isSelecting, editing == nil, let current = task(source.taskID) else { return false }
-                            return current.plannedDate == source.day && current.plannedTime == nil &&
-                                current.durationMinutes == nil && current.projectID == source.projectID &&
-                                current.isCompleted == source.completed
+                            return source.matches(current)
                         }, preview: { candidate in
                             if candidate?.time != untimedCandidate?.time, candidate != nil { OrbitHaptics.timelineStep() }
                             untimedCandidate = candidate
@@ -164,12 +161,6 @@ struct DayTimelineView: View {
             if !presented { clearCreation() }
         }
         .onChange(of: day) { _, _ in creationDraft = nil; creationDay = nil; editing = nil; dragPoint = nil; selectedTaskID = nil }
-        .onChange(of: gestureActive) { _, active in
-            if !active {
-                // Also clears drafts for recognizer cancellation, after onEnded.
-                DispatchQueue.main.async { if !gestureActive { editing = nil; dragPoint = nil; returningUntimed = false; _ = onReturnHover(nil) } }
-            }
-        }
         .onChange(of: model.isSelecting) { _, selecting in
             if selecting { dragPoint = nil; creationDraft = nil; creationDay = nil; editing = nil; selectedTaskID = nil; untimedDrag = nil; untimedCandidate = nil }
         }
@@ -390,7 +381,7 @@ struct DayTimelineView: View {
             alignment: .top
         )
         .clipped()
-        .modifier(TimelineTaskHold(enabled: !model.isSelecting && untimedDrag == nil && creationDraft == nil, ignoresResizeHandles: selectedTaskID == task.id && paintedHeight >= 44 && laneWidth(laneCount: laneCount, containerWidth: containerWidth) >= 88) { state, start, point in
+        .modifier(TimelineTaskHold(enabled: !model.isSelecting && untimedDrag == nil && creationDraft == nil, ignoresResizeHandles: selectedTaskID == task.id && laneWidth(laneCount: laneCount, containerWidth: containerWidth) >= 88) { state, start, point in
             switch state {
             case .began:
                 begin(.move, task: task, segment: segment)
@@ -418,12 +409,12 @@ struct DayTimelineView: View {
             }
         }
         .overlay(alignment: .topTrailing) {
-            if !model.isSelecting && selectedTaskID == task.id && paintedHeight >= 44 && laneWidth(laneCount: laneCount, containerWidth: containerWidth) >= 88 && !segment.continuesFromPreviousDay {
+            if !model.isSelecting && selectedTaskID == task.id && laneWidth(laneCount: laneCount, containerWidth: containerWidth) >= 88 && !segment.continuesFromPreviousDay {
                 resizeHandle(.start, task: task, segment: segment)
             }
         }
         .overlay(alignment: .bottomLeading) {
-            if !model.isSelecting && selectedTaskID == task.id && paintedHeight >= 44 && laneWidth(laneCount: laneCount, containerWidth: containerWidth) >= 88 && !segment.continuesIntoNextDay {
+            if !model.isSelecting && selectedTaskID == task.id && laneWidth(laneCount: laneCount, containerWidth: containerWidth) >= 88 && !segment.continuesIntoNextDay {
                 resizeHandle(.end, task: task, segment: segment)
             }
         }
@@ -596,18 +587,18 @@ struct DayTimelineView: View {
             .frame(width: 44, height: 44, alignment: edge == .start ? .top : .bottom)
             .contentShape(Rectangle())
             .accessibilityLabel(edge == .start ? "Изменить начало" : "Изменить конец")
-            .highPriorityGesture(
-                DragGesture(minimumDistance: 0, coordinateSpace: .global)
-                    .updating($gestureActive) { _, state, _ in state = true }
-                    .onChanged { value in
-                        begin(edge, task: task, segment: segment)
-                        trackDrag(value.location, translation: value.translation.height)
-                    }
-                    .onEnded { value in
-                        trackDrag(value.location, translation: value.translation.height)
-                        finish()
-                    }
-            )
+            .modifier(TimelineResizeDrag { state, start, point in
+                switch state {
+                case .began: begin(edge, task: task, segment: segment)
+                case .changed:
+                    trackDrag(point, translation: point.y - start.y)
+                case .ended:
+                    trackDrag(point, translation: point.y - start.y)
+                    finish()
+                case .cancelled, .failed: editing = nil; dragPoint = nil
+                default: break
+                }
+            })
     }
 
     // MARK: - Greedy lane layout (local, minimal)
@@ -665,6 +656,8 @@ private struct TimelineTaskButtonStyle: ButtonStyle {
 
 /// Resolve only the enclosing timeline scroll view; no global UIKit lookup.
 struct TimelineScrollResolver: UIViewRepresentable {
+    var minimumDuration: TimeInterval = 0.45
+    var exclusive = false
     let resolve: (UIScrollView) -> Void
     let acceptsCreation: (CGPoint) -> Bool
     let creation: (UIGestureRecognizer.State, CGPoint, CGPoint) -> Void
@@ -692,9 +685,9 @@ struct TimelineScrollResolver: UIViewRepresentable {
         var start = CGPoint.zero
         lazy var hold: UILongPressGestureRecognizer = {
             let recognizer = UILongPressGestureRecognizer(target: self, action: #selector(handle))
-            recognizer.minimumPressDuration = 0.45
+            recognizer.minimumPressDuration = parent.minimumDuration
             recognizer.allowableMovement = 10
-            recognizer.cancelsTouchesInView = false
+            recognizer.cancelsTouchesInView = parent.exclusive
             recognizer.delegate = self
             return recognizer
         }()
@@ -725,7 +718,7 @@ struct TimelineScrollResolver: UIViewRepresentable {
             return true
         }
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
-                               shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool { true }
+                               shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool { !parent.exclusive }
         @objc func handle(_ recognizer: UILongPressGestureRecognizer) {
             parent.creation(recognizer.state, start, recognizer.location(in: nil))
         }

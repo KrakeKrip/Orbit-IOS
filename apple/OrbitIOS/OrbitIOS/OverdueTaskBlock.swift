@@ -5,9 +5,10 @@ import OrbitCore
 struct OverdueTaskBlock: View {
     let model: IOSInboxModel
     var projectID: UUID? = nil
+    var onBeginDrag: ((OrbitTask) -> NSItemProvider)? = nil
     var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
-            OverdueTaskContent(model: model, projectID: projectID,
+            OverdueTaskContent(model: model, projectID: projectID, onBeginDrag: onBeginDrag,
                 today: TaskDaySelection.currentDay(from: context.date))
         }
     }
@@ -21,6 +22,7 @@ struct TaskRescheduleRequest: Identifiable {
 private struct OverdueTaskContent: View {
     let model: IOSInboxModel
     let projectID: UUID?
+    let onBeginDrag: ((OrbitTask) -> NSItemProvider)?
     let today: String
     @State private var expanded = false
     @State private var expandedHeight: CGFloat = 44
@@ -66,7 +68,7 @@ private struct OverdueTaskContent: View {
                         LazyVStack(spacing: 0) {
                             ForEach(tasks) { task in
                                 HStack(spacing: 0) {
-                                    InboxRowView(task: task, model: model, showsProjectLabel: projectID == nil) { editor = .date(task) }
+                                    InboxRowView(task: task, model: model, showsProjectLabel: projectID == nil, opensOnHold: onBeginDrag == nil) { editor = .date(task) }
                                         onEditInterval: { editor = .interval(task) }
                                     if !model.isSelecting {
                                         Menu { moveActions([task.id]) } label: {
@@ -77,6 +79,7 @@ private struct OverdueTaskContent: View {
                                         .accessibilityLabel("Перенести задачу: \(task.title)")
                                     }
                                 }
+                                .modifier(OverdueCalendarDrag(task: task, enabled: !model.isSelecting, begin: onBeginDrag))
                                 .padding(.leading, 16)
                                 Divider().padding(.leading, 74)
                             }
@@ -150,5 +153,18 @@ struct TaskRescheduleSheet: View {
             .navigationTitle("Перенос задач").navigationBarTitleDisplayMode(.inline)
 
         }
+    }
+}
+
+private struct OverdueCalendarDrag: ViewModifier {
+    let task: OrbitTask
+    let enabled: Bool
+    let begin: ((OrbitTask) -> NSItemProvider)?
+    @ViewBuilder func body(content: Content) -> some View {
+        if enabled, let begin {
+            content.onDrag { begin(task) } preview: {
+                Text(task.title).padding(8).background(Color.orbitAccentFill, in: RoundedRectangle(cornerRadius: 8))
+            }
+        } else { content }
     }
 }
