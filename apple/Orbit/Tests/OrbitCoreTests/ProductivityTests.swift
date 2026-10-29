@@ -62,14 +62,14 @@ import Testing
         let task = try store.addTask(title: "Workout", plannedDate: "2026-10-29", plannedTime: "10:00", durationMinutes: 60,
                                      subtasks: [TaskSubtask(title: "Warm up", completed: true)], repeatRule: .daily)
         let before = try store.backup().tasks
-        try store.setCompleted(true, for: task.id)
+        try store.setCompleted(true, for: task.id, at: TaskPlannedDate.date(fromCivilDateString: "2026-10-29")!)
         let after = try store.backup().tasks
         #expect(after.count == 2)
         let next = try #require(store.tasks().first { $0.id != task.id })
         #expect(next.plannedDate == "2026-10-30" && next.durationMinutes == 60)
         #expect(next.subtasks.first?.completed == false)
         try store.setCompleted(false, for: task.id)
-        try store.setCompleted(true, for: task.id)
+        try store.setCompleted(true, for: task.id, at: TaskPlannedDate.date(fromCivilDateString: "2026-10-29")!)
         #expect(try store.tasks().count == 2)
         // Timestamp changed on recompletion: use the current exact snapshot.
         try store.undoTasks(before: before, after: store.backup().tasks)
@@ -82,6 +82,25 @@ import Testing
         #expect(try store.backup().tasks == before)
         try store.renameTask(title: "Changed", for: task.id)
         #expect(throws: BackupError.self) { try store.undoTasks(before: [], after: before) }
+    }
+    @Test func overdueRepeatCarriesReminderAndSkipsMissedDays() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let url = dir.appendingPathComponent("store")
+        let store = try OrbitTaskStore(storeURL: url)
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = .current
+        let originalDay = TaskPlannedDate.date(fromCivilDateString: "2030-10-21", calendar: calendar)!
+        let reminder = calendar.date(bySettingHour: 8, minute: 50, second: 0, of: originalDay)!
+        let task = try store.addTask(title: "Repeat", plannedDate: "2030-10-21", plannedTime: "09:00", durationMinutes: 60,
+                                     reminderAt: reminder, repeatRule: .daily)
+        let completed = TaskPlannedDate.date(fromCivilDateString: "2030-10-25", calendar: calendar)!
+        try store.setCompleted(true, for: task.id, at: completed)
+        let next = try #require(store.tasks().first { $0.id != task.id })
+        #expect(next.plannedDate == "2030-10-26")
+        #expect(next.reminderAt == calendar.date(byAdding: .day, value: 5, to: reminder))
+        let reopened = try OrbitTaskStore(storeURL: url)
+        #expect(try reopened.tasks().first { $0.id == next.id }?.reminderAt == next.reminderAt)
     }
     @Test func completionFailureRollsBackWholeSelection() throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

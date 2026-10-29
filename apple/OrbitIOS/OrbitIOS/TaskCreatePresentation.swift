@@ -184,7 +184,34 @@ struct TaskCreateSheet: View {
     @State private var showsAdditional = false
     @State private var showsTime = false
     @State private var confirmsDelete = false
+    @State private var confirmsDiscard = false
+    @State private var initialDraft: DraftSnapshot?
     @Environment(\.orbitAppearance) private var appearance
+
+    private struct DraftSnapshot: Equatable {
+        var title: String
+        var date: String?
+        var time: String?
+        var duration: Int?
+        var project: UUID?
+        var tags: Set<UUID>
+        var deadline: String?
+        var reminder: Date?
+        var subtasks: [TaskSubtask]
+        var pendingSubtask: String
+        var repeatRule: TaskRepeat?
+    }
+    private var draftSnapshot: DraftSnapshot {
+        DraftSnapshot(title: title, date: draftDate,
+                      time: timeEnabled ? startString : nil,
+                      duration: timeEnabled ? draftDurationTotal : nil,
+                      project: draftProjectID, tags: draftTagIDs, deadline: draftDeadline,
+                      reminder: draftReminder, subtasks: draftSubtasks,
+                      pendingSubtask: subtaskTitle, repeatRule: draftRepeat)
+    }
+    private var hasUnsavedChanges: Bool {
+        initialDraft.map { $0 != draftSnapshot } ?? false
+    }
 
     private var durationMinuteOptions: [Int] {
         let standard = Array(stride(from: 0, through: 55, by: 5))
@@ -313,7 +340,7 @@ struct TaskCreateSheet: View {
                             Text("Не повторять").tag(nil as TaskRepeat?)
                             ForEach(TaskRepeat.allCases, id: \.self) { Text($0.title).tag(Optional($0)) }
                         }.disabled(draftDate == nil)
-                        if draftRepeat != nil { Text("После выполнения создаётся следующая задача. Срок и напоминание на неё не переносятся.").font(.footnote) }
+                        if draftRepeat != nil { Text("После выполнения создаётся ближайший повтор позже сегодняшнего дня. Пропущенные дни не накапливаются. Напоминание переносится вместе с датой, дедлайн — нет.").font(.footnote) }
                     }
                     Section {
                         DisclosureGroup(additionalCaption, isExpanded: $showsAdditional) {
@@ -355,8 +382,11 @@ struct TaskCreateSheet: View {
                 .orbitEditorSurface()
                 .navigationTitle(editingTask == nil ? "Новая задача" : "Задача")
                 .navigationBarTitleDisplayMode(.inline)
-                .orbitEditorActions(enabled: addEnabled, confirm: editingTask == nil ? "Добавить" : "Сохранить", save: { submit() }, cancel: { titleFieldFocused = false; dismiss() })
-                .onAppear { titleFieldFocused = editingTask == nil; showsTime = timeEnabled }
+                .orbitEditorActions(enabled: addEnabled, confirm: editingTask == nil ? "Добавить" : "Сохранить", save: { submit() }, cancel: { titleFieldFocused = false; if hasUnsavedChanges { confirmsDiscard = true } else { dismiss() } })
+                .onAppear {
+                    if initialDraft == nil { initialDraft = draftSnapshot }
+                    titleFieldFocused = editingTask == nil; showsTime = timeEnabled
+                }
                 .onChange(of: errorMessage) { _, message in
                     if message != nil {
                         titleFieldFocused = false
@@ -377,6 +407,11 @@ struct TaskCreateSheet: View {
             }
             Button("Отмена", role: .cancel) { }
         } message: { Text("Удаление можно отменить сразу после закрытия редактора. Изменения черновика не сохранятся.") }
+        .interactiveDismissDisabled(hasUnsavedChanges && !created)
+        .alert("Закрыть без сохранения?", isPresented: $confirmsDiscard) {
+            Button("Сбросить изменения", role: .destructive) { dismiss() }
+            Button("Продолжить редактирование", role: .cancel) { }
+        } message: { Text("Изменения этой задачи не сохранятся.") }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .orbitEditorSurface()

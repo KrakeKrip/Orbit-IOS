@@ -335,14 +335,26 @@ public final class OrbitTaskStore {
     private func completeWithRepeat(_ task: OrbitTask, at date: Date) throws {
         guard !task.isCompleted else { return }
         if let rule = task.repeatRule, let day = task.plannedDate, task.nextOccurrenceID == nil {
-            guard let next = rule.next(after: day) else { throw BackupError.invalid("Повтор выходит за пределы календаря.") }
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = .current
+            let today = TaskPlannedDate.civilDateString(from: date, calendar: calendar)
+            var candidate = rule.next(after: day)
+            while let value = candidate, value <= today { candidate = rule.next(after: value) }
+            guard let next = candidate else { throw BackupError.invalid("Повтор выходит за пределы календаря.") }
+            var nextReminder: Date?
+            if let reminder = task.reminderAt,
+               let oldDay = TaskPlannedDate.date(fromCivilDateString: day, calendar: calendar),
+               let newDay = TaskPlannedDate.date(fromCivilDateString: next, calendar: calendar),
+               let days = calendar.dateComponents([.day], from: oldDay, to: newDay).day {
+                nextReminder = calendar.date(byAdding: .day, value: days, to: reminder)
+            }
             if let time = task.plannedTime, let duration = task.durationMinutes,
                TaskTimeInterval.end(plannedDate: next, plannedTime: time, durationMinutes: duration) == nil {
                 throw TaskTimeIntervalError.endOutOfRange
             }
             let successor = OrbitTask(title: task.title, createdAt: date, plannedDate: next,
                 plannedTime: task.plannedTime, durationMinutes: task.durationMinutes,
-                projectID: task.projectID, tagIDs: task.tagIDs)
+                projectID: task.projectID, reminderAt: nextReminder, tagIDs: task.tagIDs)
             try successor.setProductivity(task.subtasks.map { TaskSubtask(title: $0.title) }, rule)
             context.insert(successor)
             task.setNextOccurrence(successor.id)
