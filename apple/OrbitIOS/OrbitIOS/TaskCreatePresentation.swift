@@ -155,6 +155,9 @@ struct TaskCreateSheet: View {
     @Environment(\.dismiss) private var dismiss
     @FocusState private var titleFieldFocused: Bool
     @State private var title = ""
+    @State private var draftSubtasks: [TaskSubtask] = []
+    @State private var draftRepeat: TaskRepeat?
+    @State private var subtaskTitle = ""
     @State private var errorMessage: String?
     /// Set only on confirmed success; a repeated submit in the same turn
     /// (double tap) can then never insert a duplicate.
@@ -199,6 +202,8 @@ struct TaskCreateSheet: View {
         let timePreset = editingTask?.plannedTime ?? timePreset
         let durationPreset = editingTask?.durationMinutes ?? durationPreset
         self.datePreset = datePreset
+        _draftSubtasks = State(initialValue: editingTask?.subtasks ?? [])
+        _draftRepeat = State(initialValue: editingTask?.repeatRule)
         _title = State(initialValue: editingTask?.title ?? "")
         _draftReminder = State(initialValue: editingTask?.reminderAt)
         _draftDeadline = State(initialValue: editingTask?.deadlineDate)
@@ -227,7 +232,23 @@ struct TaskCreateSheet: View {
         NavigationStack {
             ScrollViewReader { scroll in
                 Form {
-                    Section { titleField }
+                    Section {
+                        titleField
+                        if editingTask == nil, let suggestion = TaskQuickInput.parse(title) {
+                            Button {
+                                title = suggestion.title
+                                if let day = suggestion.day { draftDate = day; pickerDate = TaskPlannedDate.date(fromCivilDateString: day) ?? .now }
+                                if let time = suggestion.time, let duration = suggestion.duration {
+                                    let parts = time.split(separator: ":").compactMap { Int($0) }
+                                    timeEnabled = true; draftStartHour = parts[0]; draftStartMinute = parts[1]
+                                    draftDurationHours = duration / 60; draftDurationMinutes = duration % 60
+                                }
+                            } label: {
+                                Label("Применить: " + [suggestion.day.map { RussianDateCaption.label($0) }, suggestion.time, suggestion.duration.map { "\($0) мин" }].compactMap { $0 }.joined(separator: " · "), systemImage: "text.badge.checkmark")
+                                    .font(.footnote)
+                            }.accessibilityIdentifier("quick-input-apply")
+                        }
+                    }
                     if let editingTask {
                         Section {
                             Button {
@@ -265,6 +286,34 @@ struct TaskCreateSheet: View {
                                     .foregroundStyle(appearance.secondaryText)
                             }
                         }
+                    }
+                    Section {
+                        DisclosureGroup("Подзадачи · \(draftSubtasks.filter(\.completed).count)/\(draftSubtasks.count)") {
+                            ForEach($draftSubtasks) { $subtask in
+                                HStack {
+                                    Button { subtask.completed.toggle() } label: {
+                                        Image(systemName: subtask.completed ? "checkmark.circle.fill" : "circle")
+                                            .frame(width: 44, height: 44)
+                                    }.buttonStyle(.plain).accessibilityLabel("Выполнить подзадачу")
+                                    TextField("Подзадача", text: $subtask.title, axis: .vertical)
+                                    Button(role: .destructive) { draftSubtasks.removeAll { $0.id == subtask.id } } label: {
+                                        Image(systemName: "minus.circle").frame(width: 44, height: 44)
+                                    }.buttonStyle(.plain).accessibilityLabel("Удалить подзадачу")
+                                }
+                            }
+                            HStack {
+                                TextField("Новая подзадача", text: $subtaskTitle)
+                                Button("Добавить") {
+                                    draftSubtasks.append(TaskSubtask(title: subtaskTitle.trimmingCharacters(in: .whitespacesAndNewlines)))
+                                    subtaskTitle = ""
+                                }.disabled(subtaskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || draftSubtasks.count >= 100)
+                            }
+                        }
+                        Picker("Повтор", selection: $draftRepeat) {
+                            Text("Не повторять").tag(nil as TaskRepeat?)
+                            ForEach(TaskRepeat.allCases, id: \.self) { Text($0.title).tag(Optional($0)) }
+                        }.disabled(draftDate == nil)
+                        if draftRepeat != nil { Text("После выполнения создаётся следующая задача. Срок и напоминание на неё не переносятся.").font(.footnote) }
                     }
                     Section {
                         DisclosureGroup(additionalCaption, isExpanded: $showsAdditional) {
@@ -327,7 +376,7 @@ struct TaskCreateSheet: View {
                 }
             }
             Button("Отмена", role: .cancel) { }
-        } message: { Text("Задача будет удалена безвозвратно. Изменения черновика не сохранятся.") }
+        } message: { Text("Удаление можно отменить сразу после закрытия редактора. Изменения черновика не сохранятся.") }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .orbitEditorSurface()
@@ -361,7 +410,7 @@ struct TaskCreateSheet: View {
             if expandedGroup == .date {
                 Toggle("Назначить дату", isOn: Binding(get: { draftDate != nil }, set: { enabled in
                     draftDate = enabled ? TaskPlannedDate.civilDateString(from: pickerDate) : nil
-                    if !enabled { timeEnabled = false }
+                    if !enabled { timeEnabled = false; draftRepeat = nil }
                 }))
                 if draftDate == nil {
                     Text("Без даты. Включите дату, чтобы выбрать день.").font(.footnote).foregroundStyle(appearance.secondaryText)
@@ -539,7 +588,7 @@ struct TaskCreateSheet: View {
         return title != task.title || draftDate != task.plannedDate ||
             (timeEnabled ? startString : nil) != task.plannedTime ||
             (timeEnabled ? draftDurationTotal : nil) != task.durationMinutes ||
-            draftTagIDs != Set(task.tagIDs ?? []) || draftProjectID != task.projectID || draftDeadline != task.deadlineDate || draftReminder != task.reminderAt
+            !subtaskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || draftSubtasks != task.subtasks || draftRepeat != task.repeatRule || draftTagIDs != Set(task.tagIDs ?? []) || draftProjectID != task.projectID || draftDeadline != task.deadlineDate || draftReminder != task.reminderAt
     }
 
     private var completionCaption: String {
@@ -597,6 +646,8 @@ struct TaskCreateSheet: View {
         // The pair is sent whole only when explicitly enabled on a dated
         // draft; a cleared date always sends nil/nil. The core stays the
         // final validation.
+        let pendingSubtask = subtaskTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let submittedSubtasks = draftSubtasks + (pendingSubtask.isEmpty ? [] : [TaskSubtask(title: pendingSubtask)])
         let sendInterval = timeEnabled && draftDate != nil
         let message: String?
         if let editingTask {
@@ -604,13 +655,13 @@ struct TaskCreateSheet: View {
                                        time: sendInterval ? startString : nil,
                                        duration: sendInterval ? draftDurationTotal : nil,
                                        project: draftProjectID, deadline: draftDeadline,
-                                       reminder: draftReminder, completed: completed, tagIDs: Array(draftTagIDs))
+                                       reminder: draftReminder, completed: completed, tagIDs: Array(draftTagIDs), subtasks: submittedSubtasks, repeatRule: draftRepeat, updateRepeat: true)
         } else {
             message = model.create(title: trimmedTitle, plannedDate: draftDate,
                                    plannedTime: sendInterval ? startString : nil,
                                    durationMinutes: sendInterval ? draftDurationTotal : nil,
                                    projectID: draftProjectID, deadlineDate: draftDeadline,
-                                   reminderAt: draftReminder, tagIDs: Array(draftTagIDs))
+                                   reminderAt: draftReminder, tagIDs: Array(draftTagIDs), subtasks: submittedSubtasks, repeatRule: draftRepeat)
         }
         if let message {
             // The sheet and every draft stay up for retry; the list itself

@@ -301,6 +301,13 @@ struct InboxRowView: View {
                 if showsProjectLabel, let id = task.projectID, let project = model.projects.first(where: { $0.id == id }) {
                     Label(project.name, systemImage: "folder").font(.footnote).foregroundStyle(appearance.secondaryText)
                 }
+                if !task.subtasks.isEmpty {
+                    Label("Подзадачи: \(task.subtasks.filter(\.completed).count)/\(task.subtasks.count)", systemImage: "checklist")
+                        .font(.footnote).foregroundStyle(appearance.secondaryText)
+                }
+                if let rule = task.repeatRule {
+                    Label(rule.title, systemImage: "repeat").font(.footnote).foregroundStyle(appearance.secondaryText)
+                }
                 TaskDeadlineBadge(task: task)
                 TaskReminderBadge(task: task, service: model.reminders)
 

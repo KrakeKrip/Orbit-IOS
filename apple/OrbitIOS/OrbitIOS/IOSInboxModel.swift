@@ -118,9 +118,22 @@ final class IOSInboxModel {
     func backupPlan(_ backup: OrbitBackup) throws -> OrbitBackup.Plan { try backup.plan(against: store.backup()) }
     func restoreBackup(_ backup: OrbitBackup) throws {
         _ = try store.restore(backup)
+        lastSnapshot = nil; dismissUndo()
         endSelection(); reload()
     }
 
+    private var lastSnapshot: [OrbitBackup.Task]?
+    private var undoSnapshot: (before: [OrbitBackup.Task], after: [OrbitBackup.Task])?
+    private(set) var canUndo = false
+    func undoLastAction() {
+        guard let snapshot = undoSnapshot else { return }
+        do {
+            try store.undoTasks(before: snapshot.before, after: snapshot.after)
+            undoSnapshot = nil; canUndo = false; lastSnapshot = nil
+            writeError = nil; reload()
+        } catch { writeError = IOSInboxFormatting.storageMessage(error) }
+    }
+    func dismissUndo() { undoSnapshot = nil; canUndo = false }
     private let store: OrbitTaskStore
     let reminders = OrbitReminderScheduler()
 
@@ -220,9 +233,15 @@ final class IOSInboxModel {
         reloadProjects()
         do {
             tasks = try store.tasks()
+            let snapshot = tasks.map(OrbitBackup.Task.init)
+            if let previous = lastSnapshot, previous != snapshot {
+                undoSnapshot = (previous, snapshot); canUndo = true
+            }
+            lastSnapshot = snapshot
             reconcileSelection()
             listError = nil
             reminders.update(tasks)
+            OrbitWidgetSnapshot.update(tasks)
         } catch {
             listError = IOSInboxFormatting.storageMessage(error)
         }
@@ -318,7 +337,7 @@ final class IOSInboxModel {
         projectID: UUID? = nil,
         deadlineDate: String? = nil,
         reminderAt: Date? = nil,
-        tagIDs: [UUID] = []
+        tagIDs: [UUID] = [], subtasks: [TaskSubtask] = [], repeatRule: TaskRepeat? = nil
     ) -> String? {
         do {
             _ = try store.addTask(
@@ -328,7 +347,7 @@ final class IOSInboxModel {
                 durationMinutes: durationMinutes,
                 projectID: projectID,
                 deadlineDate: deadlineDate,
-                reminderAt: reminderAt, tagIDs: tagIDs
+                reminderAt: reminderAt, tagIDs: tagIDs, subtasks: subtasks, repeatRule: repeatRule
             )
             writeError = nil
             reload()
@@ -340,12 +359,12 @@ final class IOSInboxModel {
     }
 
     func updateTask(_ task: OrbitTask, title: String, date: String?, time: String?, duration: Int?,
-                    project: UUID?, deadline: String?, reminder: Date?, completed: Bool? = nil, tagIDs: [UUID]? = nil) -> String? {
+                    project: UUID?, deadline: String?, reminder: Date?, completed: Bool? = nil, tagIDs: [UUID]? = nil, subtasks: [TaskSubtask]? = nil, repeatRule: TaskRepeat? = nil, updateRepeat: Bool = false) -> String? {
         let newlyCompleted = completed == true && !task.isCompleted
         do {
             try store.updateTask(id: task.id, title: title, plannedDate: date, plannedTime: time,
                                  durationMinutes: duration, projectID: project, deadlineDate: deadline,
-                                 reminderAt: reminder, completed: completed, tagIDs: tagIDs)
+                                 reminderAt: reminder, completed: completed, tagIDs: tagIDs, subtasks: subtasks, repeatRule: repeatRule, updateRepeat: updateRepeat)
             writeError = nil
             reload()
             if newlyCompleted { OrbitCompletionFeedback.shared.completed() }

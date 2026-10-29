@@ -17,6 +17,25 @@ public final class OrbitTaskStore {
         self.context = context
     }
 
+    /// Compare-and-restore only the tasks changed by one action. Never overwrite newer work.
+    public func undoTasks(before: [OrbitBackup.Task], after: [OrbitBackup.Task]) throws {
+        let old = Dictionary(uniqueKeysWithValues: before.map { ($0.id, $0) })
+        let new = Dictionary(uniqueKeysWithValues: after.map { ($0.id, $0) })
+        let changed = Set(old.keys).union(new.keys).filter { old[$0] != new[$0] }
+        let currentModels = try tasks()
+        let current = Dictionary(uniqueKeysWithValues: currentModels.map { ($0.id, OrbitBackup.Task($0)) })
+        guard changed.allSatisfy({ current[$0] == new[$0] }) else { throw BackupError.conflict }
+        do {
+            for id in changed {
+                let model = currentModels.first { $0.id == id }
+                if let snapshot = old[id] {
+                    if let model { model.restoreSnapshot(snapshot) } else { context.insert(snapshot.model()) }
+                } else if let model { context.delete(model) }
+            }
+            try context.save()
+        } catch { context.rollback(); throw error }
+    }
+
     public func backup() throws -> OrbitBackup {
         OrbitBackup(projects: try projects(), tasks: try tasks(), tags: try tags())
     }
@@ -143,9 +162,11 @@ public final class OrbitTaskStore {
         projectID: UUID? = nil,
         deadlineDate: String? = nil,
         reminderAt: Date? = nil,
-        tagIDs: [UUID] = []
+        tagIDs: [UUID] = [],
+        subtasks: [TaskSubtask] = [], repeatRule: TaskRepeat? = nil
     ) throws -> OrbitTask {
         let title = try TaskTitle.validated(rawTitle)
+        try TaskProductivity.validate(subtasks: subtasks, repeatRule: repeatRule, day: plannedDate)
         try validateTags(tagIDs)
         if let plannedDate, !TaskPlannedDate.isValid(plannedDate) {
             throw TaskPlannedDateError.invalid(plannedDate)
@@ -190,6 +211,7 @@ public final class OrbitTaskStore {
             reminderAt: reminderAt,
             tagIDs: tagIDs.isEmpty ? nil : tagIDs.sorted { $0.uuidString < $1.uuidString }
         )
+        try task.setProductivity(subtasks, repeatRule)
         context.insert(task)
         do {
             try context.save()
@@ -205,7 +227,7 @@ public final class OrbitTaskStore {
     public func updateTask(id: UUID, title rawTitle: String, plannedDate: String?,
                            plannedTime: String?, durationMinutes: Int?, projectID: UUID?,
                            deadlineDate: String?, reminderAt: Date?, completed: Bool? = nil, tagIDs: [UUID]? = nil,
-                           now: Date = .now) throws {
+                           now: Date = .now, subtasks: [TaskSubtask]? = nil, repeatRule: TaskRepeat? = nil, updateRepeat: Bool = false) throws {
         let title = try TaskTitle.validated(rawTitle)
         let descriptor = FetchDescriptor<OrbitTask>(predicate: #Predicate { $0.id == id })
         guard let task = try context.fetch(descriptor).first else { throw OrbitStoreError.taskNotFound(id: id) }
@@ -233,6 +255,10 @@ public final class OrbitTaskStore {
             throw TaskReminderError.completedTask
         }
         if let tagIDs { try validateTags(tagIDs) }
+        let rule = updateRepeat ? repeatRule : task.repeatRule
+        try TaskProductivity.validate(subtasks: subtasks ?? task.subtasks, repeatRule: rule, day: plannedDate)
+        do {
+        try task.setProductivity(subtasks ?? task.subtasks, rule)
         task.setTitle(title)
         task.setPlannedDate(plannedDate)
         task.setPlannedInterval(plannedTime: plannedTime, durationMinutes: durationMinutes)
@@ -241,9 +267,10 @@ public final class OrbitTaskStore {
         task.setDeadlineDate(deadlineDate)
         task.setReminderAt(reminderAt)
         if let completed {
-            if completed { task.complete(at: now) } else { task.reopen() }
+            if completed { try completeWithRepeat(task, at: now) } else { task.reopen() }
         }
-        do { try context.save() } catch { context.rollback(); throw error }
+        try context.save()
+        } catch { context.rollback(); throw error }
     }
 
     /// A reminder is independent of scheduling. Past stored values remain readable.
@@ -296,12 +323,8 @@ public final class OrbitTaskStore {
         guard let task = try context.fetch(descriptor).first else {
             throw OrbitStoreError.taskNotFound(id: id)
         }
-        if isCompleted {
-            task.complete(at: date)
-        } else {
-            task.reopen()
-        }
         do {
+            if isCompleted { try completeWithRepeat(task, at: date) } else { task.reopen() }
             try context.save()
         } catch {
             context.rollback()
@@ -309,14 +332,34 @@ public final class OrbitTaskStore {
         }
     }
 
+    private func completeWithRepeat(_ task: OrbitTask, at date: Date) throws {
+        guard !task.isCompleted else { return }
+        if let rule = task.repeatRule, let day = task.plannedDate, task.nextOccurrenceID == nil {
+            guard let next = rule.next(after: day) else { throw BackupError.invalid("Повтор выходит за пределы календаря.") }
+            if let time = task.plannedTime, let duration = task.durationMinutes,
+               TaskTimeInterval.end(plannedDate: next, plannedTime: time, durationMinutes: duration) == nil {
+                throw TaskTimeIntervalError.endOutOfRange
+            }
+            let successor = OrbitTask(title: task.title, createdAt: date, plannedDate: next,
+                plannedTime: task.plannedTime, durationMinutes: task.durationMinutes,
+                projectID: task.projectID, tagIDs: task.tagIDs)
+            try successor.setProductivity(task.subtasks.map { TaskSubtask(title: $0.title) }, rule)
+            context.insert(successor)
+            task.setNextOccurrence(successor.id)
+        }
+        task.complete(at: date)
+    }
+
     /// Validate every UUID before mutation, then save the whole selection once.
     public func setCompleted(_ isCompleted: Bool, for ids: [UUID], at date: Date = .now) throws {
         let targets = try selectedTasks(ids).filter { $0.isCompleted != isCompleted }
         guard !targets.isEmpty else { return }
-        for task in targets {
-            if isCompleted { task.complete(at: date) } else { task.reopen() }
+        do {
+            for task in targets {
+                if isCompleted { try completeWithRepeat(task, at: date) } else { task.reopen() }
+            }
+            try context.save()
         }
-        do { try context.save() }
         catch { context.rollback(); throw error }
     }
 
@@ -441,6 +484,7 @@ public final class OrbitTaskStore {
         }
         task.setPlannedDate(plannedDate)
         if plannedDate == nil {
+            try task.setProductivity(task.subtasks, nil)
             task.setPlannedInterval(plannedTime: nil, durationMinutes: nil)
         }
         do {

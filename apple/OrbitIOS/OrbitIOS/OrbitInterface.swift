@@ -356,6 +356,9 @@ struct OrbitSettingsSheet: View {
                     NavigationLink("Теги") { OrbitTagsScreen(model: model) }
                     NavigationLink("Резервная копия") { OrbitBackupScreen() }
                 }
+                Section {
+                    NavigationLink("Обратная связь") { OrbitFeedbackScreen() }
+                }
                 Section("Отклик") {
                     Toggle("Виброотклик", isOn: $haptics)
                     Toggle("Звук выполнения", isOn: $completionSound)

@@ -52,7 +52,7 @@ struct TaskManagementHostModifier: ViewModifier {
             } message: { item in
                 // A bounded title context avoids an excessively tall confirmation; the
                 // wording states honestly that this hard delete has no undo.
-                Text("«\(String(item.task.title.prefix(120)))» будет удалена безвозвратно — восстановить задачу нельзя.")
+                Text("«\(String(item.task.title.prefix(120)))» будет удалена. Сразу после удаления можно нажать «Отменить».")
             }
     }
 }

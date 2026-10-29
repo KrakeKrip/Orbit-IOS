@@ -6,6 +6,127 @@
 	objectVersion = 70;
 	objects = {
 
+
+/* Productivity widget extension */
+		BB000000000000000000000B = {
+			isa = "PBXTargetDependency";
+			target = "BB0000000000000000000009";
+			targetProxy = "BB000000000000000000000A";
+		};
+		BB0000000000000000000004 = {
+			isa = "PBXFrameworksBuildPhase";
+			buildActionMask = "2147483647";
+			files = ();
+			runOnlyForDeploymentPostprocessing = "0";
+		};
+		BB0000000000000000000009 = {
+			fileSystemSynchronizedGroups = ("BB0000000000000000000002");
+			productReference = "BB0000000000000000000001";
+			productType = "com.apple.product-type.app-extension";
+			buildConfigurationList = "BB0000000000000000000008";
+			productName = "OrbitWidgets";
+			isa = "PBXNativeTarget";
+			buildPhases = ("BB0000000000000000000003", "BB0000000000000000000004", "BB0000000000000000000005");
+			dependencies = ();
+			name = "OrbitWidgets";
+			buildRules = ();
+		};
+		BB0000000000000000000002 = {
+			isa = "PBXFileSystemSynchronizedRootGroup";
+			path = "OrbitWidgets";
+			sourceTree = "<group>";
+		};
+		BB0000000000000000000007 = {
+			isa = "XCBuildConfiguration";
+			name = "Release";
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = "YES";
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks");
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "";
+				MARKETING_VERSION = "0.2.0";
+				TARGETED_DEVICE_FAMILY = "1";
+				SKIP_INSTALL = "YES";
+				INFOPLIST_FILE = "WidgetInfo.plist";
+				GENERATE_INFOPLIST_FILE = "YES";
+				CODE_SIGN_ENTITLEMENTS = "OrbitShared.entitlements";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = "5.0";
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CURRENT_PROJECT_VERSION = "1";
+				IPHONEOS_DEPLOYMENT_TARGET = "17.0";
+				PRODUCT_BUNDLE_IDENTIFIER = "local.orbit.ios.widgets";
+			};
+		};
+		BB000000000000000000000C = {
+			isa = "PBXBuildFile";
+			fileRef = "BB0000000000000000000001";
+			settings = {
+				ATTRIBUTES = ("RemoveHeadersOnCopy");
+			};
+		};
+		BB0000000000000000000005 = {
+			isa = "PBXResourcesBuildPhase";
+			buildActionMask = "2147483647";
+			files = ();
+			runOnlyForDeploymentPostprocessing = "0";
+		};
+		BB000000000000000000000A = {
+			isa = "PBXContainerItemProxy";
+			containerPortal = "AA0000000000000000000011";
+			remoteGlobalIDString = "BB0000000000000000000009";
+			remoteInfo = "OrbitWidgets";
+			proxyType = "1";
+		};
+		BB0000000000000000000003 = {
+			isa = "PBXSourcesBuildPhase";
+			buildActionMask = "2147483647";
+			files = ();
+			runOnlyForDeploymentPostprocessing = "0";
+		};
+		BB0000000000000000000008 = {
+			isa = "XCConfigurationList";
+			defaultConfigurationIsVisible = "0";
+			defaultConfigurationName = "Release";
+			buildConfigurations = ("BB0000000000000000000006", "BB0000000000000000000007");
+		};
+		BB0000000000000000000001 = {
+			path = "OrbitWidgets.appex";
+			isa = "PBXFileReference";
+			includeInIndex = "0";
+			explicitFileType = "wrapper.app-extension";
+			sourceTree = "BUILT_PRODUCTS_DIR";
+		};
+		BB000000000000000000000D = {
+			buildActionMask = "2147483647";
+			dstSubfolderSpec = "13";
+			isa = "PBXCopyFilesBuildPhase";
+			runOnlyForDeploymentPostprocessing = "0";
+			dstPath = "";
+			files = ("BB000000000000000000000C");
+			name = "Embed App Extensions";
+		};
+		BB0000000000000000000006 = {
+			isa = "XCBuildConfiguration";
+			name = "Debug";
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = "YES";
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks");
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "";
+				MARKETING_VERSION = "0.2.0";
+				TARGETED_DEVICE_FAMILY = "1";
+				SKIP_INSTALL = "YES";
+				INFOPLIST_FILE = "WidgetInfo.plist";
+				GENERATE_INFOPLIST_FILE = "YES";
+				CODE_SIGN_ENTITLEMENTS = "OrbitShared.entitlements";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = "5.0";
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CURRENT_PROJECT_VERSION = "1";
+				IPHONEOS_DEPLOYMENT_TARGET = "17.0";
+				PRODUCT_BUNDLE_IDENTIFIER = "local.orbit.ios.widgets";
+			};
+		};
+
 /* Begin PBXBuildFile section */
 		AA00000000000000000000A1 /* OrbitCore in Frameworks */ = {
 			isa = PBXBuildFile;
@@ -47,6 +168,7 @@
 			isa = PBXGroup;
 			children = (
 				AA0000000000000000000001 /* OrbitIOS */,
+				BB0000000000000000000002 /* OrbitWidgets */,
 				AA0000000000000000000005 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -55,6 +177,7 @@
 			isa = PBXGroup;
 			children = (
 				AA0000000000000000000002 /* OrbitIOS.app */,
+				BB0000000000000000000001 /* OrbitWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -69,11 +192,11 @@
 				AA0000000000000000000008 /* Sources */,
 				AA0000000000000000000003 /* Frameworks */,
 				AA0000000000000000000009 /* Resources */,
+				BB000000000000000000000D /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
-			dependencies = (
-			);
+			dependencies = (BB000000000000000000000B);
 			fileSystemSynchronizedGroups = (
 				AA0000000000000000000001 /* OrbitIOS */,
 			);
@@ -115,7 +238,7 @@
 			);
 			preferredProjectObjectVersion = 70;
 			targets = (
-				AA0000000000000000000006 /* OrbitIOS */,
+				BB0000000000000000000009 /* OrbitWidgets */,				AA0000000000000000000006 /* OrbitIOS */,
 			);
 		};
 /* End PBXProject section */
@@ -214,6 +337,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CURRENT_PROJECT_VERSION = 1;
+				CODE_SIGN_ENTITLEMENTS = OrbitShared.entitlements;
+				INFOPLIST_FILE = OrbitInfo.plist;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Orbit;
@@ -240,6 +365,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CURRENT_PROJECT_VERSION = 1;
+				CODE_SIGN_ENTITLEMENTS = OrbitShared.entitlements;
+				INFOPLIST_FILE = OrbitInfo.plist;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Orbit;

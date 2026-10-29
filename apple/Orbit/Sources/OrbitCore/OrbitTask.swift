@@ -3,6 +3,28 @@ import SwiftData
 
 @Model
 public final class OrbitTask {
+    public private(set) var subtasksData: Data?
+    public private(set) var repeatRaw: String?
+    public private(set) var nextOccurrenceID: UUID?
+    public var subtasks: [TaskSubtask] {
+        guard let subtasksData else { return [] }
+        return (try? JSONDecoder().decode([TaskSubtask].self, from: subtasksData)) ?? []
+    }
+    public var repeatRule: TaskRepeat? { repeatRaw.flatMap(TaskRepeat.init(rawValue:)) }
+    func setProductivity(_ subtasks: [TaskSubtask], _ rule: TaskRepeat?) throws {
+        subtasksData = subtasks.isEmpty ? nil : try JSONEncoder().encode(subtasks)
+        repeatRaw = rule?.rawValue
+    }
+    func restoreSnapshot(_ snapshot: OrbitBackup.Task) {
+        title = snapshot.title; projectID = snapshot.projectID; tagIDs = snapshot.tagIDs
+        completedAt = snapshot.completedAt; plannedDate = snapshot.plannedDate
+        plannedTime = snapshot.plannedTime; durationMinutes = snapshot.durationMinutes
+        deadlineDate = snapshot.deadlineDate; reminderAt = snapshot.reminderAt
+        subtasksData = snapshot.subtasksData; repeatRaw = snapshot.repeatRaw
+        nextOccurrenceID = snapshot.nextOccurrenceID
+    }
+    func setNextOccurrence(_ id: UUID?) { nextOccurrenceID = id }
+
     public private(set) var id: UUID
     public private(set) var projectID: UUID?
     public private(set) var tagIDs: [UUID]?
@@ -35,8 +57,10 @@ public final class OrbitTask {
         projectID: UUID? = nil,
         deadlineDate: String? = nil,
         reminderAt: Date? = nil,
-        tagIDs: [UUID]? = nil
+        tagIDs: [UUID]? = nil,
+        subtasksData: Data? = nil, repeatRaw: String? = nil, nextOccurrenceID: UUID? = nil
     ) {
+        self.subtasksData = subtasksData; self.repeatRaw = repeatRaw; self.nextOccurrenceID = nextOccurrenceID
         self.tagIDs = tagIDs
         self.reminderAt = reminderAt
         self.deadlineDate = deadlineDate

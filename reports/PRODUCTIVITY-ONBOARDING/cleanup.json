@@ -1,0 +1,50 @@
+[
+  {
+    "name": "Orbit-Design-Audit",
+    "udid": "DB44D5EB-9688-4BDE-8EF2-707D1532CFFC",
+    "reportedDataBytes": 2539233280,
+    "result": "deleted shutdown test simulator"
+  },
+  {
+    "name": "Orbit-Design-Review",
+    "udid": "E8A0E977-145A-4394-B1F5-26DB8282A5A5",
+    "reportedDataBytes": 368246784,
+    "result": "deleted shutdown test simulator"
+  },
+  {
+    "name": "Orbit-Design-Unify",
+    "udid": "B99DFA70-E656-4B53-829F-47641F036CEC",
+    "reportedDataBytes": 3113689088,
+    "result": "deleted shutdown test simulator"
+  },
+  {
+    "name": "Orbit-Independent-Audit-20261022",
+    "udid": "B6F0EE20-2A0B-4A1D-8C06-1B64033E6985",
+    "reportedDataBytes": 2612207616,
+    "result": "deleted shutdown test simulator"
+  },
+  {
+    "name": "Orbit-Menu-Audit-20261023",
+    "udid": "1CDA3E3D-1E3E-41E1-BDD2-C0ACAFD690ED",
+    "reportedDataBytes": 782381056,
+    "result": "deleted shutdown test simulator"
+  },
+  {
+    "name": "orbit-untimed-codex",
+    "udid": "1A3DE04B-CFDB-4DB4-BC3D-CB429529DF7A",
+    "reportedDataBytes": 5966200832,
+    "result": "deleted shutdown test simulator"
+  },
+  {
+    "name": "Orbit-Design-Audit-Small",
+    "udid": "0218B09A-CBAE-47A4-B84F-34037545A505",
+    "reportedDataBytes": 2416553984,
+    "result": "deleted shutdown test simulator"
+  },
+  {
+    "name": "Orbit-Design-Unify-Small",
+    "udid": "B963EBCB-B1E4-480E-92E1-4FD5A73E5CA6",
+    "reportedDataBytes": 3930832896,
+    "result": "deleted shutdown test simulator"
+  }
+]

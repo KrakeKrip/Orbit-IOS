@@ -26,7 +26,7 @@ import Testing
         #expect(p.isArchived)
         #expect(task.projectID == p.id && !task.isCompleted)
         let backup = try OrbitBackup.decode(store.backup().encoded())
-        #expect(backup.version == 2 && backup.tags?.count == 2)
+        #expect(backup.version == 3 && backup.tags?.count == 2)
         let target = try OrbitTaskStore(storeURL: dir.appendingPathComponent("two.store"))
         #expect(try target.restore(backup).newTags == 2)
         #expect(try target.restore(backup).newTags == 0)

@@ -2,7 +2,7 @@ import Foundation
 
 public struct OrbitBackup: Codable, Equatable {
     public var format = "orbit-backup"
-    public var version = 2
+    public var version = 3
     public var exportedAt: Date
     public var projects: [Project]
     public var tasks: [Task]
@@ -34,7 +34,11 @@ public struct OrbitBackup: Codable, Equatable {
         public var durationMinutes: Int?
         public var deadlineDate: String?
         public var reminderAt: Date?
+        public var subtasksData: Data?
+        public var repeatRaw: String?
+        public var nextOccurrenceID: UUID?
         public init(_ t: OrbitTask) {
+            subtasksData = t.subtasksData; repeatRaw = t.repeatRaw; nextOccurrenceID = t.nextOccurrenceID
             tagIDs = t.tagIDs
             id = t.id; projectID = t.projectID; title = t.title; createdAt = t.createdAt
             completedAt = t.completedAt; plannedDate = t.plannedDate; plannedTime = t.plannedTime
@@ -43,7 +47,7 @@ public struct OrbitBackup: Codable, Equatable {
         public func model() -> OrbitTask {
             OrbitTask(id: id, title: title, createdAt: createdAt, completedAt: completedAt,
                       plannedDate: plannedDate, plannedTime: plannedTime, durationMinutes: durationMinutes,
-                      projectID: projectID, deadlineDate: deadlineDate, reminderAt: reminderAt, tagIDs: tagIDs)
+                      projectID: projectID, deadlineDate: deadlineDate, reminderAt: reminderAt, tagIDs: tagIDs, subtasksData: subtasksData, repeatRaw: repeatRaw, nextOccurrenceID: nextOccurrenceID)
         }
     }
     public init(projects: [OrbitProject], tasks: [OrbitTask], tags: [OrbitTag] = [], now: Date = .now) {
@@ -67,7 +71,7 @@ public struct OrbitBackup: Codable, Equatable {
         return data
     }
     public func validate() throws {
-        guard format == "orbit-backup", (version == 1 || version == 2) else { throw BackupError.invalid("Формат или версия копии не поддерживается.") }
+        guard format == "orbit-backup", (1...3).contains(version) else { throw BackupError.invalid("Формат или версия копии не поддерживается.") }
         guard tasks.count <= 100_000, projects.count <= 10_000,
               Set(tasks.map(\.id)).count == tasks.count, Set(projects.map(\.id)).count == projects.count else {
             throw BackupError.invalid("В файле повторяются идентификаторы или слишком много записей.")
@@ -78,6 +82,9 @@ public struct OrbitBackup: Codable, Equatable {
         let ids = Set(projects.map(\.id))
         for project in projects { _ = try ProjectName.validated(project.name) }
         for task in tasks {
+            let subs = try task.subtasksData.map { try JSONDecoder().decode([TaskSubtask].self, from: $0) } ?? []
+            guard task.repeatRaw == nil || TaskRepeat(rawValue: task.repeatRaw!) != nil else { throw BackupError.invalid("Некорректное повторение.") }
+            try TaskProductivity.validate(subtasks: subs, repeatRule: task.repeatRaw.flatMap(TaskRepeat.init(rawValue:)), day: task.plannedDate)
             guard Set(task.tagIDs ?? []).isSubset(of: tagIDs), Set(task.tagIDs ?? []).count == (task.tagIDs ?? []).count else { throw BackupError.invalid("Нарушены связи тегов.") }
             _ = try TaskTitle.validated(task.title)
             guard task.projectID == nil || ids.contains(task.projectID!),

@@ -20,6 +20,7 @@ struct OrbitIOSApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @State private var launch: Launch
     private let reminderTimer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
+    @AppStorage("orbit.welcome.completed") private var welcomeCompleted = false
     @State private var selectedTab: Tab = .today
 
     init() {
@@ -67,12 +68,25 @@ struct OrbitIOSApp: App {
                         .tag(Tab.projects)
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
+                    if model.canUndo && !model.isSelecting {
+                        HStack {
+                            Text("Изменение сохранено").font(.footnote)
+                            Spacer()
+                            Button("Отменить") { model.undoLastAction() }.frame(minHeight: 44)
+                            Button { model.dismissUndo() } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }
+                                .accessibilityLabel("Закрыть")
+                        }.padding(.leading, 16).background(.regularMaterial)
+                    }
                     if model.isSelecting {
                         OrbitTaskSelectionActions(model: model)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: model.isSelecting)
+                .fullScreenCover(isPresented: Binding(get: { !welcomeCompleted }, set: { _ in })) {
+                    OrbitWelcomeScreen(reminders: model.reminders) { welcomeCompleted = true }
+                        .tint(.orbitAccent).modifier(OrbitTheme())
+                }
                 .environment(model)
                 .environment(model.reminders)
                 .onAppear { model.reminders.start() }
@@ -81,6 +95,9 @@ struct OrbitIOSApp: App {
                 }
                 .tint(.orbitAccent)
                 .modifier(OrbitTheme())
+                .onOpenURL { url in
+                    if url.scheme == "orbit", url.host == "today" { selectedTab = .today }
+                }
                 .onChange(of: selectedTab) { _, _ in model.endSelection(); OrbitHaptics.selection() }
                 .onChange(of: scenePhase) { _, phase in
                     // Returning to the foreground re-reads the shared store so
