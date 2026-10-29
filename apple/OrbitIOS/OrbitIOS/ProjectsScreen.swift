@@ -14,6 +14,7 @@ struct ProjectsScreen: View {
     @Environment(\.orbitAppearance) private var appearance
     @State private var selectedProject: OrbitProject?
     @State private var showsArchive = false
+    @State private var showsTags = false
     @State private var editor: ProjectEditorPresentation?
     @Environment(\.scenePhase) private var phase
     @State private var today = TaskDaySelection.currentDay()
@@ -36,6 +37,16 @@ struct ProjectsScreen: View {
         NavigationStack {
             VStack(spacing: 0) {
                 NativeModeHeader(title: "Проекты", switcher: EmptyView())
+                Button { showsTags = true } label: {
+                    HStack {
+                        Label("Теги", systemImage: "tag")
+                        Spacer()
+                        Text("\(model.tags.count)").foregroundStyle(appearance.secondaryText)
+                        Image(systemName: "chevron.right").font(.caption)
+                    }.frame(minHeight: 44).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain).padding(.horizontal, 20)
+                .accessibilityIdentifier("projects-tags")
                 Picker("Проекты", selection: $showsArchive) {
                     Text("Активные").tag(false)
                     Text("Архив").tag(true)
@@ -95,6 +106,14 @@ struct ProjectsScreen: View {
             .toolbar(.hidden, for: .navigationBar)
             .sheet(item: $editor) { item in
                 ProjectNameSheet(presentation: item, model: model)
+            }
+            .sheet(isPresented: $showsTags) {
+                NavigationStack {
+                    OrbitTagsScreen(model: model)
+                        .toolbar { ToolbarItem(placement: .confirmationAction) {
+                            Button("Готово") { showsTags = false }
+                        } }
+                }.orbitEditorSurface()
             }
         }
         .orbitFloatingAction(label: "Создать проект", identifier: "project-create", enabled: editor == nil) {

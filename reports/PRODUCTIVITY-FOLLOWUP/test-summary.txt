@@ -1,0 +1,9 @@
+➜ Test "Actual v1 store and backup upgrade" skipped.
+➜ Test "Actual previous-source project/task fixture upgrades without losing fields" skipped.
+➜ Test "Actual previous binary task with project upgrades with nil deadline" skipped.
+➜ Test "Upgrade actual v2 schema" skipped.
+➜ Test "Actual previous deadline/project binary upgrades with nil reminder" skipped.
+SCALE count=1000 restore=0.1297370195388794s open=0.07749402523040771s search=0.0031419992446899414s export=0.09878098964691162s bulk100=0.015951037406921387s bytes=281090
+SCALE count=5000 restore=0.6347320079803467s open=0.3518470525741577s search=0.01671600341796875s export=0.4579380750656128s bulk100=0.04085493087768555s bytes=1356653
+SCALE count=10000 restore=1.3412100076675415s open=0.7617069482803345s search=0.03526198863983154s export=0.9626410007476807s bulk100=0.0708320140838623s bytes=2701105
+✔ Test run with 151 tests in 25 suites passed after 5.765 seconds.

@@ -19,6 +19,16 @@ struct OrbitWelcomeScreen: View {
                     Label("Собирайте задачи в проекты", systemImage: "folder")
                     Label("Получайте напоминания вовремя", systemImage: "bell")
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(20)
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Три полезных жеста").font(.headline)
+                    Label("Удерживайте пустое место календаря и потяните — выберите время новой задачи.", systemImage: "hand.draw")
+                    Label("Удерживайте задачу для переноса. Потяните за кружок на границе, чтобы изменить длительность.", systemImage: "arrow.up.and.down")
+                    Label("В названии можно написать «завтра в 15:00». Нажмите «Применить», чтобы перенести распознанное время в план.", systemImage: "text.badge.checkmark")
+                }
+                .font(.subheadline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(20)
+                .background(appearance.surface, in: RoundedRectangle(cornerRadius: 16))
                 Text("Разрешите уведомления, чтобы Orbit мог напоминать о ваших задачах.")
                     .multilineTextAlignment(.center).foregroundStyle(appearance.secondaryText)
                 Button {

@@ -29,31 +29,46 @@ struct OrbitProvider: TimelineProvider {
 struct OrbitWidgetView: View {
     var entry: OrbitEntry
     @Environment(\.widgetFamily) private var family
+    private func taskURL(_ task: WidgetTask) -> URL {
+        URL(string: "orbit://task/\(task.id.uuidString)")!
+    }
     var body: some View {
         Group {
             switch family {
             case .accessoryCircular:
                 VStack { Image(systemName: "checklist"); Text("\(entry.tasks.count)").font(.headline) }
             case .accessoryInline:
-                Text(entry.tasks.first.map { "Orbit: " + $0.title } ?? "Orbit · Сегодня свободно")
+                Text(entry.tasks.first.map { "Orbit: " + $0.title } ?? "Orbit · Нет задач на сегодня")
             default:
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Сегодня · \(entry.tasks.count)").font(.headline)
                     if entry.tasks.isEmpty { Text("Нет запланированных задач").font(.caption).foregroundStyle(.secondary) }
                     ForEach(entry.tasks.prefix(family == .accessoryRectangular ? 1 : family == .systemSmall ? 2 : 4)) { task in
-                        HStack(alignment: .top) {
-                            RoundedRectangle(cornerRadius: 2).fill(.red.opacity(0.75)).frame(width: 3)
-                            VStack(alignment: .leading) {
-                                Text(task.title).font(.subheadline).lineLimit(2)
-                                if let time = task.time { Text(time).font(.caption).foregroundStyle(.secondary) }
-                            }
-                        }.fixedSize(horizontal: false, vertical: true)
+                        if family == .systemMedium {
+                            Link(destination: taskURL(task)) { taskRow(task) }
+                        } else {
+                            taskRow(task)
+                        }
                     }
                     if family == .systemSmall || family == .systemMedium { Spacer(minLength: 0) }
                 }.frame(maxWidth: .infinity, alignment: .leading)
             }
-        }.widgetURL(URL(string: "orbit://today")).privacySensitive().containerBackground(.background, for: .widget)
+        }.widgetURL((family == .accessoryRectangular || family == .accessoryInline) ? entry.tasks.first.map(taskURL) ?? URL(string: "orbit://today") : URL(string: "orbit://today"))
+            .privacySensitive().containerBackground(.background, for: .widget)
     }
+    private func taskRow(_ task: WidgetTask) -> some View {
+        HStack(alignment: .top) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(Color(red: 0.89, green: 0.29, blue: 0.24)).frame(width: 3)
+            VStack(alignment: .leading) {
+                Text(task.title).font(.subheadline).lineLimit(2)
+                if let time = task.time {
+                    Text(time).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }.fixedSize(horizontal: false, vertical: true)
+    }
+
 }
 @main
 struct OrbitWidgets: Widget {

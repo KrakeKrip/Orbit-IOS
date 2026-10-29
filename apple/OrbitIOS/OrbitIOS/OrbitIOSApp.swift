@@ -22,6 +22,8 @@ struct OrbitIOSApp: App {
     private let reminderTimer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
     @AppStorage("orbit.welcome.completed") private var welcomeCompleted = false
     @State private var selectedTab: Tab = .today
+    @State private var widgetTask: OrbitTask?
+    @State private var missingWidgetTask = false
 
     init() {
         _launch = State(initialValue: Self.openLaunchStore())
@@ -91,8 +93,22 @@ struct OrbitIOSApp: App {
                 .tint(.orbitAccent)
                 .modifier(OrbitTheme())
                 .onOpenURL { url in
-                    if url.scheme == "orbit", url.host == "today" { selectedTab = .today }
+                    guard url.scheme == "orbit" else { return }
+                    if url.host == "today" { selectedTab = .today }
+                    if url.host == "task", let id = UUID(uuidString: url.lastPathComponent) {
+                        model.reload()
+                        selectedTab = .today
+                        widgetTask = model.tasks.first { $0.id == id }
+                        missingWidgetTask = widgetTask == nil
+                    }
                 }
+                .sheet(item: $widgetTask) { task in
+                    TaskCreateSheet(model: model, datePreset: nil, editingTask: task)
+                        .environment(model).environment(model.reminders)
+                }
+                .alert("Задача недоступна", isPresented: $missingWidgetTask) {
+                    Button("Понятно", role: .cancel) { }
+                } message: { Text("Возможно, задача уже удалена. Виджет обновится автоматически.") }
                 .onChange(of: selectedTab) { _, _ in model.endSelection(); OrbitHaptics.selection() }
                 .onChange(of: scenePhase) { _, phase in
                     // Returning to the foreground re-reads the shared store so

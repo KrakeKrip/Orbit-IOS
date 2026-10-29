@@ -125,15 +125,19 @@ final class IOSInboxModel {
     private var lastSnapshot: [OrbitBackup.Task]?
     private var undoSnapshot: (before: [OrbitBackup.Task], after: [OrbitBackup.Task])?
     private(set) var canUndo = false
+    private var undoExpiry: Task<Void, Never>?
     func undoLastAction() {
         guard let snapshot = undoSnapshot else { return }
         do {
             try store.undoTasks(before: snapshot.before, after: snapshot.after)
-            undoSnapshot = nil; canUndo = false; lastSnapshot = nil
+            dismissUndo(); lastSnapshot = nil
             writeError = nil; reload()
         } catch { writeError = IOSInboxFormatting.storageMessage(error) }
     }
-    func dismissUndo() { undoSnapshot = nil; canUndo = false }
+    func dismissUndo() {
+        undoExpiry?.cancel(); undoExpiry = nil
+        undoSnapshot = nil; canUndo = false
+    }
     private let store: OrbitTaskStore
     let reminders = OrbitReminderScheduler()
 
@@ -235,7 +239,12 @@ final class IOSInboxModel {
             tasks = try store.tasks()
             let snapshot = tasks.map(OrbitBackup.Task.init)
             if let previous = lastSnapshot, previous != snapshot {
+                dismissUndo()
                 undoSnapshot = (previous, snapshot); canUndo = true
+                undoExpiry = Task { [weak self] in
+                    do { try await Task.sleep(for: .seconds(5)) } catch { return }
+                    self?.dismissUndo()
+                }
             }
             lastSnapshot = snapshot
             reconcileSelection()
@@ -351,6 +360,7 @@ final class IOSInboxModel {
             )
             writeError = nil
             reload()
+            dismissUndo()
             return nil
         } catch {
             reload()

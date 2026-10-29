@@ -353,7 +353,6 @@ struct OrbitSettingsSheet: View {
                     }.accessibilityIdentifier("reminder-sound-settings")
                 }
                 Section("Данные") {
-                    NavigationLink("Теги") { OrbitTagsScreen(model: model) }
                     NavigationLink("Резервная копия") { OrbitBackupScreen() }
                 }
                 Section {

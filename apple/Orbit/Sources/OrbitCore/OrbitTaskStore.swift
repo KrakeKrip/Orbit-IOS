@@ -359,6 +359,11 @@ public final class OrbitTaskStore {
             context.insert(successor)
             task.setNextOccurrence(successor.id)
         }
+        try task.setProductivity(task.subtasks.map { item in
+            var completed = item
+            completed.completed = true
+            return completed
+        }, task.repeatRule)
         task.complete(at: date)
     }
 
