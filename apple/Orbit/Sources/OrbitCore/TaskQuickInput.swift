@@ -30,10 +30,10 @@ public struct TaskQuickInput: Equatable, Sendable {
             guard TaskTimeInterval.isValidTime(value) else { return nil }
             time = value
         }
-        if let values = extract("(?<![\\p{L}])на\\s+(?:([0-9]+)\\s*(минут(?:у|ы)?|мин|час(?:а|ов)?)|час)(?![\\p{L}])") {
+        if time != nil, let values = extract("(?<![\\p{L}])на\\s+(?:([0-9]+)\\s*(минут(?:у|ы)?|мин|час(?:а|ов)?)|час)(?![\\p{L}])") {
             let count = values[1].isEmpty ? 1 : Int(values[1]) ?? 0
             guard count <= 1440 else { return nil }
-            duration = count * (values[1].isEmpty || values[2].hasPrefix("час") ? 60 : 1)
+            duration = count * (values[1].isEmpty || values[2].lowercased().hasPrefix("час") ? 60 : 1)
             guard let duration, TaskTimeInterval.isWritableDuration(duration) else { return nil }
         }
         guard day != nil || time != nil else { return nil }

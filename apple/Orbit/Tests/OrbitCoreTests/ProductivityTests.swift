@@ -34,6 +34,19 @@ import Testing
         #expect(TaskQuickInput.parse("завтра", now: now) == nil)
         #expect(TaskQuickInput.parse("в 15:00 звонок на 99999999 часов", now: now) == nil)
     }
+    @Test func quickInputKeepsUnappliedDurationInTitle() {
+        let value = TaskQuickInput.parse("Отчёт завтра на час")
+        #expect(value?.title == "Отчёт на час")
+        #expect(value?.time == nil && value?.duration == nil)
+        #expect(TaskQuickInput.parse("Отчёт на час") == nil)
+    }
+    @Test(arguments: [("2 ЧАСА", 120), ("10 ЧАСОВ", 600), ("час", 60), ("30 МИНУТ", 30)])
+    func quickInputDurationIgnoresCase(unit: String, minutes: Int) {
+        let value = TaskQuickInput.parse("Отчёт завтра в 15:00 на " + unit)
+        #expect(value?.title == "Отчёт")
+        #expect(value?.time == "15:00")
+        #expect(value?.duration == minutes)
+    }
     @Test func repeatCalendarBoundaries() {
         #expect(TaskRepeat.weekdays.next(after: "2026-10-30") == "2026-11-02")
         #expect(TaskRepeat.monthly.next(after: "2028-01-31") == "2028-02-29")

@@ -45,38 +45,33 @@ struct OrbitIOSApp: App {
             case .ready(let model):
                 TabView(selection: $selectedTab) {
                     TodayWorkspaceScreen(model: model)
+                        .safeAreaInset(edge: .bottom, spacing: 0) { undoBar(model) }
                         .tabItem {
                             Label("Сегодня", systemImage: "sun.max")
                         }
                         .toolbar(model.isSelecting ? .hidden : .visible, for: .tabBar)
                         .tag(Tab.today)
                     InboxScreen(model: model)
+                        .safeAreaInset(edge: .bottom, spacing: 0) { undoBar(model) }
                         .tabItem {
                             Label("Входящие", systemImage: "tray")
                         }
                         .toolbar(model.isSelecting ? .hidden : .visible, for: .tabBar)
                         .tag(Tab.inbox)
                     UpcomingWorkspaceScreen(model: model)
+                        .safeAreaInset(edge: .bottom, spacing: 0) { undoBar(model) }
                         .tabItem {
                             Label("Предстоящее", systemImage: "calendar")
                         }
                         .toolbar(model.isSelecting ? .hidden : .visible, for: .tabBar)
                         .tag(Tab.upcoming)
                     ProjectsScreen(model: model)
+                        .safeAreaInset(edge: .bottom, spacing: 0) { undoBar(model) }
                         .tabItem { Label("Проекты", systemImage: "folder") }
                         .toolbar(model.isSelecting ? .hidden : .visible, for: .tabBar)
                         .tag(Tab.projects)
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
-                    if model.canUndo && !model.isSelecting {
-                        HStack {
-                            Text("Изменение сохранено").font(.footnote)
-                            Spacer()
-                            Button("Отменить") { model.undoLastAction() }.frame(minHeight: 44)
-                            Button { model.dismissUndo() } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }
-                                .accessibilityLabel("Закрыть")
-                        }.padding(.leading, 16).background(.regularMaterial)
-                    }
                     if model.isSelecting {
                         OrbitTaskSelectionActions(model: model)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -111,4 +106,18 @@ struct OrbitIOSApp: App {
             }
         }
     }
+
+    @ViewBuilder
+    private func undoBar(_ model: IOSInboxModel) -> some View {
+        if model.canUndo && !model.isSelecting {
+            HStack {
+                Text("Изменение сохранено").font(.footnote)
+                Spacer()
+                Button("Отменить") { model.undoLastAction() }.frame(minHeight: 44)
+                Button { model.dismissUndo() } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }
+                    .accessibilityLabel("Закрыть")
+            }.padding(.leading, 16).background(.regularMaterial)
+        }
+    }
+
 }
