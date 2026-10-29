@@ -26,7 +26,7 @@ struct OrbitTagsScreen: View {
             }
             Section {
                 if model.tags.isEmpty && projectsContent != nil {
-                    Text("Пока нет тегов").foregroundStyle(.secondary).listRowBackground(appearance.canvas)
+                    Text("Добавьте первый тег").font(.subheadline).foregroundStyle(.secondary).frame(minHeight: 44).listRowBackground(appearance.surface)
                 }
                 ForEach(model.tags) { tag in
                     HStack(spacing: 12) {
@@ -59,7 +59,7 @@ struct OrbitTagsScreen: View {
                         } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
                             .accessibilityLabel("Действия с тегом \(tag.name)")
                     }
-                    .listRowBackground(appearance.canvas)
+                    .listRowBackground(appearance.surface)
                     .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 8))
                     .swipeActions {
                         Button("Удалить", role: .destructive) { deleting = tag }
@@ -69,7 +69,7 @@ struct OrbitTagsScreen: View {
                 Button("Создать тег", systemImage: "plus") {
                     editingID = nil; name = ""; color = "coral"; editorError = nil; editing = true
                 }.frame(minHeight: 44)
-                    .listRowBackground(appearance.canvas)
+                    .listRowBackground(appearance.surface)
                 }
             } header: {
                 if projectsContent != nil {
@@ -82,14 +82,14 @@ struct OrbitTagsScreen: View {
                         .accessibilityLabel("Создать тег")
                     }.textCase(nil)
                 }
-            } footer: {
-                Text(selection == nil ? "Теги общие для всех проектов. Удаление тега не удаляет задачи." : "Выбор применится при сохранении задачи. Изменения самих тегов сохраняются сразу.")
             }
         }
-        .listStyle(.plain)
+        .listStyle(.insetGrouped)
+        .scrollBounceBehavior(.always)
+        .contentMargins(.top, 8, for: .scrollContent)
         .contentMargins(.bottom, projectsContent == nil ? 0 : 88, for: .scrollContent)
         .animation(animation, value: model.tags.map(\.id))
-        .orbitEditorSurface().navigationTitle(projectsContent == nil ? "Теги" : "Проекты").navigationBarTitleDisplayMode(.inline)
+        .orbitEditorSurface().navigationTitle(projectsContent == nil ? "Теги" : "Проекты").navigationBarTitleDisplayMode(projectsContent == nil ? .inline : .large)
         .sheet(isPresented: $editing) {
             NavigationStack {
                 ScrollView {

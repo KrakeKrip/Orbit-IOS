@@ -33,13 +33,13 @@ struct ProjectsScreen: View {
 
     private var projectIndex: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                NativeModeHeader(title: "Проекты", switcher: EmptyView())
-                OrbitTagsScreen(model: model, projectsContent: AnyView(projectRows))
-                    .refreshable { model.reload() }
-            }
-            .background(appearance.canvas)
-            .toolbar(.hidden, for: .navigationBar)
+            OrbitTagsScreen(model: model, projectsContent: AnyView(projectRows))
+                .refreshable { model.reload() }
+                .navigationTitle("Проекты")
+                .navigationBarTitleDisplayMode(.large)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) { OrbitSettingsButton() }
+                }
             .sheet(item: $editor) { item in
                 ProjectNameSheet(presentation: item, model: model)
             }
@@ -60,8 +60,10 @@ struct ProjectsScreen: View {
                     OrbitTaskLoadFailure(message: error, retry: { model.reload() })
                 }
                 if !model.projects.contains(where: { !$0.isArchived }) {
-                    Text("Пока нет проектов").foregroundStyle(.secondary)
-                        .listRowBackground(appearance.canvas)
+                    Label("Создайте первый проект", systemImage: "folder.badge.plus")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                        .frame(minHeight: 44)
+                        .listRowBackground(appearance.surface)
                 }
                 ForEach(model.projects.filter { !$0.isArchived }) { project in
                     Button { selectedProject = project } label: {
@@ -77,12 +79,12 @@ struct ProjectsScreen: View {
                             editor = ProjectEditorPresentation(projectID: project.id, name: project.name)
                         }
                     }
-                    .listRowBackground(appearance.canvas)
+                    .listRowBackground(appearance.surface)
                 }
             }
         } header: {
             HStack {
-                Text("Проекты").font(.headline).foregroundStyle(.primary)
+                Text("Мои проекты").font(.headline).foregroundStyle(.primary)
                 Spacer()
                 Button { editor = ProjectEditorPresentation() } label: {
                     Image(systemName: "plus").frame(width: 44, height: 44)
