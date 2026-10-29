@@ -25,6 +25,21 @@ xcodebuild \
 
 Запуск — через Run в Xcode на выбранном Simulator. Для физического iPhone настройте свою Development Team и provisioning; unsigned Simulator build не является установочным пакетом для телефона. Не коммитьте персональные настройки подписи и сертификаты.
 
+## TestFlight
+
+Карточка приложения: **Orbit — задачи и календарь**, App Store Connect ID `6828370313`.
+Bundle ID остаётся `local.orbit.ios`, имя под иконкой — **Orbit**.
+
+Для подготовки релиза используйте учётную запись с доступом к команде приложения в Xcode → Settings → Apple Accounts. Team ID задаётся локально, сертификаты и профили не хранятся в Git.
+
+1. Соберите Release archive для `generic/platform=iOS`.
+2. Экспортируйте через Organizer → Distribute App → App Store Connect либо `xcodebuild -exportArchive` с методом `app-store-connect` и automatic signing.
+3. Для отправки используйте `destination=upload`; для локальной проверки пакета — `destination=export`. Team ID передавайте в локальном ExportOptions.plist.
+4. После загрузки дождитесь обработки в App Store Connect и проверьте статус TestFlight. Успешный экспорт IPA сам по себе не подтверждает загрузку или доступность тестировщикам.
+5. Для следующей сборки увеличивайте `CURRENT_PROJECT_VERSION`. При переходе с прежней команды сначала экспортируйте резервную копию данных из установленного Orbit; сохранность базы при смене команды не проверена. Не удаляйте старую установку ради исправления подписи.
+
+Состояние первой отправки и ограничения: [отчёт](../../reports/TESTFLIGHT-SETUP/README.md).
+
 ## Где находится код
 
 | Файл | Назначение |
