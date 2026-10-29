@@ -111,6 +111,7 @@ struct UpcomingAgendaScreen: View {
                         .padding(.top, 4)
                     }
                     .contentMargins(.bottom, 88, for: .scrollContent)
+                    .orbitMainScrollObserver()
                     .coordinateSpace(name: "agenda-viewport")
                     .onPreferenceChange(AgendaDayFrames.self) { frames in
                         if isNavigating, let request = scrollRequest {
@@ -144,7 +145,9 @@ struct UpcomingAgendaScreen: View {
 
             }
             .background(appearance.canvas)
-            .toolbar(.hidden, for: .navigationBar)
+            .toolbar(model.isSelecting ? .hidden : .visible, for: .navigationBar)
+            .scrollBounceBehavior(.always)
+            .orbitScrollingHeader(observesChild: false)
             .sheet(item: $editor) { item in
                 switch item {
                 case .date(let task): TaskDateSheet(task: task, model: model)

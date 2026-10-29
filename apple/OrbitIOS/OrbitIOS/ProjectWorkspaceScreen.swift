@@ -81,7 +81,9 @@ struct ProjectWorkspaceScreen: View {
                         }
                     }
                     .background(appearance.canvas)
-                    .toolbar(.hidden, for: .navigationBar)
+                    .toolbar(model.isSelecting ? .hidden : .visible, for: .navigationBar)
+            .scrollBounceBehavior(.always)
+            .orbitScrollingHeader()
                     .sheet(item: $editor) { item in
                         switch item {
                         case .date(let task): TaskDateSheet(task: task, model: model)

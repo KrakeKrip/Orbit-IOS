@@ -58,7 +58,9 @@ struct UpcomingMonthScreen: View {
                 .contentMargins(.bottom, 88, for: .scrollContent)
             }
             .background(appearance.canvas)
-            .toolbar(.hidden, for: .navigationBar)
+            .toolbar(model.isSelecting ? .hidden : .visible, for: .navigationBar)
+            .scrollBounceBehavior(.always)
+            .orbitScrollingHeader()
             .sheet(item: $presentation) { item in
                 switch item {
                 case .date(let task): TaskDateSheet(task: task, model: model)

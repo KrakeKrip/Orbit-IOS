@@ -49,7 +49,9 @@ struct TodayScreen: View {
             // the common mode row is the deterministic top row directly under
             // the safe area in the list and calendar alike, so the switcher
             // never moves (the former «Сегодня» title area is freed).
-            .toolbar(.hidden, for: .navigationBar)
+            .toolbar(model.isSelecting ? .hidden : .visible, for: .navigationBar)
+            .scrollBounceBehavior(.always)
+            .orbitScrollingHeader()
             .background(appearance.canvas)
             .sheet(item: $presentation) { item in
                 switch item {

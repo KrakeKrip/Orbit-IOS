@@ -126,7 +126,9 @@ struct ThreeDayCalendarScreen: View {
                     }
                 }
             }))
-            .toolbar(.hidden, for: .navigationBar)
+            .toolbar(model.isSelecting ? .hidden : .visible, for: .navigationBar)
+            .scrollBounceBehavior(.always)
+            .orbitScrollingHeader(observesChild: false)
             .sheet(isPresented: $showsReadableDay) {
                 OrbitCalendarDayTasks(model: model, day: selectedDay)
             }
@@ -334,6 +336,7 @@ struct ThreeDayCalendarScreen: View {
                     }))
                 .onReceive(edgeTicks) { _ in dropOffset = scroll?.contentOffset.y ?? 0; autoScroll(viewport: viewport) }
                 .contentMargins(.bottom, 88, for: .scrollContent)
+                .orbitMainScrollObserver()
                 .scrollDisabled(edit != nil || creating != nil)
                 .onAppear { reader.scrollTo(8, anchor: .top) }
             }

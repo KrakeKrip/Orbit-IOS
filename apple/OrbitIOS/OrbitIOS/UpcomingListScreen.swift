@@ -76,7 +76,9 @@ struct UpcomingListScreen: View {
             // calendar presentation and Today — the common mode row is the
             // deterministic top row directly under the safe area, so the
             // switcher keeps its position when the view switches.
-            .toolbar(.hidden, for: .navigationBar)
+            .toolbar(model.isSelecting ? .hidden : .visible, for: .navigationBar)
+            .scrollBounceBehavior(.always)
+            .orbitScrollingHeader()
             .background(appearance.canvas)
             .sheet(item: $presentation) { item in
                 switch item {

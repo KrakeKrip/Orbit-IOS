@@ -178,7 +178,9 @@ struct CalendarDayScreen: View {
             // list presentations.
             .environment(\.orbitTaskSelectionScope, .calendar(projectID: projectID, day: selectedDay, today: referenceDay ?? fixedDay ?? TaskDaySelection.currentDay()))
             .environment(\.orbitCalendarActions, AnyView(calendarTaskActions))
-            .toolbar(.hidden, for: .navigationBar)
+            .toolbar(model.isSelecting ? .hidden : .visible, for: .navigationBar)
+            .scrollBounceBehavior(.always)
+            .orbitScrollingHeader(observesChild: false)
             .background(
                 // Adaptive sizing source: the real height of this content area
                 // (safe areas applied), never fixed UIScreen values.

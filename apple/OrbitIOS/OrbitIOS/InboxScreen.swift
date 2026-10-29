@@ -62,7 +62,9 @@ struct InboxScreen: View {
                     }
                 }
             }
-            .toolbar(.hidden, for: .navigationBar)
+            .toolbar(model.isSelecting ? .hidden : .visible, for: .navigationBar)
+            .scrollBounceBehavior(.always)
+            .orbitScrollingHeader()
             .background(appearance.canvas)
             .sheet(item: $presentation) { item in
                 switch item {
