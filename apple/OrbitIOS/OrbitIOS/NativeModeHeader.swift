@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct NativeModeHeader<Switcher: View, Trailing: View>: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.orbitHeaderCompact) private var compact
     @Environment(\.orbitAppearance) private var appearance
     @Environment(\.orbitWorkspaceTitle) private var workspaceTitle
     @Environment(IOSInboxModel.self) private var model
@@ -14,6 +16,12 @@ struct NativeModeHeader<Switcher: View, Trailing: View>: View {
         VStack(alignment: .leading, spacing: 4) {
             if model.isSelecting { OrbitTaskSelectionHeader(model: model) }
             else {
+                if !compact {
+                    Text(title ?? workspaceTitle).font(.largeTitle.bold())
+                        .foregroundStyle(.primary).frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.bottom, 12).accessibilityAddTraits(.isHeader)
+                        .transition(.opacity)
+                }
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 12) { trailing; Spacer(minLength: 0); switcher }
                     VStack(alignment: .leading, spacing: 4) { trailing; switcher }
@@ -25,8 +33,9 @@ struct NativeModeHeader<Switcher: View, Trailing: View>: View {
         .padding(.horizontal, 16).padding(.vertical, 8)
         .fixedSize(horizontal: false, vertical: true)
         .background(appearance.canvas).zIndex(10)
-        .navigationTitle(title ?? workspaceTitle)
-        .navigationBarTitleDisplayMode(.large)
+        .navigationTitle(compact ? (title ?? workspaceTitle) : "")
+        .navigationBarTitleDisplayMode(.inline)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: compact)
         .toolbar {
             if !model.isSelecting {
                 ToolbarItem(placement: .topBarTrailing) { OrbitSettingsButton() }
@@ -70,12 +79,12 @@ private struct OrbitScrollingHeader: ViewModifier {
     @State private var compact = false
     @ViewBuilder func body(content: Content) -> some View {
         if observesChild {
-            content.navigationBarTitleDisplayMode(compact ? .inline : .large)
+            content.environment(\.orbitHeaderCompact, compact)
                 .onScrollGeometryChange(for: Bool.self) { geometry in
                     geometry.contentOffset.y + geometry.contentInsets.top > 48
                 } action: { _, value in compact = value }
         } else {
-            content.navigationBarTitleDisplayMode(compact ? .inline : .large)
+            content.environment(\.orbitHeaderCompact, compact)
                 .onPreferenceChange(OrbitMainScrollKey.self) { compact = $0 }
         }
     }
@@ -103,5 +112,15 @@ private struct OrbitMainScrollObserver: ViewModifier {
 extension View {
     @ViewBuilder func orbitMainScrollObserver() -> some View {
         if #available(iOS 18.0, *) { modifier(OrbitMainScrollObserver()) } else { self }
+    }
+}
+
+private struct OrbitHeaderCompactKey: EnvironmentKey {
+    static let defaultValue = false
+}
+extension EnvironmentValues {
+    var orbitHeaderCompact: Bool {
+        get { self[OrbitHeaderCompactKey.self] }
+        set { self[OrbitHeaderCompactKey.self] = newValue }
     }
 }

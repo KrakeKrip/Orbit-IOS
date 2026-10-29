@@ -21,6 +21,7 @@ struct OrbitAppearanceSettings: View {
 
     var body: some View {
         Form {
+            Group {
             Section {
                 VStack(alignment: .leading, spacing: 18) {
                     HStack {
@@ -91,6 +92,7 @@ struct OrbitAppearanceSettings: View {
                 Text("Тема меняет оформление Orbit. Иконка приложения выбирается отдельно.")
                     .font(.footnote).foregroundStyle(appearance.secondaryText)
             }
+            }.listRowBackground(appearance.surface)
         }
         .orbitEditorSurface()
         .navigationTitle("Оформление")

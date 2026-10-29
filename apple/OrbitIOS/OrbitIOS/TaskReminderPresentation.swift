@@ -6,7 +6,7 @@ struct ReminderPermissionView: View {
     let service: OrbitReminderScheduler
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(service.message).font(.footnote).foregroundStyle(appearance.secondaryText)
+            Text(service.message).font(.footnote).foregroundStyle(service.status.authorization == .denied ? Color.orbitError : appearance.secondaryText)
                 .accessibilityIdentifier("reminder-permission-status")
             if service.status.authorization == .notDetermined {
                 Button("Разрешить уведомления") { Task { await service.requestAuthorization() } }
@@ -15,9 +15,7 @@ struct ReminderPermissionView: View {
                 Button("Настройки уведомлений") { service.openSettings() }
                     .accessibilityIdentifier("reminder-open-settings")
             }
-            if service.status.authorization == .denied {
-                Text("Не доставится: уведомления выключены").font(.footnote).foregroundStyle(Color.orbitError)
-            } else if service.status.error != nil || service.authorizationError != nil {
+            if service.status.error != nil || service.authorizationError != nil {
                 Button("Повторить проверку") {
                     if service.authorizationError != nil { Task { await service.requestAuthorization() } }
                     else { service.refresh() }
@@ -48,7 +46,7 @@ struct TaskReminderFields: View {
             if flag {
                 pickerDate = TaskReminder.suggestedDate(plannedDate: plannedDate, plannedTime: plannedTime)
                 value = pickerDate
-                expanded = true
+                expanded = false
                 Task { await service.requestAuthorization() }
             } else { value = nil; expanded = false }
         })
@@ -58,24 +56,26 @@ struct TaskReminderFields: View {
             Toggle("Напоминание", isOn: enabled)
                 .accessibilityIdentifier("reminder-toggle")
             if let value {
+                if plannedDate != nil, plannedTime != nil {
+                    ViewThatFits(in: .horizontal) {
+                        HStack { presetButtons }
+                        VStack(alignment: .leading) { presetButtons }
+                    }
+                }
                 Button { expanded.toggle() } label: {
-                    OrbitEditorSummary(title: "Когда", value: Self.caption(value), expanded: expanded)
+                    OrbitEditorSummary(title: "Другое время", value: Self.caption(value), expanded: expanded)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain).accessibilityIdentifier("reminder-summary")
                 if expanded {
-                    DatePicker("Дата", selection: $pickerDate,
+                    DatePicker("Дата и время", selection: $pickerDate,
                                in: TaskPlannedDate.date(fromCivilDateString: "1900-01-01")! ... TaskPlannedDate.date(fromCivilDateString: "2199-12-31")!,
-                               displayedComponents: .date)
-                        .datePickerStyle(.wheel).labelsHidden()
+                               displayedComponents: [.date, .hourAndMinute])
+                        .datePickerStyle(.compact)
                         .environment(\.locale, Locale(identifier: "ru_RU"))
                         .environment(\.calendar, Calendar.orbitCivil)
                         .accessibilityIdentifier("reminder-date-picker")
-                    DatePicker("Время", selection: $pickerDate, displayedComponents: .hourAndMinute)
-                        .datePickerStyle(.wheel).labelsHidden()
-                        .environment(\.locale, Locale(identifier: "ru_RU"))
-                        .environment(\.calendar, Calendar.orbitCivil)
-                        .accessibilityIdentifier("reminder-time-picker")
+
                 }
                 TimelineView(.periodic(from: .now, by: 30)) { context in
                     if value <= context.date {
@@ -91,6 +91,16 @@ struct TaskReminderFields: View {
         }
         .onChange(of: pickerDate) { _, date in
             if value != nil { value = Date(timeIntervalSince1970: floor(date.timeIntervalSince1970 / 60) * 60) }
+        }
+    }
+    @ViewBuilder private var presetButtons: some View {
+        ForEach([10, 30, 60], id: \.self) { minutes in
+            Button(minutes == 60 ? "За час" : "За \(minutes) минут") {
+                // suggestedDate is ten minutes before the task's start.
+                let date = TaskReminder.suggestedDate(plannedDate: plannedDate, plannedTime: plannedTime)
+                    .addingTimeInterval(TimeInterval((10 - minutes) * 60))
+                pickerDate = date; value = date; expanded = false
+            }.buttonStyle(.bordered).font(.subheadline).frame(minHeight: 44)
         }
     }
     static func caption(_ value: Date) -> String {

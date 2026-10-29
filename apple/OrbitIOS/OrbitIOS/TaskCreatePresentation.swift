@@ -209,7 +209,7 @@ struct TaskCreateSheet: View {
     private static let rangeUpperBound = TaskPlannedDate.date(fromCivilDateString: "2199-12-31") ?? Date.distantFuture
 
     init(model: IOSInboxModel, datePreset: String?, projectPreset: UUID? = nil,
-         timePreset: String? = nil, durationPreset: Int? = nil, editingTask: OrbitTask? = nil) {
+         timePreset: String? = nil, durationPreset: Int? = nil, editingTask: OrbitTask? = nil, tagPreset: Set<UUID> = []) {
         self.model = model
         self.editingTask = editingTask
         let datePreset = editingTask?.plannedDate ?? datePreset
@@ -221,7 +221,7 @@ struct TaskCreateSheet: View {
         _title = State(initialValue: editingTask?.title ?? "")
         _draftReminder = State(initialValue: editingTask?.reminderAt)
         _draftDeadline = State(initialValue: editingTask?.deadlineDate)
-        _draftTagIDs = State(initialValue: Set(editingTask?.tagIDs ?? []))
+        _draftTagIDs = State(initialValue: editingTask.map { Set($0.tagIDs ?? []) } ?? tagPreset)
         _draftProjectID = State(initialValue: editingTask?.projectID ?? projectPreset)
         // The preset seeds the draft only when it is a valid civil date; an
         // invalid preset is never silently replaced by today.
@@ -499,9 +499,6 @@ struct TaskCreateSheet: View {
             switch target {
             case .date: expandedGroup = .date
             case .time:
-                // Tapping the time row assigns the draft interval directly;
-                // no second enable toggle. An undated task stays undated.
-                if draftDate != nil { timeEnabled = true }
                 expandedGroup = .start
             case .deadline: expandedGroup = .deadline
             case .reminder: expandedGroup = .reminder
@@ -519,6 +516,7 @@ struct TaskCreateSheet: View {
             OrbitTagsScreen(model: model, selection: $draftTagIDs)
         default:
             Form {
+                Group {
                 switch target {
                 case .date: Section { dateSection }
                 case .time: Section { timeSection }
@@ -547,6 +545,8 @@ struct TaskCreateSheet: View {
                     }
                 case .tags: EmptyView()
                 }
+                }
+                .listRowBackground(appearance.surface)
             }
             .orbitEditorSurface()
             .navigationTitle(parameterTitle(target))

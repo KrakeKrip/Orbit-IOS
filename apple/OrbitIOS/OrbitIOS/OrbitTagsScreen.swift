@@ -7,14 +7,10 @@ struct OrbitTagsScreen: View {
     var projectsContent: AnyView? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.orbitAppearance) private var appearance
-    @FocusState private var nameFocused: Bool
-    @State private var editingID: UUID?
-    @State private var name = ""
-    @State private var color = "coral"
-    @State private var editing = false
+    @State private var editor: TagEditorDraft?
+    @State private var browsingTag: OrbitTag?
     @State private var deleting: OrbitTag?
     @State private var error: String?
-    @State private var editorError: String?
     private var animation: Animation? { reduceMotion ? nil : .easeInOut(duration: 0.2) }
     var body: some View {
         List {
@@ -37,7 +33,7 @@ struct OrbitTagsScreen: View {
                                     else { selection.wrappedValue.insert(tag.id) }
                                 }
                                 OrbitHaptics.selection()
-                            } else { edit(tag) }
+                            } else { browsingTag = tag }
                         } label: {
                             HStack(spacing: 12) {
                                 Circle().fill(tint(tag.colorName ?? "coral")).frame(width: 12, height: 12)
@@ -67,7 +63,7 @@ struct OrbitTagsScreen: View {
                 }
                 if projectsContent == nil {
                 Button("Создать тег", systemImage: "plus") {
-                    editingID = nil; name = ""; color = "coral"; editorError = nil; editing = true
+                    editor = TagEditorDraft()
                 }.frame(minHeight: 44)
                     .listRowBackground(appearance.surface)
                 }
@@ -77,7 +73,7 @@ struct OrbitTagsScreen: View {
                         Text("Теги").font(.headline).foregroundStyle(.primary)
                         Spacer()
                         Button {
-                            editingID = nil; name = ""; color = "coral"; editorError = nil; editing = true
+                            editor = TagEditorDraft()
                         } label: { Image(systemName: "plus").frame(width: 44, height: 44) }
                         .accessibilityLabel("Создать тег")
                     }.textCase(nil)
@@ -90,7 +86,67 @@ struct OrbitTagsScreen: View {
         .contentMargins(.bottom, projectsContent == nil ? 0 : 88, for: .scrollContent)
         .animation(animation, value: model.tags.map(\.id))
         .orbitEditorSurface().navigationTitle(projectsContent == nil ? "Теги" : "Проекты").navigationBarTitleDisplayMode(projectsContent == nil ? .inline : .large)
-        .sheet(isPresented: $editing) {
+        .sheet(item: $editor) { draft in
+            OrbitTagEditor(model: model, draft: draft)
+        }
+        .sheet(item: $browsingTag) { tag in
+            OrbitTagTasksScreen(model: model, tag: tag)
+        }
+        .alert("Удалить тег?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
+            Button("Удалить", role: .destructive) {
+                if let tag = deleting {
+                    let id = tag.id
+                    withAnimation(animation) { error = model.deleteTag(id: id) }
+                    if error == nil { selection?.wrappedValue.remove(id) }
+                }
+                deleting = nil
+            }
+            Button("Отмена", role: .cancel) { deleting = nil }
+        } message: { Text("Тег будет снят со всех задач. Сами задачи сохранятся. Это действие нельзя отменить.") }
+    }
+    private func edit(_ tag: OrbitTag) {
+        editor = TagEditorDraft(tagID: tag.id, name: tag.name, color: tag.colorName ?? "coral")
+    }
+    private func tint(_ name: String) -> Color {
+        switch name {
+        case "orange": .orange
+        case "green": .green
+        case "blue": .blue
+        case "purple": .purple
+        case "pink": .pink
+        case "gray": .gray
+        default: .orbitAccentFill
+        }
+    }
+    private func colorTitle(_ name: String) -> String {
+        ["coral": "Коралловый", "orange": "Оранжевый", "green": "Зелёный", "blue": "Синий", "purple": "Фиолетовый", "pink": "Розовый", "gray": "Серый"][name] ?? name
+    }
+}
+
+private struct TagEditorDraft: Identifiable {
+    let id = UUID()
+    var tagID: UUID? = nil
+    var name = ""
+    var color = "coral"
+}
+
+private struct OrbitTagEditor: View {
+    let model: IOSInboxModel
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.orbitAppearance) private var appearance
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @FocusState private var nameFocused: Bool
+    private let editingID: UUID?
+    @State private var name: String
+    @State private var color: String
+    @State private var editorError: String?
+    private var animation: Animation? { reduceMotion ? nil : .easeInOut(duration: 0.2) }
+    init(model: IOSInboxModel, draft: TagEditorDraft) {
+        self.model = model; editingID = draft.tagID
+        _name = State(initialValue: draft.name)
+        _color = State(initialValue: draft.color)
+    }
+    var body: some View {
             NavigationStack {
                 ScrollView {
                   VStack(alignment: .leading, spacing: 24) {
@@ -135,26 +191,11 @@ struct OrbitTagsScreen: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .orbitEditorActions(enabled: !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, confirm: "Сохранить", save: {
                     editorError = model.saveTag(name: name, id: editingID, color: color)
-                    if editorError == nil { editing = false }
-                }, cancel: { editing = false })
+                    if editorError == nil { dismiss() }
+                }, cancel: { dismiss() })
             }
             .background(appearance.canvas.ignoresSafeArea())
             .presentationDetents([.large]).presentationDragIndicator(.visible)
-        }
-        .alert("Удалить тег?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
-            Button("Удалить", role: .destructive) {
-                if let tag = deleting {
-                    let id = tag.id
-                    withAnimation(animation) { error = model.deleteTag(id: id) }
-                    if error == nil { selection?.wrappedValue.remove(id) }
-                }
-                deleting = nil
-            }
-            Button("Отмена", role: .cancel) { deleting = nil }
-        } message: { Text("Тег будет снят со всех задач. Сами задачи сохранятся. Это действие нельзя отменить.") }
-    }
-    private func edit(_ tag: OrbitTag) {
-        editingID = tag.id; name = tag.name; color = tag.colorName ?? "coral"; editorError = nil; editing = true
     }
     private func tint(_ name: String) -> Color {
         switch name {
@@ -169,5 +210,53 @@ struct OrbitTagsScreen: View {
     }
     private func colorTitle(_ name: String) -> String {
         ["coral": "Коралловый", "orange": "Оранжевый", "green": "Зелёный", "blue": "Синий", "purple": "Фиолетовый", "pink": "Розовый", "gray": "Серый"][name] ?? name
+    }
+}
+
+private struct OrbitTagTasksScreen: View {
+    let model: IOSInboxModel
+    let tag: OrbitTag
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.orbitAppearance) private var appearance
+    @State private var creating = false
+    @State private var editor: InboxSheetPresentation?
+    private var tasks: [OrbitTask] { model.tasks.filter { ($0.tagIDs ?? []).contains(tag.id) } }
+    var body: some View {
+        NavigationStack {
+            List {
+                if tasks.isEmpty {
+                    ContentUnavailableView("Нет задач с этим тегом", systemImage: "tag")
+                        .listRowBackground(appearance.canvas)
+                }
+                ForEach([false, true], id: \.self) { completed in
+                    let rows = tasks.filter { $0.isCompleted == completed }
+                    if !rows.isEmpty {
+                        Section(completed ? "Завершённые" : "Открытые") {
+                            ForEach(rows) { task in
+                                InboxRowView(task: task, model: model) { editor = .date(task) }
+                                    onEditInterval: { editor = .interval(task) }
+                            }
+                        }
+                    }
+                }
+            }
+            .listStyle(.plain).orbitEditorSurface()
+            .navigationTitle(tag.name).navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Готово") { dismiss() } }
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Добавить задачу", systemImage: "plus") { creating = true }
+                }
+            }
+            .sheet(isPresented: $creating) {
+                TaskCreateSheet(model: model, datePreset: nil, tagPreset: [tag.id])
+            }
+            .sheet(item: $editor) { item in
+                switch item {
+                case .date(let task): TaskDateSheet(task: task, model: model)
+                case .interval(let task): TaskIntervalSheet(task: task, model: model)
+                }
+            }
+        }
     }
 }

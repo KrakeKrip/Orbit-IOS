@@ -267,6 +267,14 @@ struct InboxRowView: View {
     /// destructive «Удалить…» (date/time items unchanged, the completion
     /// circle stays independent). Calendar cards use the same actions and
     /// shared UUIDs, so mutations are reflected across both presentations.
+    @ViewBuilder private var progressAndRepeat: some View {
+        if !task.subtasks.isEmpty {
+            Label("\(task.subtasks.filter(\.completed).count)/\(task.subtasks.count)", systemImage: "checklist")
+                .accessibilityLabel("Подзадачи: \(task.subtasks.filter(\.completed).count) из \(task.subtasks.count)")
+        }
+        if let rule = task.repeatRule { Label(rule.title, systemImage: "repeat") }
+    }
+
     private var taskBodyMenu: some View {
         TaskActionPopoverButton(
             model: model, task: task,
@@ -291,24 +299,21 @@ struct InboxRowView: View {
                     TimelineView(.periodic(from: .now, by: 60)) { context in
                         let today = TaskDaySelection.currentDay(from: context.date)
                         let missed = !task.isCompleted && TaskPlannedDate.isValid(plannedDate) && plannedDate < today
-                        Text((missed ? "Было запланировано · " : "") + RussianDateCaption.label(plannedDate))
+                        Text((missed ? "Было запланировано · " : "") + RussianDateCaption.label(plannedDate) + (Self.intervalLabel(task).map { " · " + $0 } ?? ""))
                             .font(.footnote)
                             .foregroundStyle(missed ? Color.orbitError : appearance.secondaryText)
                             .accessibilityLabel(RussianDateCaption.label(plannedDate) + (missed ? ", запланированная дата прошла" : ""))
                     }
                 }
-                if let interval = Self.intervalLabel(task) {
+                if !showsDateLabel || task.plannedDate == nil, let interval = Self.intervalLabel(task) {
                     Text(interval).font(.footnote.monospacedDigit()).foregroundStyle(appearance.secondaryText)
                 }
                 if showsProjectLabel, let id = task.projectID, let project = model.projects.first(where: { $0.id == id }) {
                     Label(project.name, systemImage: "folder").font(.footnote).foregroundStyle(appearance.secondaryText)
                 }
-                if !task.subtasks.isEmpty {
-                    Label("Подзадачи: \(task.subtasks.filter(\.completed).count)/\(task.subtasks.count)", systemImage: "checklist")
-                        .font(.footnote).foregroundStyle(appearance.secondaryText)
-                }
-                if let rule = task.repeatRule {
-                    Label(rule.title, systemImage: "repeat").font(.footnote).foregroundStyle(appearance.secondaryText)
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 12) { progressAndRepeat }.font(.footnote).foregroundStyle(appearance.secondaryText)
+                    VStack(alignment: .leading, spacing: 4) { progressAndRepeat }.font(.footnote).foregroundStyle(appearance.secondaryText)
                 }
                 TaskDeadlineBadge(task: task)
                 TaskReminderBadge(task: task, service: model.reminders)

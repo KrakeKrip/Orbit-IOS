@@ -336,6 +336,7 @@ struct OrbitSettingsSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                Group {
                 Section("Персонализация") {
                     NavigationLink("Оформление") { OrbitAppearanceSettings() }
                         .accessibilityIdentifier("appearance-settings")
@@ -363,6 +364,8 @@ struct OrbitSettingsSheet: View {
                     Toggle("Звук выполнения", isOn: $completionSound)
                         .accessibilityIdentifier("completion-sound-toggle")
                 }
+                }
+                .listRowBackground(inheritedAppearance.surface)
             }
             .orbitEditorSurface()
             .navigationTitle("Настройки")
