@@ -179,6 +179,23 @@ private struct OrbitEditorSurface: ViewModifier {
             .environment(\.colorScheme, appearance.colorScheme ?? inheritedColorScheme)
     }
 }
+/// Non-interactive frosted chrome. Task surfaces remain opaque and readable.
+private struct OrbitHeaderSurface: ViewModifier {
+    @Environment(\.orbitAppearance) private var appearance
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    func body(content: Content) -> some View {
+        content.background {
+            if reduceTransparency {
+                appearance.canvas
+            } else {
+                // Broad headers use the matte material without a bevel: the
+                // system's Liquid Glass buttons remain the floating controls.
+                Rectangle().fill(.regularMaterial)
+                    .overlay(appearance.canvas.opacity(0.18))
+            }
+        }
+    }
+}
 private struct OrbitLongPressFeedback: ViewModifier {
     func body(content: Content) -> some View {
         content.simultaneousGesture(
@@ -187,6 +204,7 @@ private struct OrbitLongPressFeedback: ViewModifier {
     }
 }
 extension View {
+    func orbitHeaderSurface() -> some View { modifier(OrbitHeaderSurface()) }
     func orbitIconStyle() -> some View { modifier(OrbitIconStyle()) }
     func orbitPrimaryStyle() -> some View { modifier(OrbitPrimaryStyle()) }
     func orbitSecondaryStyle() -> some View { modifier(OrbitSecondaryStyle()) }

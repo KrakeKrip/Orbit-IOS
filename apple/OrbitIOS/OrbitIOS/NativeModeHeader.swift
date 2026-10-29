@@ -7,10 +7,12 @@ struct NativeModeHeader<Switcher: View, Trailing: View>: View {
     @Environment(\.orbitWorkspaceTitle) private var workspaceTitle
     @Environment(IOSInboxModel.self) private var model
     private let title: String?
+    private let scrollsWithContent: Bool
     private let switcher: Switcher
     private let trailing: Trailing
-    init(title: String? = nil, switcher: Switcher, @ViewBuilder trailing: () -> Trailing) {
+    init(title: String? = nil, switcher: Switcher, scrollsWithContent: Bool = false, @ViewBuilder trailing: () -> Trailing) {
         self.title = title; self.switcher = switcher; self.trailing = trailing()
+        self.scrollsWithContent = scrollsWithContent
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -20,9 +22,9 @@ struct NativeModeHeader<Switcher: View, Trailing: View>: View {
                     .lineLimit(1).minimumScaleFactor(0.7)
                     .foregroundStyle(.primary).frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.bottom, 12)
-                    .opacity(max(0, 1 - progress * 2))
-                    .offset(y: -16 * progress)
-                    .frame(height: expandedTitleHeight * (1 - progress), alignment: .top)
+                    .opacity(scrollsWithContent ? 1 : max(0, 1 - progress * 2))
+                    .offset(y: scrollsWithContent ? 0 : -16 * progress)
+                    .frame(height: expandedTitleHeight * (scrollsWithContent ? 1 : (1 - progress)), alignment: .top)
                     .clipped()
                     .accessibilityHidden(progress > 0.5)
                 ViewThatFits(in: .horizontal) {
@@ -34,7 +36,7 @@ struct NativeModeHeader<Switcher: View, Trailing: View>: View {
         }
         .padding(.horizontal, 16).padding(.vertical, 8)
         .fixedSize(horizontal: false, vertical: true)
-        .background(appearance.canvas).zIndex(10)
+        .orbitHeaderSurface().zIndex(10)
         .navigationTitle(title ?? workspaceTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -70,7 +72,7 @@ struct OrbitPeriodControls<DateField: View, Previous: View, Next: View, Today: V
             }
         }
         .buttonStyle(.plain).foregroundStyle(.primary)
-        .padding(.horizontal, 16).padding(.vertical, 4).background(appearance.canvas)
+        .padding(.horizontal, 16).padding(.vertical, 4).orbitHeaderSurface()
         .dynamicTypeSize(...DynamicTypeSize.accessibility1)
         } }
     }

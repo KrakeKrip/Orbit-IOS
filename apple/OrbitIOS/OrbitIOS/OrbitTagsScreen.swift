@@ -7,6 +7,7 @@ struct OrbitTagsScreen: View {
     var projectsContent: AnyView? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.orbitAppearance) private var appearance
+    @AppStorage("orbit.ui.tags.expanded") private var tagsExpanded = true
     @State private var editor: TagEditorDraft?
     @State private var browsingTag: OrbitTag?
     @State private var deleting: OrbitTag?
@@ -21,64 +22,68 @@ struct OrbitTagsScreen: View {
                 ContentUnavailableView("Пока нет тегов", systemImage: "tag", description: Text("Например, «Важно», «Дом» или «Работа». Теги доступны во всех проектах."))
             }
             Section {
-                if model.tags.isEmpty && projectsContent != nil {
-                    Text("Пока нет тегов").font(.subheadline).foregroundStyle(.secondary).padding(.vertical, 4).listRowBackground(projectsContent == nil ? appearance.surface : appearance.canvas)
-                }
-                ForEach(model.tags) { tag in
-                    HStack(spacing: 12) {
-                        Button {
-                            if let selection {
-                                withAnimation(animation) {
-                                    if selection.wrappedValue.contains(tag.id) { selection.wrappedValue.remove(tag.id) }
-                                    else { selection.wrappedValue.insert(tag.id) }
-                                }
-                                OrbitHaptics.selection()
-                            } else { browsingTag = tag }
-                        } label: {
-                            HStack(spacing: 12) {
-                                Circle().fill(tint(tag.colorName ?? "coral")).frame(width: 12, height: 12)
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(tag.name).foregroundStyle(.primary)
-                                    Text("Задач: \(model.tasks.filter { ($0.tagIDs ?? []).contains(tag.id) }.count)")
-                                        .font(.caption).foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                if selection?.wrappedValue.contains(tag.id) == true {
-                                    Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.orbitAccent)
-                                        .transition(.opacity.combined(with: .scale(scale: 0.85)))
-                                }
-                            }.frame(minHeight: 44).contentShape(Rectangle())
-                        }.buttonStyle(.plain)
-                        Menu {
-                            Button("Изменить", systemImage: "pencil") { edit(tag) }
-                            Button("Удалить тег", systemImage: "trash", role: .destructive) { deleting = tag }
-                        } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
-                            .accessibilityLabel("Действия с тегом \(tag.name)")
+                if projectsContent == nil || tagsExpanded {
+                    if model.tags.isEmpty && projectsContent != nil {
+                        Text("Пока нет тегов").font(.subheadline).foregroundStyle(.secondary).padding(.vertical, 4)
+                            .listRowBackground(appearance.canvas).listRowSeparator(.hidden)
                     }
-                    .listRowBackground(projectsContent == nil ? appearance.surface : appearance.canvas)
-                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 8))
-                    .swipeActions {
-                        Button("Удалить", role: .destructive) { deleting = tag }
+                    ForEach(model.tags) { tag in
+                        HStack(spacing: 12) {
+                            Button {
+                                if let selection {
+                                    withAnimation(animation) {
+                                        if selection.wrappedValue.contains(tag.id) { selection.wrappedValue.remove(tag.id) }
+                                        else { selection.wrappedValue.insert(tag.id) }
+                                    }
+                                    OrbitHaptics.selection()
+                                } else { browsingTag = tag }
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Circle().fill(tint(tag.colorName ?? "coral")).frame(width: 12, height: 12)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(tag.name).foregroundStyle(.primary)
+                                        Text("Задач: \(model.tasks.filter { ($0.tagIDs ?? []).contains(tag.id) }.count)")
+                                            .font(.caption).foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    if selection?.wrappedValue.contains(tag.id) == true {
+                                        Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.orbitAccent)
+                                            .transition(.opacity.combined(with: .scale(scale: 0.85)))
+                                    }
+                                }.frame(minHeight: 44).contentShape(Rectangle())
+                            }.buttonStyle(.plain)
+                            Menu {
+                                Button("Изменить", systemImage: "pencil") { edit(tag) }
+                                Button("Удалить тег", systemImage: "trash", role: .destructive) { deleting = tag }
+                            } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
+                                .accessibilityLabel("Действия с тегом \(tag.name)")
+                        }
+                        .listRowBackground(projectsContent == nil ? appearance.surface : appearance.canvas)
+                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 8))
+                        .listRowSeparator(projectsContent != nil && tag.id == model.tags.last?.id ? .hidden : .visible, edges: .bottom)
+                        .swipeActions {
+                            Button("Удалить", role: .destructive) { deleting = tag }
+                        }
                     }
-                }
-                if projectsContent == nil {
-                Button("Создать тег", systemImage: "plus") {
-                    editor = TagEditorDraft()
-                }.frame(minHeight: 44)
-                    .listRowBackground(projectsContent == nil ? appearance.surface : appearance.canvas)
+                    if projectsContent == nil {
+                    Button("Создать тег", systemImage: "plus") {
+                        editor = TagEditorDraft()
+                    }.frame(minHeight: 44)
+                        .listRowBackground(projectsContent == nil ? appearance.surface : appearance.canvas)
+                    }
                 }
             } header: {
                 if projectsContent != nil {
-                    HStack {
-                        Text("Теги").font(.headline).foregroundStyle(.primary)
-                        Spacer()
-                        Button {
+                    VStack(spacing: 12) {
+                        Divider().padding(.top, 8)
+                        OrbitCollapsibleSectionHeader(title: "Теги", expanded: $tagsExpanded,
+                                                      createLabel: "Создать тег", identifier: "tags") {
                             editor = TagEditorDraft()
-                        } label: { Image(systemName: "plus").frame(width: 44, height: 44) }
-                        .accessibilityLabel("Создать тег")
-                    }.textCase(nil)
+                        }
+                    }
                 }
             }
+
         }
         .listStyle(.plain)
         .listSectionSeparator(.hidden)
@@ -86,6 +91,7 @@ struct OrbitTagsScreen: View {
         .contentMargins(.top, 8, for: .scrollContent)
         .contentMargins(.bottom, projectsContent == nil ? 0 : 88, for: .scrollContent)
         .animation(animation, value: model.tags.map(\.id))
+        .animation(animation, value: tagsExpanded)
         .orbitEditorSurface().navigationTitle(projectsContent == nil ? "Теги" : "Проекты").navigationBarTitleDisplayMode(projectsContent == nil ? .inline : .large)
         .sheet(item: $editor) { draft in
             OrbitTagEditor(model: model, draft: draft)
@@ -121,6 +127,44 @@ struct OrbitTagsScreen: View {
     }
     private func colorTitle(_ name: String) -> String {
         ["coral": "Коралловый", "orange": "Оранжевый", "green": "Зелёный", "blue": "Синий", "purple": "Фиолетовый", "pink": "Розовый", "gray": "Серый"][name] ?? name
+    }
+}
+
+/// Independent disclosure and add targets; the entire title toggles a section.
+struct OrbitCollapsibleSectionHeader: View {
+    let title: String
+    @Binding var expanded: Bool
+    let createLabel: String
+    let identifier: String
+    let create: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button { expanded.toggle() } label: {
+                HStack(spacing: 8) {
+                    Text(title).font(.headline)
+                    Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                        .font(.caption.weight(.semibold))
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(title)
+            .accessibilityValue(expanded ? "Развёрнуто" : "Свёрнуто")
+            .accessibilityHint(expanded ? "Свернуть раздел" : "Развернуть раздел")
+            .accessibilityIdentifier("\(identifier)-disclosure")
+            Button(action: create) {
+                Image(systemName: "plus").frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain).foregroundStyle(Color.orbitAccent)
+            .accessibilityLabel(createLabel)
+            .accessibilityIdentifier("\(identifier)-create")
+        }
+        .textCase(nil)
     }
 }
 

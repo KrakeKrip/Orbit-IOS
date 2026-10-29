@@ -12,6 +12,8 @@ struct ProjectEditorPresentation: Identifiable {
 struct ProjectsScreen: View {
     let model: IOSInboxModel
     @Environment(\.orbitAppearance) private var appearance
+    @AppStorage("orbit.ui.projects.expanded") private var projectsExpanded = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedProject: OrbitProject?
     @State private var editor: ProjectEditorPresentation?
     @Environment(\.scenePhase) private var phase
@@ -53,46 +55,46 @@ struct ProjectsScreen: View {
     }
     private var projectRows: some View {
         Section {
-            if let error = model.projectListError {
-                OrbitTaskLoadFailure(message: error, retry: { model.reloadProjects() })
-            } else {
-                if let error = model.listError {
-                    OrbitTaskLoadFailure(message: error, retry: { model.reload() })
-                }
-                if !model.projects.contains(where: { !$0.isArchived }) {
-                    Text("Пока нет проектов")
-                        .font(.subheadline).foregroundStyle(.secondary)
-                        .padding(.vertical, 4)
-                        .listRowBackground(appearance.canvas)
-                }
-                ForEach(model.projects.filter { !$0.isArchived }) { project in
-                    Button { selectedProject = project } label: {
-                        ProjectIndexRow(name: project.name,
-                            summary: summaries[project.id, default: ProjectTaskSummary()],
-                            unavailable: model.listError != nil)
+            if projectsExpanded {
+                if let error = model.projectListError {
+                    OrbitTaskLoadFailure(message: error, retry: { model.reloadProjects() })
+                } else {
+                    if let error = model.listError {
+                        OrbitTaskLoadFailure(message: error, retry: { model.reload() })
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityHint("Открыть задачи проекта")
-                    .accessibilityIdentifier("project-row-\(project.id.uuidString)")
-                    .contextMenu {
-                        Button("Переименовать…", systemImage: "pencil") {
-                            editor = ProjectEditorPresentation(projectID: project.id, name: project.name)
+                    if !model.projects.contains(where: { !$0.isArchived }) {
+                        Text("Пока нет проектов")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                            .padding(.vertical, 4)
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(appearance.canvas)
+                    }
+                    ForEach(model.projects.filter { !$0.isArchived }) { project in
+                        Button { selectedProject = project } label: {
+                            ProjectIndexRow(name: project.name,
+                                summary: summaries[project.id, default: ProjectTaskSummary()],
+                                unavailable: model.listError != nil)
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Открыть задачи проекта")
+                        .accessibilityIdentifier("project-row-\(project.id.uuidString)")
+                        .contextMenu {
+                            Button("Переименовать…", systemImage: "pencil") {
+                                editor = ProjectEditorPresentation(projectID: project.id, name: project.name)
+                            }
+                        }
+                        .listRowBackground(appearance.canvas)
+                        .listRowSeparator(project.id == model.projects.last(where: { !$0.isArchived })?.id ? .hidden : .visible, edges: .bottom)
                     }
-                    .listRowBackground(appearance.canvas)
                 }
             }
         } header: {
-            HStack {
-                Text("Мои проекты").font(.headline).foregroundStyle(.primary)
-                Spacer()
-                Button { editor = ProjectEditorPresentation() } label: {
-                    Image(systemName: "plus").frame(width: 44, height: 44)
-                }
-                .accessibilityLabel("Создать проект")
-                .accessibilityIdentifier("project-create")
-            }.textCase(nil)
+            OrbitCollapsibleSectionHeader(title: "Мои проекты", expanded: $projectsExpanded,
+                                          createLabel: "Создать проект", identifier: "project") {
+                editor = ProjectEditorPresentation()
+            }
         }
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: projectsExpanded)
     }
 
 }
