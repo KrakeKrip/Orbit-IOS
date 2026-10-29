@@ -303,9 +303,15 @@ struct TaskCreateSheet: View {
                 .orbitEditorSurface()
                 .navigationTitle(editingTask == nil ? "Новая задача" : "Задача")
                 .navigationBarTitleDisplayMode(.inline)
-                .orbitEditorActions(enabled: addEnabled, confirm: editingTask == nil ? "Добавить" : "Сохранить", save: { submit() }, cancel: { focusedField = nil; if hasUnsavedChanges { confirmsDiscard = true } else { dismiss() } })
+                .orbitEditorActions(enabled: addEnabled, confirm: editingTask == nil ? "Добавить" : "Сохранить", save: { submit() }, cancel: { requestClose() })
                 .navigationDestination(item: $parameter) { target in
                     parameterContent(target)
+                        .toolbar {
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Button("Закрыть", systemImage: "xmark") { requestClose() }
+                                    .labelStyle(.iconOnly)
+                            }
+                        }
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     if focusedField != nil {
@@ -352,14 +358,20 @@ struct TaskCreateSheet: View {
             }
             Button("Отмена", role: .cancel) { }
         } message: { Text("Удаление можно отменить сразу после закрытия редактора. Изменения черновика не сохранятся.") }
+        .background(TaskEditorDismissObserver(blocked: hasUnsavedChanges && !created) { requestClose() })
         .interactiveDismissDisabled(hasUnsavedChanges && !created)
         .alert("Закрыть без сохранения?", isPresented: $confirmsDiscard) {
-            Button("Сбросить изменения", role: .destructive) { dismiss() }
+            Button("Сбросить", role: .destructive) { dismiss() }
             Button("Продолжить редактирование", role: .cancel) { }
         } message: { Text("Изменения этой задачи не сохранятся.") }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .orbitEditorSurface()
+    }
+
+    private func requestClose() {
+        focusedField = nil
+        if hasUnsavedChanges { confirmsDiscard = true } else { dismiss() }
     }
 
     // MARK: - Sections
@@ -539,7 +551,8 @@ struct TaskCreateSheet: View {
             .orbitEditorSurface()
             .navigationTitle(parameterTitle(target))
             .navigationBarTitleDisplayMode(.inline)
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: expandedGroup)
+            // Native Form rows and UIKit wheels must not inherit a layout animation.
+            .transaction { $0.animation = nil }
         }
     }
 
@@ -851,5 +864,39 @@ struct TaskCreateSheet: View {
             .frame(maxWidth: .infinity, minHeight: 120)
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+
+/// Reports a blocked sheet swipe instead of silently bouncing the draft back.
+private struct TaskEditorDismissObserver: UIViewControllerRepresentable {
+    let blocked: Bool
+    let onAttempt: () -> Void
+    func makeUIViewController(context: Context) -> Controller { Controller() }
+    func updateUIViewController(_ controller: Controller, context: Context) {
+        controller.blocked = blocked
+        controller.onAttempt = onAttempt
+        controller.attach()
+    }
+    final class Controller: UIViewController, UIAdaptivePresentationControllerDelegate {
+        var blocked = false
+        var onAttempt: (() -> Void)?
+        override func viewDidAppear(_ animated: Bool) { super.viewDidAppear(animated); attach() }
+        override func didMove(toParent parent: UIViewController?) { super.didMove(toParent: parent); attach() }
+        func attach() {
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                var owner: UIViewController? = self.parent
+                while let current = owner {
+                    if let presentation = current.presentationController, current.presentingViewController != nil {
+                        presentation.delegate = self
+                        return
+                    }
+                    owner = current.parent
+                }
+            }
+        }
+        func presentationControllerShouldDismiss(_ presentationController: UIPresentationController) -> Bool { !blocked }
+        func presentationControllerDidAttemptToDismiss(_ presentationController: UIPresentationController) { onAttempt?() }
     }
 }
