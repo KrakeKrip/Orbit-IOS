@@ -13,8 +13,6 @@ struct ProjectsScreen: View {
     let model: IOSInboxModel
     @Environment(\.orbitAppearance) private var appearance
     @State private var selectedProject: OrbitProject?
-    @State private var showsArchive = false
-    @State private var showsTags = false
     @State private var editor: ProjectEditorPresentation?
     @Environment(\.scenePhase) private var phase
     @State private var today = TaskDaySelection.currentDay()
@@ -37,94 +35,64 @@ struct ProjectsScreen: View {
         NavigationStack {
             VStack(spacing: 0) {
                 NativeModeHeader(title: "Проекты", switcher: EmptyView())
-                Button { showsTags = true } label: {
-                    HStack {
-                        Label("Теги", systemImage: "tag")
-                        Spacer()
-                        Text("\(model.tags.count)").foregroundStyle(appearance.secondaryText)
-                        Image(systemName: "chevron.right").font(.caption)
-                    }.frame(minHeight: 44).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain).padding(.horizontal, 20)
-                .accessibilityIdentifier("projects-tags")
-                Picker("Проекты", selection: $showsArchive) {
-                    Text("Активные").tag(false)
-                    Text("Архив").tag(true)
-                }.pickerStyle(.segmented).padding(.horizontal).padding(.bottom, 8)
-                if let error = model.projectListError {
-                    ContentUnavailableView {
-                        Label("Проекты недоступны", systemImage: "exclamationmark.triangle")
-                    } description: {
-                        OrbitErrorMessage(error)
-                    } actions: {
-                        Button("Повторить") { model.reloadProjects() }
-                    }
-                } else if model.projects.isEmpty {
-                    ContentUnavailableView {
-                        Label("Пока нет проектов", systemImage: "folder")
-                    } description: {
-                        Text("Создайте первый проект — например, «Работа» или «Личное».")
-                    } actions: {
-                        Button("Создать проект") { editor = ProjectEditorPresentation() }
-                            .orbitPrimaryStyle()
-                            .accessibilityIdentifier("project-create-empty")
-                    }
-                } else {
-                    let counts = summaries
-                    List {
-                        if let error = model.listError {
-                            OrbitTaskLoadFailure(message: error, retry: { model.reload() })
-                        }
-                        if model.projects.filter({ $0.isArchived == showsArchive }).isEmpty {
-                            Text(showsArchive ? "В архиве нет проектов" : "Нет активных проектов")
-                                .foregroundStyle(.secondary).listRowBackground(appearance.canvas)
-                        }
-                        ForEach(model.projects.filter { $0.isArchived == showsArchive }) { project in
-                            Button {
-                                selectedProject = project
-                            } label: {
-                                ProjectIndexRow(name: project.name, summary: counts[project.id, default: ProjectTaskSummary()],
-                                    unavailable: model.listError != nil)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityHint("Открыть задачи проекта")
-                            .accessibilityIdentifier("project-row-\(project.id.uuidString)")
-                            .contextMenu {
-                                Button("Переименовать…", systemImage: "pencil") {
-                                    editor = ProjectEditorPresentation(projectID: project.id, name: project.name)
-                                }
-                            }
-                            .listRowBackground(appearance.canvas)
-                        }
-                    }
-                    .listStyle(.plain).contentMargins(.bottom, 88, for: .scrollContent)
-                    .scrollContentBackground(.hidden)
+                OrbitTagsScreen(model: model, projectsContent: AnyView(projectRows))
                     .refreshable { model.reload() }
-                }
             }
             .background(appearance.canvas)
             .toolbar(.hidden, for: .navigationBar)
             .sheet(item: $editor) { item in
                 ProjectNameSheet(presentation: item, model: model)
             }
-            .sheet(isPresented: $showsTags) {
-                NavigationStack {
-                    OrbitTagsScreen(model: model)
-                        .toolbar { ToolbarItem(placement: .confirmationAction) {
-                            Button("Готово") { showsTags = false }
-                        } }
-                }.orbitEditorSurface()
-            }
+
         }
-        .orbitFloatingAction(label: "Создать проект", identifier: "project-create", enabled: editor == nil) {
-            OrbitHaptics.selection()
-            editor = ProjectEditorPresentation()
-        }
+        .orbitCreateAction(model: model, datePreset: { nil })
         .onAppear { model.reload(); today = TaskDaySelection.currentDay() }
         .onReceive(timer) { _ in today = TaskDaySelection.currentDay() }
         .onChange(of: phase) { _, value in if value == .active { model.reload(); today = TaskDaySelection.currentDay() } }
         .environment(\.orbitAllowsTaskSelection, false)
     }
+    private var projectRows: some View {
+        Section {
+            if let error = model.projectListError {
+                OrbitTaskLoadFailure(message: error, retry: { model.reloadProjects() })
+            } else {
+                if let error = model.listError {
+                    OrbitTaskLoadFailure(message: error, retry: { model.reload() })
+                }
+                if !model.projects.contains(where: { !$0.isArchived }) {
+                    Text("Пока нет проектов").foregroundStyle(.secondary)
+                        .listRowBackground(appearance.canvas)
+                }
+                ForEach(model.projects.filter { !$0.isArchived }) { project in
+                    Button { selectedProject = project } label: {
+                        ProjectIndexRow(name: project.name,
+                            summary: summaries[project.id, default: ProjectTaskSummary()],
+                            unavailable: model.listError != nil)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Открыть задачи проекта")
+                    .accessibilityIdentifier("project-row-\(project.id.uuidString)")
+                    .contextMenu {
+                        Button("Переименовать…", systemImage: "pencil") {
+                            editor = ProjectEditorPresentation(projectID: project.id, name: project.name)
+                        }
+                    }
+                    .listRowBackground(appearance.canvas)
+                }
+            }
+        } header: {
+            HStack {
+                Text("Проекты").font(.headline).foregroundStyle(.primary)
+                Spacer()
+                Button { editor = ProjectEditorPresentation() } label: {
+                    Image(systemName: "plus").frame(width: 44, height: 44)
+                }
+                .accessibilityLabel("Создать проект")
+                .accessibilityIdentifier("project-create")
+            }.textCase(nil)
+        }
+    }
+
 }
 
 private struct ProjectIndexRow: View {

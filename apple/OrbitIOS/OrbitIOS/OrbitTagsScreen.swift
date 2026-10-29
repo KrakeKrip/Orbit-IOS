@@ -4,6 +4,7 @@ import OrbitCore
 struct OrbitTagsScreen: View {
     let model: IOSInboxModel
     var selection: Binding<Set<UUID>>? = nil
+    var projectsContent: AnyView? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.orbitAppearance) private var appearance
     @FocusState private var nameFocused: Bool
@@ -17,12 +18,16 @@ struct OrbitTagsScreen: View {
     private var animation: Animation? { reduceMotion ? nil : .easeInOut(duration: 0.2) }
     var body: some View {
         List {
+            if let projectsContent { projectsContent }
             if let failure = model.tagError { OrbitErrorMessage(failure) }
             if let error { OrbitErrorMessage(error) }
-            if model.tags.isEmpty {
+            if model.tags.isEmpty && projectsContent == nil {
                 ContentUnavailableView("Пока нет тегов", systemImage: "tag", description: Text("Например, «Важно», «Дом» или «Работа». Теги доступны во всех проектах."))
             }
             Section {
+                if model.tags.isEmpty && projectsContent != nil {
+                    Text("Пока нет тегов").foregroundStyle(.secondary).listRowBackground(appearance.canvas)
+                }
                 ForEach(model.tags) { tag in
                     HStack(spacing: 12) {
                         Button {
@@ -60,17 +65,31 @@ struct OrbitTagsScreen: View {
                         Button("Удалить", role: .destructive) { deleting = tag }
                     }
                 }
+                if projectsContent == nil {
                 Button("Создать тег", systemImage: "plus") {
                     editingID = nil; name = ""; color = "coral"; editorError = nil; editing = true
                 }.frame(minHeight: 44)
                     .listRowBackground(appearance.canvas)
+                }
+            } header: {
+                if projectsContent != nil {
+                    HStack {
+                        Text("Теги").font(.headline).foregroundStyle(.primary)
+                        Spacer()
+                        Button {
+                            editingID = nil; name = ""; color = "coral"; editorError = nil; editing = true
+                        } label: { Image(systemName: "plus").frame(width: 44, height: 44) }
+                        .accessibilityLabel("Создать тег")
+                    }.textCase(nil)
+                }
             } footer: {
                 Text(selection == nil ? "Теги общие для всех проектов. Удаление тега не удаляет задачи." : "Выбор применится при сохранении задачи. Изменения самих тегов сохраняются сразу.")
             }
         }
         .listStyle(.plain)
+        .contentMargins(.bottom, projectsContent == nil ? 0 : 88, for: .scrollContent)
         .animation(animation, value: model.tags.map(\.id))
-        .orbitEditorSurface().navigationTitle("Теги").navigationBarTitleDisplayMode(.inline)
+        .orbitEditorSurface().navigationTitle(projectsContent == nil ? "Теги" : "Проекты").navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $editing) {
             NavigationStack {
                 ScrollView {
