@@ -66,7 +66,8 @@ public final class OrbitTaskStore {
     public func tags() throws -> [OrbitTag] {
         try context.fetch(FetchDescriptor<OrbitTag>()).sorted { ($0.name, $0.id) < ($1.name, $1.id) }
     }
-    public func saveTag(name: String, id: UUID? = nil) throws {
+    public func saveTag(name: String, id: UUID? = nil, color: String? = nil) throws {
+        if let color, !OrbitTag.colors.contains(color) { throw BackupError.invalid("Неизвестный цвет тега.") }
         let name = try ProjectName.validated(name)
         let all = try tags()
         guard !all.contains(where: { $0.id != id && $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame }) else {
@@ -75,8 +76,19 @@ public final class OrbitTaskStore {
         if let id {
             guard let tag = all.first(where: { $0.id == id }) else { throw BackupError.invalid("Тег не найден.") }
             tag.rename(name)
-        } else { context.insert(OrbitTag(name: name)) }
+            if let color { tag.setColor(color) }
+        } else { context.insert(OrbitTag(name: name, colorName: color ?? "coral")) }
         do { try context.save() } catch { context.rollback(); throw error }
+    }
+    public func deleteTag(id: UUID) throws {
+        guard let tag = try tags().first(where: { $0.id == id }) else { throw BackupError.invalid("Тег не найден.") }
+        do {
+            for task in try tasks() where (task.tagIDs ?? []).contains(id) {
+                task.setTags((task.tagIDs ?? []).filter { $0 != id })
+            }
+            context.delete(tag)
+            try context.save()
+        } catch { context.rollback(); throw error }
     }
     private func validateTags(_ ids: [UUID]) throws {
         let available = Set(try tags().map(\.id))

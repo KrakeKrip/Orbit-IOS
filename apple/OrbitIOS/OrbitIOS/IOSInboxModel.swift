@@ -143,9 +143,16 @@ final class IOSInboxModel {
 
     private(set) var tags: [OrbitTag] = []
     private(set) var tagError: String?
-    func saveTag(name: String, id: UUID? = nil) -> String? {
-        do { try store.saveTag(name: name, id: id); reload(); return nil }
+    func saveTag(name: String, id: UUID? = nil, color: String? = nil) -> String? {
+        do { try store.saveTag(name: name, id: id, color: color); reload(); return nil }
         catch { return error.localizedDescription }
+    }
+    func deleteTag(id: UUID) -> String? {
+        do {
+            try store.deleteTag(id: id)
+            lastSnapshot = nil; dismissUndo(); reload()
+            return nil
+        } catch { return error.localizedDescription }
     }
     func archiveProject(_ project: OrbitProject) -> String? {
         do { try store.setProjectArchived(!project.isArchived, id: project.id); reload(); return nil }

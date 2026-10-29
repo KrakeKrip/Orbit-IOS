@@ -80,6 +80,7 @@ struct OrbitIOSApp: App {
                     }
                 }
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: model.isSelecting)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: model.canUndo)
                 .fullScreenCover(isPresented: Binding(get: { !welcomeCompleted }, set: { _ in })) {
                     OrbitWelcomeScreen(reminders: model.reminders) { welcomeCompleted = true }
                         .tint(.orbitAccent).modifier(OrbitTheme())

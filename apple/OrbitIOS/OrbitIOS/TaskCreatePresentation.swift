@@ -134,6 +134,7 @@ struct TaskCreateSheet: View {
     }
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private enum EditorFocus: Hashable { case title, newSubtask, subtask(UUID) }
     private enum Parameter: String, Identifiable {
         case date, time, reminder, repeatRule, deadline, tags
@@ -295,6 +296,8 @@ struct TaskCreateSheet: View {
                     .padding(.horizontal, 20)
                     .padding(.top, 16)
                     .padding(.bottom, 24)
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: addingSubtask)
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: draftSubtasks.map(\.id))
                 }
                 .scrollDismissesKeyboard(.interactively)
                 .orbitEditorSurface()
@@ -536,6 +539,7 @@ struct TaskCreateSheet: View {
             .orbitEditorSurface()
             .navigationTitle(parameterTitle(target))
             .navigationBarTitleDisplayMode(.inline)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: expandedGroup)
         }
     }
 

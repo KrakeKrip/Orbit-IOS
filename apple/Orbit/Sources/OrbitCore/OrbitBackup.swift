@@ -8,11 +8,12 @@ public struct OrbitBackup: Codable, Equatable {
     public var tasks: [Task]
     public var tags: [Tag]?
     public struct Tag: Codable, Equatable {
+        public var colorName: String?
         public var id: UUID
         public var name: String
         public var createdAt: Date
-        public init(_ value: OrbitTag) { id = value.id; name = value.name; createdAt = value.createdAt }
-        public func model() -> OrbitTag { OrbitTag(id: id, name: name, createdAt: createdAt) }
+        public init(_ value: OrbitTag) { id = value.id; name = value.name; createdAt = value.createdAt; colorName = value.colorName }
+        public func model() -> OrbitTag { OrbitTag(id: id, name: name, createdAt: createdAt, colorName: colorName) }
     }
     public struct Project: Codable, Equatable {
         public var id: UUID

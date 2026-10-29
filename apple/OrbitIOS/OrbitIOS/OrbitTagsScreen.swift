@@ -4,46 +4,124 @@ import OrbitCore
 struct OrbitTagsScreen: View {
     let model: IOSInboxModel
     var selection: Binding<Set<UUID>>? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var editingID: UUID?
     @State private var name = ""
+    @State private var color = "coral"
     @State private var editing = false
+    @State private var deleting: OrbitTag?
     @State private var error: String?
+    @State private var editorError: String?
+    private var animation: Animation? { reduceMotion ? nil : .easeInOut(duration: 0.2) }
     var body: some View {
-        Form {
+        List {
             if let failure = model.tagError { OrbitErrorMessage(failure) }
             if let error { OrbitErrorMessage(error) }
+            if model.tags.isEmpty {
+                ContentUnavailableView("Пока нет тегов", systemImage: "tag", description: Text("Например, «Важно», «Дом» или «Работа». Теги доступны во всех проектах."))
+            }
             Section {
                 ForEach(model.tags) { tag in
-                    HStack {
+                    HStack(spacing: 12) {
                         Button {
                             if let selection {
-                                if selection.wrappedValue.contains(tag.id) { selection.wrappedValue.remove(tag.id) }
-                                else { selection.wrappedValue.insert(tag.id) }
+                                withAnimation(animation) {
+                                    if selection.wrappedValue.contains(tag.id) { selection.wrappedValue.remove(tag.id) }
+                                    else { selection.wrappedValue.insert(tag.id) }
+                                }
+                                OrbitHaptics.selection()
                             } else { edit(tag) }
                         } label: {
-                            HStack {
-                                Text(tag.name).foregroundStyle(.primary)
+                            HStack(spacing: 12) {
+                                Circle().fill(tint(tag.colorName ?? "coral")).frame(width: 12, height: 12)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(tag.name).foregroundStyle(.primary)
+                                    Text("Задач: \(model.tasks.filter { ($0.tagIDs ?? []).contains(tag.id) }.count)")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
                                 Spacer()
                                 if selection?.wrappedValue.contains(tag.id) == true {
-                                    Image(systemName: "checkmark").foregroundStyle(Color.orbitAccent)
+                                    Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.orbitAccent)
+                                        .transition(.opacity.combined(with: .scale(scale: 0.85)))
                                 }
                             }.frame(minHeight: 44).contentShape(Rectangle())
                         }.buttonStyle(.plain)
-                        Button { edit(tag) } label: { Image(systemName: "pencil").frame(width: 44, height: 44) }
-                            .buttonStyle(.borderless).accessibilityLabel("Переименовать тег \(tag.name)")
+                        Menu {
+                            Button("Изменить", systemImage: "pencil") { edit(tag) }
+                            Button("Удалить тег", systemImage: "trash", role: .destructive) { deleting = tag }
+                        } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
+                            .accessibilityLabel("Действия с тегом \(tag.name)")
+                    }
+                    .swipeActions {
+                        Button("Удалить", role: .destructive) { deleting = tag }
                     }
                 }
-                Button("Создать тег", systemImage: "plus") { editingID = nil; name = ""; editing = true }
+                Button("Создать тег", systemImage: "plus") {
+                    editingID = nil; name = ""; color = "coral"; editorError = nil; editing = true
+                }.frame(minHeight: 44)
             } footer: {
-                Text(selection == nil ? "Теги общие для всех проектов." : "Выбор применится при сохранении задачи. Создание и переименование тегов сохраняются сразу для всего приложения.")
+                Text(selection == nil ? "Теги общие для всех проектов. Удаление тега не удаляет задачи." : "Выбор применится при сохранении задачи. Изменения самих тегов сохраняются сразу.")
             }
         }
+        .animation(animation, value: model.tags.map(\.id))
         .orbitEditorSurface().navigationTitle("Теги").navigationBarTitleDisplayMode(.inline)
-        .alert(editingID == nil ? "Новый тег" : "Переименовать тег", isPresented: $editing) {
-            TextField("Название", text: $name)
-            Button("Сохранить") { error = model.saveTag(name: name, id: editingID) }
-            Button("Отмена", role: .cancel) { }
-        } message: { Text("До 120 символов.") }
+        .sheet(isPresented: $editing) {
+            NavigationStack {
+                Form {
+                    Section("Название") { TextField("Название тега", text: $name) }
+                    Section("Цвет") {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 52))], spacing: 12) {
+                            ForEach(OrbitTag.colors, id: \.self) { option in
+                                Button {
+                                    withAnimation(animation) { color = option }
+                                    OrbitHaptics.selection()
+                                } label: {
+                                    ZStack {
+                                        Circle().fill(tint(option)).frame(width: 32, height: 32)
+                                        if color == option { Image(systemName: "checkmark").font(.body.bold()).foregroundStyle(.white) }
+                                    }.frame(width: 48, height: 48).contentShape(Rectangle())
+                                }.buttonStyle(.plain).accessibilityLabel(colorTitle(option))
+                                    .accessibilityAddTraits(color == option ? .isSelected : [])
+                            }
+                        }.padding(.vertical, 8)
+                    }
+                    if let editorError { OrbitErrorMessage(editorError) }
+                }
+                .orbitEditorSurface().navigationTitle(editingID == nil ? "Новый тег" : "Изменить тег")
+                .navigationBarTitleDisplayMode(.inline)
+                .orbitEditorActions(enabled: !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, confirm: "Сохранить", save: {
+                    editorError = model.saveTag(name: name, id: editingID, color: color)
+                    if editorError == nil { editing = false }
+                }, cancel: { editing = false })
+            }.presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
+        }
+        .alert("Удалить тег?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
+            Button("Удалить", role: .destructive) {
+                if let tag = deleting {
+                    let id = tag.id
+                    withAnimation(animation) { error = model.deleteTag(id: id) }
+                    if error == nil { selection?.wrappedValue.remove(id) }
+                }
+                deleting = nil
+            }
+            Button("Отмена", role: .cancel) { deleting = nil }
+        } message: { Text("Тег будет снят со всех задач. Сами задачи сохранятся. Это действие нельзя отменить.") }
     }
-    private func edit(_ tag: OrbitTag) { editingID = tag.id; name = tag.name; editing = true }
+    private func edit(_ tag: OrbitTag) {
+        editingID = tag.id; name = tag.name; color = tag.colorName ?? "coral"; editorError = nil; editing = true
+    }
+    private func tint(_ name: String) -> Color {
+        switch name {
+        case "orange": .orange
+        case "green": .green
+        case "blue": .blue
+        case "purple": .purple
+        case "pink": .pink
+        case "gray": .gray
+        default: .orbitAccentFill
+        }
+    }
+    private func colorTitle(_ name: String) -> String {
+        ["coral": "Коралловый", "orange": "Оранжевый", "green": "Зелёный", "blue": "Синий", "purple": "Фиолетовый", "pink": "Розовый", "gray": "Серый"][name] ?? name
+    }
 }
