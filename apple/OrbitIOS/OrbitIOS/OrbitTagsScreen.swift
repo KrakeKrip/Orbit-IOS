@@ -5,6 +5,8 @@ struct OrbitTagsScreen: View {
     let model: IOSInboxModel
     var selection: Binding<Set<UUID>>? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.orbitAppearance) private var appearance
+    @FocusState private var nameFocused: Bool
     @State private var editingID: UUID?
     @State private var name = ""
     @State private var color = "coral"
@@ -52,6 +54,8 @@ struct OrbitTagsScreen: View {
                         } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
                             .accessibilityLabel("Действия с тегом \(tag.name)")
                     }
+                    .listRowBackground(appearance.canvas)
+                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 8))
                     .swipeActions {
                         Button("Удалить", role: .destructive) { deleting = tag }
                     }
@@ -59,17 +63,28 @@ struct OrbitTagsScreen: View {
                 Button("Создать тег", systemImage: "plus") {
                     editingID = nil; name = ""; color = "coral"; editorError = nil; editing = true
                 }.frame(minHeight: 44)
+                    .listRowBackground(appearance.canvas)
             } footer: {
                 Text(selection == nil ? "Теги общие для всех проектов. Удаление тега не удаляет задачи." : "Выбор применится при сохранении задачи. Изменения самих тегов сохраняются сразу.")
             }
         }
+        .listStyle(.plain)
         .animation(animation, value: model.tags.map(\.id))
         .orbitEditorSurface().navigationTitle("Теги").navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $editing) {
             NavigationStack {
-                Form {
-                    Section("Название") { TextField("Название тега", text: $name) }
-                    Section("Цвет") {
+                ScrollView {
+                  VStack(alignment: .leading, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Название").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                        TextField("Например, Работа", text: $name)
+                            .font(.title3).focused($nameFocused).submitLabel(.done)
+                            .onSubmit { nameFocused = false }
+                            .padding(16)
+                            .background(appearance.surface, in: RoundedRectangle(cornerRadius: 16))
+                    }
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Цвет").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 52))], spacing: 12) {
                             ForEach(OrbitTag.colors, id: \.self) { option in
                                 Button {
@@ -83,9 +98,19 @@ struct OrbitTagsScreen: View {
                                 }.buttonStyle(.plain).accessibilityLabel(colorTitle(option))
                                     .accessibilityAddTraits(color == option ? .isSelected : [])
                             }
-                        }.padding(.vertical, 8)
+                        }.padding(12)
+                            .background(appearance.surface, in: RoundedRectangle(cornerRadius: 16))
                     }
                     if let editorError { OrbitErrorMessage(editorError) }
+                  }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .scrollDismissesKeyboard(.interactively)
+                .background(appearance.canvas.ignoresSafeArea())
+                .toolbar {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button("Готово") { nameFocused = false }
+                    }
                 }
                 .orbitEditorSurface().navigationTitle(editingID == nil ? "Новый тег" : "Изменить тег")
                 .navigationBarTitleDisplayMode(.inline)
@@ -93,7 +118,9 @@ struct OrbitTagsScreen: View {
                     editorError = model.saveTag(name: name, id: editingID, color: color)
                     if editorError == nil { editing = false }
                 }, cancel: { editing = false })
-            }.presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
+            }
+            .background(appearance.canvas.ignoresSafeArea())
+            .presentationDetents([.large]).presentationDragIndicator(.visible)
         }
         .alert("Удалить тег?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
             Button("Удалить", role: .destructive) {
