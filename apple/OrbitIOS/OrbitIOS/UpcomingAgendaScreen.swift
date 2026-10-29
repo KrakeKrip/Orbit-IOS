@@ -147,7 +147,7 @@ struct UpcomingAgendaScreen: View {
             .background(appearance.canvas)
             .toolbar(model.isSelecting ? .hidden : .visible, for: .navigationBar)
             .scrollBounceBehavior(.always)
-            .orbitScrollingHeader(observesChild: false)
+            .orbitScrollingHeader()
             .sheet(item: $editor) { item in
                 switch item {
                 case .date(let task): TaskDateSheet(task: task, model: model)

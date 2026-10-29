@@ -47,7 +47,7 @@ struct UpcomingListScreen: View {
                         if model.listError != nil {
                             listErrorView
                         } else if selectedTasks.isEmpty {
-                            emptyView
+                            emptyView.orbitEmptyScroll()
                         } else {
                             taskList
                         }
@@ -118,6 +118,8 @@ struct UpcomingListScreen: View {
         .id(selectedDay)
         .listStyle(.plain).contentMargins(.bottom, 88, for: .scrollContent)
         .scrollContentBackground(.hidden)
+        .orbitMainScrollObserver()
+        .scrollBounceBehavior(.always)
     }
 
     private var emptyView: some View {

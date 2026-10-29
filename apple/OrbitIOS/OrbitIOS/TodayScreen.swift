@@ -39,7 +39,7 @@ struct TodayScreen: View {
                     if model.listError != nil {
                         listErrorView
                     } else if model.tasks.isEmpty || todayTasks.isEmpty {
-                        emptyView
+                        emptyView.orbitEmptyScroll()
                     } else {
                         taskList
                     }
@@ -106,6 +106,8 @@ struct TodayScreen: View {
         .listStyle(.plain).contentMargins(.bottom, 88, for: .scrollContent)
         .contentMargins(.top, 0, for: .scrollContent)
         .scrollContentBackground(.hidden)
+        .orbitMainScrollObserver()
+        .scrollBounceBehavior(.always)
     }
 
     private var listErrorView: some View {

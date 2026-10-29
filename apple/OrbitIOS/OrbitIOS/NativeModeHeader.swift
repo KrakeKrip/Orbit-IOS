@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct NativeModeHeader<Switcher: View, Trailing: View>: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.orbitHeaderCompact) private var compact
+    @ScaledMetric(relativeTo: .largeTitle) private var expandedTitleHeight = 56
+    @Environment(\.orbitHeaderProgress) private var progress
     @Environment(\.orbitAppearance) private var appearance
     @Environment(\.orbitWorkspaceTitle) private var workspaceTitle
     @Environment(IOSInboxModel.self) private var model
@@ -16,12 +16,15 @@ struct NativeModeHeader<Switcher: View, Trailing: View>: View {
         VStack(alignment: .leading, spacing: 4) {
             if model.isSelecting { OrbitTaskSelectionHeader(model: model) }
             else {
-                if !compact {
-                    Text(title ?? workspaceTitle).font(.largeTitle.bold())
-                        .foregroundStyle(.primary).frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.bottom, 12).accessibilityAddTraits(.isHeader)
-                        .transition(.opacity)
-                }
+                Text(title ?? workspaceTitle).font(.largeTitle.bold())
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                    .foregroundStyle(.primary).frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.bottom, 12)
+                    .opacity(max(0, 1 - progress * 2))
+                    .offset(y: -16 * progress)
+                    .frame(height: expandedTitleHeight * (1 - progress), alignment: .top)
+                    .clipped()
+                    .accessibilityHidden(progress > 0.5)
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 12) { trailing; Spacer(minLength: 0); switcher }
                     VStack(alignment: .leading, spacing: 4) { trailing; switcher }
@@ -29,14 +32,16 @@ struct NativeModeHeader<Switcher: View, Trailing: View>: View {
                     .dynamicTypeSize(...DynamicTypeSize.accessibility1)
             }
         }
-        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
         .padding(.horizontal, 16).padding(.vertical, 8)
         .fixedSize(horizontal: false, vertical: true)
         .background(appearance.canvas).zIndex(10)
-        .navigationTitle(compact ? (title ?? workspaceTitle) : "")
+        .navigationTitle(title ?? workspaceTitle)
         .navigationBarTitleDisplayMode(.inline)
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: compact)
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text(title ?? workspaceTitle).font(.headline).opacity(max(0, progress * 2 - 1))
+                    .accessibilityHidden(progress <= 0.5)
+            }
             if !model.isSelecting {
                 ToolbarItem(placement: .topBarTrailing) { OrbitSettingsButton() }
             }
@@ -72,55 +77,56 @@ struct OrbitPeriodControls<DateField: View, Previous: View, Next: View, Today: V
 }
 
 
-/// Keeps the title responsive when fixed date controls sit above the scroll view.
-@available(iOS 18.0, *)
+/// Read the actual scrolling surface, not an ancestor containing several views.
+/// The title follows the gesture continuously; no threshold or layout animation
+/// can restart a collapse while the scroll view is still decelerating.
 private struct OrbitScrollingHeader: ViewModifier {
-    var observesChild = true
-    @State private var compact = false
-    @ViewBuilder func body(content: Content) -> some View {
-        if observesChild {
-            content.environment(\.orbitHeaderCompact, compact)
-                .onScrollGeometryChange(for: Bool.self) { geometry in
-                    geometry.contentOffset.y + geometry.contentInsets.top > 48
-                } action: { _, value in compact = value }
-        } else {
-            content.environment(\.orbitHeaderCompact, compact)
-                .onPreferenceChange(OrbitMainScrollKey.self) { compact = $0 }
-        }
+    @State private var offset: CGFloat = 0
+    func body(content: Content) -> some View {
+        content.environment(\.orbitHeaderProgress, min(max(offset / 80, 0), 1))
+            .onPreferenceChange(OrbitMainScrollKey.self) { offset = $0 }
     }
 }
 extension View {
-    @ViewBuilder func orbitScrollingHeader(observesChild: Bool = true) -> some View {
-        if #available(iOS 18.0, *) { modifier(OrbitScrollingHeader(observesChild: observesChild)) } else { self }
+    func orbitScrollingHeader() -> some View {
+        modifier(OrbitScrollingHeader())
     }
 }
-
 struct OrbitMainScrollKey: PreferenceKey {
-    static let defaultValue = false
-    static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
 @available(iOS 18.0, *)
 private struct OrbitMainScrollObserver: ViewModifier {
-    @State private var compact = false
+    @State private var offset: CGFloat = 0
     func body(content: Content) -> some View {
-        content.onScrollGeometryChange(for: Bool.self) {
-            $0.contentOffset.y + $0.contentInsets.top > 48
-        } action: { _, value in compact = value }
-        .preference(key: OrbitMainScrollKey.self, value: compact)
+        content.onScrollGeometryChange(for: CGFloat.self) {
+            max(0, $0.contentOffset.y + $0.contentInsets.top)
+        } action: { _, value in offset = value }
+        .preference(key: OrbitMainScrollKey.self, value: offset)
     }
 }
 extension View {
     @ViewBuilder func orbitMainScrollObserver() -> some View {
         if #available(iOS 18.0, *) { modifier(OrbitMainScrollObserver()) } else { self }
     }
-}
 
-private struct OrbitHeaderCompactKey: EnvironmentKey {
-    static let defaultValue = false
+    /// Empty screens still support the same pull and title motion as a full list.
+    func orbitEmptyScroll() -> some View {
+        GeometryReader { geometry in
+            ScrollView {
+                self.frame(maxWidth: .infinity, minHeight: geometry.size.height)
+            }
+            .contentMargins(.bottom, 88, for: .scrollContent)
+            .scrollBounceBehavior(.always)
+            .orbitMainScrollObserver()
+        }
+    }
 }
+private struct OrbitHeaderProgressKey: EnvironmentKey { static let defaultValue: CGFloat = 0 }
 extension EnvironmentValues {
-    var orbitHeaderCompact: Bool {
-        get { self[OrbitHeaderCompactKey.self] }
-        set { self[OrbitHeaderCompactKey.self] = newValue }
+    var orbitHeaderProgress: CGFloat {
+        get { self[OrbitHeaderProgressKey.self] }
+        set { self[OrbitHeaderProgressKey.self] = newValue }
     }
 }

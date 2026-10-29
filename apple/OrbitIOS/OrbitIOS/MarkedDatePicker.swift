@@ -34,6 +34,7 @@ struct MarkedMonthCalendar: View {
     @Binding var selection: Date
     let taskDays: Set<String>
     let onSelect: () -> Void
+    var pinsHeader = false
     @State private var month: Date
     @State private var choosingMonth = false
     @State private var jumpYear: Int
@@ -46,10 +47,11 @@ struct MarkedMonthCalendar: View {
     private let columns = Array(repeating: GridItem(.flexible(minimum: 0), spacing: 0), count: 7)
     private let weekdays = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "ВС"]
 
-    init(selection: Binding<Date>, taskDays: Set<String>, onSelect: @escaping () -> Void) {
+    init(selection: Binding<Date>, taskDays: Set<String>, pinsHeader: Bool = false, onSelect: @escaping () -> Void) {
         _selection = selection
         self.taskDays = taskDays
         self.onSelect = onSelect
+        self.pinsHeader = pinsHeader
         let calendar = Calendar.orbitCivil
         let date = selection.wrappedValue
         _month = State(initialValue: calendar.dateInterval(of: .month, for: date)!.start)
@@ -73,7 +75,61 @@ struct MarkedMonthCalendar: View {
     }
 
     var body: some View {
-        VStack(spacing: 8) {
+        Group {
+            if pinsHeader {
+                LazyVStack(spacing: 8, pinnedViews: [.sectionHeaders]) {
+                    Section { monthContent } header: {
+                        monthHeader.background(appearance.canvas).zIndex(1)
+                    }
+                }
+            } else {
+                VStack(spacing: 8) { monthHeader; monthContent }
+            }
+        }
+        .onChange(of: selection) { _, date in
+            month = calendar.dateInterval(of: .month, for: date)!.start
+        }
+        .buttonStyle(.plain)
+        .environment(\.locale, Locale(identifier: "ru_RU"))
+    }
+
+    @ViewBuilder private var monthContent: some View {
+                if choosingMonth {
+                    HStack(spacing: 0) {
+                        Picker("Месяц", selection: $jumpMonth) {
+                            ForEach(1...12, id: \.self) { value in
+                                Text(calendar.monthSymbols[value - 1].localizedCapitalized).tag(value)
+                            }
+                        }
+                        Picker("Год", selection: $jumpYear) {
+                            ForEach(1900...2199, id: \.self) { Text(String($0)).tag($0) }
+                        }
+                    }
+                    .pickerStyle(.wheel)
+                    .environment(\.locale, Locale(identifier: "ru_RU"))
+                    .frame(height: 180).clipped()
+                    Button("Показать месяц") {
+                        var components = DateComponents()
+                        components.year = jumpYear; components.month = jumpMonth; components.day = 1; components.hour = 12
+                        if let date = calendar.date(from: components) { month = date }
+                        choosingMonth = false
+                    }
+                    .frame(minHeight: 44)
+                } else {
+                    LazyVGrid(columns: columns, spacing: 0) {
+                        ForEach(weekdays, id: \.self) { weekday in
+                            Text(weekday).font(.caption.weight(.medium)).foregroundStyle(appearance.secondaryText)
+                                .frame(maxWidth: .infinity, minHeight: 24)
+                        }
+                        ForEach(Array(days.enumerated()), id: \.offset) { _, date in
+                            if let date { dayButton(date) }
+                            else { Color.clear.frame(height: 44).accessibilityHidden(true) }
+                        }
+                    }
+                }
+    }
+
+    private var monthHeader: some View {
             HStack(spacing: 0) {
                 Button {
                     jumpYear = calendar.component(.year, from: month)
@@ -92,45 +148,6 @@ struct MarkedMonthCalendar: View {
                 monthArrow(-1, label: "Предыдущий месяц", symbol: "chevron.left")
                 monthArrow(1, label: "Следующий месяц", symbol: "chevron.right")
             }
-            if choosingMonth {
-                HStack(spacing: 0) {
-                    Picker("Месяц", selection: $jumpMonth) {
-                        ForEach(1...12, id: \.self) { value in
-                            Text(calendar.monthSymbols[value - 1].localizedCapitalized).tag(value)
-                        }
-                    }
-                    Picker("Год", selection: $jumpYear) {
-                        ForEach(1900...2199, id: \.self) { Text(String($0)).tag($0) }
-                    }
-                }
-                .pickerStyle(.wheel)
-                .environment(\.locale, Locale(identifier: "ru_RU"))
-                .frame(height: 180).clipped()
-                Button("Показать месяц") {
-                    var components = DateComponents()
-                    components.year = jumpYear; components.month = jumpMonth; components.day = 1; components.hour = 12
-                    if let date = calendar.date(from: components) { month = date }
-                    choosingMonth = false
-                }
-                .frame(minHeight: 44)
-            } else {
-                LazyVGrid(columns: columns, spacing: 0) {
-                    ForEach(weekdays, id: \.self) { weekday in
-                        Text(weekday).font(.caption.weight(.medium)).foregroundStyle(appearance.secondaryText)
-                            .frame(maxWidth: .infinity, minHeight: 24)
-                    }
-                    ForEach(Array(days.enumerated()), id: \.offset) { _, date in
-                        if let date { dayButton(date) }
-                        else { Color.clear.frame(height: 44).accessibilityHidden(true) }
-                    }
-                }
-            }
-        }
-        .onChange(of: selection) { _, date in
-            month = calendar.dateInterval(of: .month, for: date)!.start
-        }
-        .buttonStyle(.plain)
-        .environment(\.locale, Locale(identifier: "ru_RU"))
     }
 
     private func monthArrow(_ delta: Int, label: String, symbol: String) -> some View {

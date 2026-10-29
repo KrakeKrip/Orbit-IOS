@@ -77,7 +77,7 @@ struct ProjectWorkspaceScreen: View {
                                     }
                                 }
                             }
-                            .listStyle(.plain).contentMargins(.bottom, 88, for: .scrollContent).scrollContentBackground(.hidden)
+                            .listStyle(.plain).contentMargins(.bottom, 88, for: .scrollContent).scrollContentBackground(.hidden).orbitMainScrollObserver()
                         }
                     }
                     .background(appearance.canvas)

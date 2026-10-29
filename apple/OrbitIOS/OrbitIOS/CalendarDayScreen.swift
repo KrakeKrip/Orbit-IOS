@@ -180,7 +180,7 @@ struct CalendarDayScreen: View {
             .environment(\.orbitCalendarActions, AnyView(calendarTaskActions))
             .toolbar(model.isSelecting ? .hidden : .visible, for: .navigationBar)
             .scrollBounceBehavior(.always)
-            .orbitScrollingHeader(observesChild: false)
+            .orbitScrollingHeader()
             .background(
                 // Adaptive sizing source: the real height of this content area
                 // (safe areas applied), never fixed UIScreen values.

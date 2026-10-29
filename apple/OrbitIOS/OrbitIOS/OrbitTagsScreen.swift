@@ -22,7 +22,7 @@ struct OrbitTagsScreen: View {
             }
             Section {
                 if model.tags.isEmpty && projectsContent != nil {
-                    Text("Добавьте первый тег").font(.subheadline).foregroundStyle(.secondary).frame(minHeight: 44).listRowBackground(appearance.surface)
+                    Text("Пока нет тегов").font(.subheadline).foregroundStyle(.secondary).padding(.vertical, 4).listRowBackground(projectsContent == nil ? appearance.surface : appearance.canvas)
                 }
                 ForEach(model.tags) { tag in
                     HStack(spacing: 12) {
@@ -55,7 +55,7 @@ struct OrbitTagsScreen: View {
                         } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
                             .accessibilityLabel("Действия с тегом \(tag.name)")
                     }
-                    .listRowBackground(appearance.surface)
+                    .listRowBackground(projectsContent == nil ? appearance.surface : appearance.canvas)
                     .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 8))
                     .swipeActions {
                         Button("Удалить", role: .destructive) { deleting = tag }
@@ -65,7 +65,7 @@ struct OrbitTagsScreen: View {
                 Button("Создать тег", systemImage: "plus") {
                     editor = TagEditorDraft()
                 }.frame(minHeight: 44)
-                    .listRowBackground(appearance.surface)
+                    .listRowBackground(projectsContent == nil ? appearance.surface : appearance.canvas)
                 }
             } header: {
                 if projectsContent != nil {
@@ -80,7 +80,8 @@ struct OrbitTagsScreen: View {
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .listStyle(.plain)
+        .listSectionSeparator(.hidden)
         .scrollBounceBehavior(.always)
         .contentMargins(.top, 8, for: .scrollContent)
         .contentMargins(.bottom, projectsContent == nil ? 0 : 88, for: .scrollContent)

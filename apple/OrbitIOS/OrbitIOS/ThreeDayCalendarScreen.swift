@@ -128,7 +128,7 @@ struct ThreeDayCalendarScreen: View {
             }))
             .toolbar(model.isSelecting ? .hidden : .visible, for: .navigationBar)
             .scrollBounceBehavior(.always)
-            .orbitScrollingHeader(observesChild: false)
+            .orbitScrollingHeader()
             .sheet(isPresented: $showsReadableDay) {
                 OrbitCalendarDayTasks(model: model, day: selectedDay)
             }

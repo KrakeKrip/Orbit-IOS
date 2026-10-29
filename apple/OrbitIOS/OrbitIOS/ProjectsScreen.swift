@@ -60,10 +60,10 @@ struct ProjectsScreen: View {
                     OrbitTaskLoadFailure(message: error, retry: { model.reload() })
                 }
                 if !model.projects.contains(where: { !$0.isArchived }) {
-                    Label("Создайте первый проект", systemImage: "folder.badge.plus")
+                    Text("Пока нет проектов")
                         .font(.subheadline).foregroundStyle(.secondary)
-                        .frame(minHeight: 44)
-                        .listRowBackground(appearance.surface)
+                        .padding(.vertical, 4)
+                        .listRowBackground(appearance.canvas)
                 }
                 ForEach(model.projects.filter { !$0.isArchived }) { project in
                     Button { selectedProject = project } label: {
@@ -79,7 +79,7 @@ struct ProjectsScreen: View {
                             editor = ProjectEditorPresentation(projectID: project.id, name: project.name)
                         }
                     }
-                    .listRowBackground(appearance.surface)
+                    .listRowBackground(appearance.canvas)
                 }
             }
         } header: {

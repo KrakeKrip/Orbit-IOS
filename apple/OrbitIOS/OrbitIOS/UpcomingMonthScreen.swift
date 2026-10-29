@@ -34,7 +34,7 @@ struct UpcomingMonthScreen: View {
                 }
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
-                        MarkedMonthCalendar(selection: selection, taskDays: Set(model.tasks.compactMap(\.plannedDate))) {}
+                        MarkedMonthCalendar(selection: selection, taskDays: Set(model.tasks.compactMap(\.plannedDate)), pinsHeader: true) {}
                             .id(monthReset)
                         OverdueTaskBlock(model: model)
                         Divider()
@@ -56,6 +56,8 @@ struct UpcomingMonthScreen: View {
                     }.padding(.horizontal, 16).padding(.bottom, 16)
                 }
                 .contentMargins(.bottom, 88, for: .scrollContent)
+                .orbitMainScrollObserver()
+                .clipped()
             }
             .background(appearance.canvas)
             .toolbar(model.isSelecting ? .hidden : .visible, for: .navigationBar)
