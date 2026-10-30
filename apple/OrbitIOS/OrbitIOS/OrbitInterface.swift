@@ -246,11 +246,15 @@ private struct OrbitWorkspaceHeader<Header: View>: ViewModifier {
                     .environment(\.orbitHeaderEmbedded, true)
                     .frame(maxWidth: .infinity)
                     .fixedSize(horizontal: false, vertical: true)
+                    // Controls follow the drag; the material stays anchored
+                    // above the navigation/status bars. Moving both exposes
+                    // the glass rectangle's top edge during rubber-banding.
+                    .offset(y: pullDown - collapsedSpace)
                     .background {
                         OrbitFrostedHeaderBackground(horizontalBleed: 0)
+                            .padding(.bottom, collapsedSpace - pullDown)
                             .ignoresSafeArea(.container, edges: .top)
                     }
-                    .offset(y: pullDown - collapsedSpace)
                     .zIndex(10)
             }
             .toolbarBackground(.hidden, for: .navigationBar)
