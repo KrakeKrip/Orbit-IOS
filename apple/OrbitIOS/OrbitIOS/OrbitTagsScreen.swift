@@ -97,7 +97,7 @@ struct OrbitTagsScreen: View {
         .scrollBounceBehavior(.always)
         .contentMargins(.top, 8, for: .scrollContent)
         .contentMargins(.bottom, projectsContent == nil ? 0 : 88, for: .scrollContent)
-        .orbitMainScrollObserver()
+        .orbitMainScrollObserver(enabled: projectsContent != nil)
         .animation(animation, value: model.tags.map(\.id))
         .animation(animation, value: tagsExpanded)
         .orbitEditorSurface().navigationTitle(projectsContent == nil ? "Теги" : "Проекты").navigationBarTitleDisplayMode(.inline)

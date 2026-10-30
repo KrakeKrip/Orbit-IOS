@@ -1,9 +1,11 @@
 import SwiftUI
 import UIKit
+import Observation
 
 struct NativeModeHeader<Switcher: View, Trailing: View>: View {
     @ScaledMetric(relativeTo: .largeTitle) private var expandedTitleHeight = 56
-    @Environment(\.orbitHeaderProgress) private var progress
+    @Environment(\.orbitHeaderMotion) private var motion
+    private var progress: CGFloat { motion?.progress ?? 0 }
     @Environment(\.orbitAppearance) private var appearance
     @Environment(\.orbitWorkspaceTitle) private var workspaceTitle
     @Environment(IOSInboxModel.self) private var model
@@ -22,8 +24,8 @@ struct NativeModeHeader<Switcher: View, Trailing: View>: View {
                     .foregroundStyle(.primary).frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.bottom, 12)
                     .scaleEffect(1 - 0.12 * progress, anchor: .leading)
-                    .opacity(max(0, 1 - progress * 2))
-                    .offset(y: -16 * progress)
+                    .opacity(1 - OrbitHeaderMotion.fade(progress, from: 0.12, to: 0.78))
+                    .offset(y: -6 * progress)
                     .frame(height: expandedTitleHeight, alignment: .top)
                     .accessibilityHidden(progress > 0.5)
                 ViewThatFits(in: .horizontal) {
@@ -40,7 +42,7 @@ struct NativeModeHeader<Switcher: View, Trailing: View>: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Text(title ?? workspaceTitle).font(.headline).opacity(max(0, progress * 2 - 1))
+                Text(title ?? workspaceTitle).font(.headline).opacity(OrbitHeaderMotion.fade(progress, from: 0.48, to: 1))
                     .accessibilityHidden(progress <= 0.5)
             }
             if !model.isSelecting {
@@ -78,161 +80,52 @@ struct OrbitPeriodControls<DateField: View, Previous: View, Next: View, Today: V
 }
 
 
-/// Read the actual scrolling surface, not an ancestor containing several views.
-/// The title follows the gesture continuously; no threshold or layout animation
-/// can restart a collapse while the scroll view is still decelerating.
+/// A single presentation value is read only by the header and its viewport.
+/// Scrolling does not propagate a new environment value through every task row.
+@Observable @MainActor
+final class OrbitHeaderMotion {
+    var offset: CGFloat = 0
+    var progress: CGFloat { min(max(offset / 80, 0), 1) }
+    var pullDown: CGFloat { max(0, -offset) }
+
+    static func fade(_ value: CGFloat, from lower: CGFloat, to upper: CGFloat) -> CGFloat {
+        let t = min(1, max(0, (value - lower) / (upper - lower)))
+        return t * t * (3 - 2 * t)
+    }
+}
+
 private struct OrbitScrollingHeader: ViewModifier {
-    @State private var offset: CGFloat = 0
+    @State private var motion = OrbitHeaderMotion()
     func body(content: Content) -> some View {
-        content.environment(\.orbitHeaderProgress, min(max(offset / 80, 0), 1))
-            .environment(\.orbitHeaderPullDown, max(0, -offset))
-            .onPreferenceChange(OrbitMainScrollKey.self) { offset = $0 }
+        content.environment(\.orbitHeaderMotion, motion)
     }
 }
 extension View {
-    func orbitScrollingHeader() -> some View {
-        modifier(OrbitScrollingHeader())
-    }
+    func orbitScrollingHeader() -> some View { modifier(OrbitScrollingHeader()) }
 }
-struct OrbitMainScrollKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        let next = nextValue()
-        if abs(next) > abs(value) { value = next }
-    }
-}
-private struct OrbitHeaderScrollSample: Equatable {
-    let y: CGFloat
-    let top: CGFloat
-    let valid: Bool
-}
-@available(iOS 18.0, *)
+
 private struct OrbitMainScrollObserver: ViewModifier {
+    var enabled = true
     var followsCalendarGesture = false
-    @State private var offset: CGFloat = 0
-    @State private var scrollHandle = OrbitHeaderScrollHandle()
-    @State private var referenceTopInset: CGFloat?
-    @State private var followsTouch = false
-    @State private var followsShortContentGesture = false
-    @State private var shortGestureOrigin: CGFloat?
-    @State private var shortTranslationOrigin: CGFloat = 0
-    @State private var settling: Task<Void, Never>?
+    @Environment(\.orbitHeaderMotion) private var motion
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.displayScale) private var displayScale
+    @State private var handle = OrbitHeaderScrollHandle()
     func body(content: Content) -> some View {
-        content.background(OrbitHeaderScrollProbe(handle: scrollHandle).allowsHitTesting(false))
-        .simultaneousGesture(DragGesture(minimumDistance: 8, coordinateSpace: .global)
-            .onChanged { value in
-                if shortGestureOrigin == nil {
-                    guard followsCalendarGesture || scrollHandle.contentFits,
-                          abs(value.translation.height) > abs(value.translation.width) else { return }
-                    settling?.cancel()
-                    shortGestureOrigin = offset
-                    // Recognition starts after the drag threshold. Do not apply
-                    // that accumulated distance as a one-frame title jump.
-                    shortTranslationOrigin = value.translation.height >= 0 ? 8 : -8
-                    followsShortContentGesture = !followsCalendarGesture
-                }
-                offset = min(80, max(followsCalendarGesture ? 0 : -80, (shortGestureOrigin ?? 0) - (value.translation.height - shortTranslationOrigin)))
-            }
-            .onEnded { value in
-                guard shortGestureOrigin != nil else { return }
-                shortGestureOrigin = nil
-                let projected = offset - (value.predictedEndTranslation.height - value.translation.height) * 0.2
-                settle(to: projected < 40 ? 0 : 80)
-            })
-        .onDisappear { settling?.cancel() }
-        .onScrollPhaseChange { old, phase in
-            if (phase == .tracking || phase == .interacting), old != .tracking && old != .interacting {
-                settling?.cancel()
-                followsShortContentGesture = !followsCalendarGesture && scrollHandle.contentFits
-            }
-            if followsCalendarGesture || followsShortContentGesture {
-                followsTouch = phase == .tracking || phase == .interacting
-            } else {
-                followsTouch = phase == .tracking || phase == .interacting || phase == .decelerating
-            }
-            // A resting/programmatic calendar offset is never rubber-banding.
-            // Clear the visual pull even if UIKit emits no final geometry sample.
-            if !followsTouch, !followsShortContentGesture, offset < 0 {
-                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { offset = 0 }
-            }
-            // The direct drag owns timeline header movement and release.
-            // Native deceleration must not restart that animation.
-            if followsCalendarGesture {
-                if phase == .decelerating || phase == .idle {
-                    DispatchQueue.main.async {
-                        // A competing native recognizer can cancel SwiftUI's
-                        // drag without delivering onEnded. Finish that drag too.
-                        guard shortGestureOrigin != nil else { return }
-                        shortGestureOrigin = nil
-                        settle(to: offset < 40 ? 0 : 80)
-                    }
-                }
-                return
-            }
-            // Settle only a real touch/deceleration. Programmatic navigation,
-            // agenda jumps and timeline auto-scroll must keep their targets.
-            guard phase == .idle, old == .interacting || old == .decelerating || old == .tracking else { return }
-            if followsShortContentGesture {
-                // The drag end owns settling, including its velocity target.
-                // Native idle must not restart it with a different target.
-                return
-            }
-            DispatchQueue.main.async { scrollHandle.settleHeader(animated: !reduceMotion) }
-        }
-        .onScrollGeometryChange(for: OrbitHeaderScrollSample.self) {
-            OrbitHeaderScrollSample(y: $0.contentOffset.y, top: $0.contentInsets.top,
-                                    valid: $0.containerSize.height > 0)
-        } action: { old, value in
-            guard value.valid else { return }
-            if followsShortContentGesture { return }
-            // Timeline content offset and header motion are independent.
-            if followsCalendarGesture { return }
-            // Capture the resting origin while the first native layout settles.
-            // Afterwards inset-only changes are paint feedback, not finger motion.
-            if referenceTopInset == nil || (offset == 0 && abs(value.y + value.top) < 0.01) {
-                referenceTopInset = value.top
-                scrollHandle.referenceTopInset = value.top
-            }
-            guard old.y != value.y || !old.valid else { return }
-            let logical = value.y + (referenceTopInset ?? value.top)
-            // Use the current native boundary for elastic pull, not the cached
-            // collapse origin: calendar layout/navigation can change its inset.
-            // Only an active user scroll may move the header below its resting edge.
-            let elasticPull = followsTouch ? min(80, max(0, -(value.y + value.top))) : 0
-            let resolved = elasticPull > 0 ? -elasticPull : max(0, logical)
-            offset = (resolved * displayScale).rounded() / displayScale
-        }
-        .preference(key: OrbitMainScrollKey.self, value: offset)
-    }
-
-    // Preference values do not interpolate with withAnimation. Emit the actual
-    // presentation offset so the title, surface and layout share each frame.
-    private func settle(to target: CGFloat) {
-        settling?.cancel()
-        guard !reduceMotion, abs(offset - target) > 0.5 else { offset = target; return }
-        let start = offset
-        settling = Task { @MainActor in
-            let began = ContinuousClock.now
-            while !Task.isCancelled {
-                let elapsed = began.duration(to: .now)
-                let seconds = Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18
-                let t = min(1, seconds / 0.32)
-                let eased = 1 - pow(1 - t, 3)
-                offset = start + (target - start) * eased
-                if t >= 1 { break }
-                do { try await Task.sleep(for: .milliseconds(8)) } catch { return }
+        content.background {
+            if enabled, let motion {
+                OrbitHeaderScrollProbe(handle: handle, motion: motion,
+                    calendar: followsCalendarGesture, reduceMotion: reduceMotion).allowsHitTesting(false)
             }
         }
+        .onDisappear { handle.detach() }
     }
 }
 extension View {
-    @ViewBuilder func orbitMainScrollObserver(followsCalendarGesture: Bool = false) -> some View {
-        if #available(iOS 18.0, *) { modifier(OrbitMainScrollObserver(followsCalendarGesture: followsCalendarGesture)) } else { self }
+    func orbitMainScrollObserver(enabled: Bool = true, followsCalendarGesture: Bool = false) -> some View {
+        modifier(OrbitMainScrollObserver(enabled: enabled, followsCalendarGesture: followsCalendarGesture))
     }
 
-    /// Empty screens still support the same pull and title motion as a full list.
+    /// Empty screens retain elastic movement without artificial scrollable rows.
     func orbitEmptyScroll() -> some View {
         GeometryReader { geometry in
             ScrollView {
@@ -245,41 +138,236 @@ extension View {
         }
     }
 }
-/// Uses the existing scroll view without replacing its delegate or gestures.
-/// This also handles List, which does not implement ScrollTargetBehavior.
-@MainActor
-private final class OrbitHeaderScrollHandle {
-    weak var scroll: UIScrollView?
-    var referenceTopInset: CGFloat?
 
-    var contentFits: Bool {
+/// Keep UIKit in charge of scrolling and observe touches passively without
+/// replacing its delegate or preventing existing recognizers. A single
+/// display link samples both the gesture and any header spring on screen frames.
+@MainActor
+private final class OrbitHeaderScrollHandle: NSObject {
+    weak var scroll: UIScrollView?
+    weak var motion: OrbitHeaderMotion?
+    var calendar = false
+    var reduceMotion = false
+    private var observation: NSKeyValueObservation?
+    private var displayLink: CADisplayLink?
+    private var referenceTopInset: CGFloat = 0
+    private var usesPan = false
+    private var dragging = false
+    private var touchOrigin: CGFloat = 0
+    private var touchPosition: CGFloat = 0
+    private var touchVelocity: CGFloat = 0
+    private var touchTime: TimeInterval = 0
+    private var touching = false
+    private var touchObserver: OrbitHeaderTouchObserver?
+    private var headerOrigin: CGFloat = 0
+    private var spring: (start: CFTimeInterval, origin: CGFloat, velocity: CGFloat, target: CGFloat)?
+    private var previousOffset: CGFloat = .nan
+    private var restingFrames = 0
+
+    private var contentFits: Bool {
         guard let scroll else { return false }
         return scroll.contentSize.height + scroll.adjustedContentInset.top
             + scroll.adjustedContentInset.bottom <= scroll.bounds.height + 1
     }
 
-    var panTranslation: CGFloat? {
-        guard let scroll else { return nil }
-        return scroll.panGestureRecognizer.translation(in: scroll.window).y
+    func attach(_ scroll: UIScrollView) {
+        guard self.scroll !== scroll else { return }
+        detach()
+        self.scroll = scroll
+        referenceTopInset = scroll.adjustedContentInset.top
+        let observer = OrbitHeaderTouchObserver(target: nil, action: nil)
+        observer.cancelsTouchesInView = false
+        observer.delaysTouchesBegan = false
+        observer.delaysTouchesEnded = false
+        observer.onTouch = { [weak self] phase, point, time in
+            self?.touchChanged(phase, point: point, time: time)
+        }
+        scroll.addGestureRecognizer(observer)
+        touchObserver = observer
+        observation = scroll.observe(\.contentOffset) { [weak self] _, _ in
+            // UIKit updates contentOffset on the main thread. Schedule drawing
+            // on the display clock, outside the scroll/layout callback.
+            MainActor.assumeIsolated { self?.startFrames() }
+        }
+        startFrames()
     }
 
-    func settleHeader(animated: Bool) {
-        guard let scroll, scroll.isScrollEnabled, !scroll.isTracking, !scroll.isDragging, !scroll.isDecelerating else { return }
-        let inset = referenceTopInset ?? scroll.adjustedContentInset.top
-        let offset = scroll.contentOffset.y + inset
-        guard offset > 0.5, offset < 79.5 else { return }
-        let maximum = max(0, scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom + inset)
-        // If a very short list cannot reach the closed state, settle open
-        // instead of clamping to another half-collapsed position.
-        let target: CGFloat = offset < 40 || maximum < 80 ? 0 : 80
-        scroll.setContentOffset(CGPoint(x: scroll.contentOffset.x, y: target - inset), animated: animated)
+    func detach() {
+        if let touchObserver { scroll?.removeGestureRecognizer(touchObserver) }
+        touchObserver = nil
+        observation = nil
+        displayLink?.invalidate()
+        displayLink = nil
+        scroll = nil
+        spring = nil
+        dragging = false
+        touching = false
     }
+
+    private func touchChanged(_ phase: UIGestureRecognizer.State, point: CGPoint, time: TimeInterval) {
+        guard let scroll, let motion else { return }
+        switch phase {
+        case .began:
+            spring = nil
+            touching = true
+            dragging = false
+            usesPan = calendar || contentFits
+            headerOrigin = motion.offset
+            touchOrigin = point.y
+            touchPosition = point.y
+            touchTime = time
+            touchVelocity = 0
+            if abs(scroll.contentOffset.y + scroll.adjustedContentInset.top) < 1 {
+                referenceTopInset = scroll.adjustedContentInset.top
+            }
+        case .changed:
+            let elapsed = time - touchTime
+            if elapsed > 0 { touchVelocity = (point.y - touchPosition) / elapsed }
+            touchPosition = point.y
+            touchTime = time
+            dragging = scroll.isScrollEnabled && abs(point.y - touchOrigin) > 8
+        case .ended, .cancelled, .failed:
+            if dragging, usesPan, scroll.isScrollEnabled {
+                samplePan()
+                let velocity = time - touchTime < 0.12 && phase == .ended ? -touchVelocity : 0
+                let projected = motion.offset + velocity * 0.10
+                let target: CGFloat = motion.offset < 0 ? 0 : (projected < 40 ? 0 : 80)
+                if reduceMotion { motion.offset = target; spring = nil }
+                else {
+                    let direction = target - motion.offset
+                    let release = direction * velocity > 0 ? velocity : 0
+                    let limit = min(600, 18 * abs(direction))
+                    let bounded = min(limit, max(-limit, release))
+                    spring = (CACurrentMediaTime(), motion.offset, bounded, target)
+                }
+            } else if usesPan, motion.offset != 0, motion.offset < 80 {
+                let target: CGFloat = motion.offset < 40 ? 0 : 80
+                if reduceMotion { motion.offset = target }
+                else { spring = (CACurrentMediaTime(), motion.offset, 0, target) }
+            }
+            touching = false
+            dragging = false
+        default: break
+        }
+        startFrames()
+    }
+
+    private func startFrames() {
+        restingFrames = 0
+        guard displayLink == nil else { return }
+        let link = CADisplayLink(target: self, selector: #selector(frame))
+        link.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 120, preferred: 120)
+        link.add(to: .main, forMode: .common)
+        displayLink = link
+    }
+
+    private func samplePan() {
+        guard let scroll, let motion else { return }
+        let raw = headerOrigin - (touchPosition - touchOrigin)
+        if raw < 0, !calendar {
+            // The same increasing resistance as a native short scroll surface.
+            let distance = -raw
+            let dimension = max(1, scroll.bounds.height)
+            motion.offset = -min(120, (0.55 * distance * dimension) / (dimension + 0.55 * distance))
+        } else { motion.offset = min(80, max(0, raw)) }
+    }
+
+    @objc private func frame(_ link: CADisplayLink) {
+        guard let scroll, let motion else { detach(); return }
+        if dragging, usesPan, scroll.isScrollEnabled {
+            let native = scroll.panGestureRecognizer.state
+            if native == .began || native == .changed { samplePan() }
+        }
+        if let spring {
+            let t = max(0, link.timestamp - spring.start)
+            let omega: CGFloat = 18
+            let delta = spring.origin - spring.target
+            let coefficient = spring.velocity + omega * delta
+            let decay = exp(-omega * t)
+            let position = spring.target + (delta + coefficient * t) * decay
+            let velocity = (coefficient - omega * (delta + coefficient * t)) * decay
+            motion.offset = min(80, position)
+            if abs(position - spring.target) < 0.1 && abs(velocity) < 1 {
+                motion.offset = spring.target
+                self.spring = nil
+            }
+        }
+        // Safe-area insets can finish laying out after this probe attaches.
+        // A resting top boundary is the origin, never a rubber-band gesture.
+        let boundary = scroll.contentOffset.y + scroll.adjustedContentInset.top
+        if abs(boundary) < 0.1 { referenceTopInset = scroll.adjustedContentInset.top }
+        let nativeOffset = scroll.contentOffset.y + referenceTopInset
+        if !usesPan, !calendar {
+            let elastic = scroll.isTracking || scroll.isDragging || scroll.isDecelerating
+                ? min(0, boundary) : 0
+            motion.offset = elastic < 0 ? max(-120, elastic) : min(80, max(0, nativeOffset))
+        }
+        let active = touching || dragging || scroll.isTracking || scroll.isDragging || scroll.isDecelerating || spring != nil
+        if !active, abs(nativeOffset - previousOffset) < 0.1 { restingFrames += 1 }
+        else { restingFrames = 0 }
+        previousOffset = nativeOffset
+        if restingFrames >= 2 {
+            if !usesPan, !calendar, nativeOffset > 0.5, nativeOffset < 79.5 {
+                let maximum = max(0, scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom + referenceTopInset)
+                let target: CGFloat = nativeOffset < 40 || maximum < 80 ? 0 : 80
+                scroll.setContentOffset(CGPoint(x: scroll.contentOffset.x, y: target - referenceTopInset), animated: !reduceMotion)
+                restingFrames = 0
+            } else {
+                displayLink?.invalidate()
+                displayLink = nil
+            }
+        }
+    }
+}
+
+/// Passive touch sampling keeps the original window coordinates even when
+/// UIScrollView resets its pan translation. This recognizer cannot prevent, or
+/// be prevented by, task gestures, native scrolling, taps or horizontal swipes.
+@MainActor
+private final class OrbitHeaderTouchObserver: UIGestureRecognizer {
+    var onTouch: ((UIGestureRecognizer.State, CGPoint, TimeInterval) -> Void)?
+    private var origin: CGPoint?
+    override func canPrevent(_ other: UIGestureRecognizer) -> Bool { false }
+    override func canBePrevented(by other: UIGestureRecognizer) -> Bool { false }
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        guard touches.count == 1, let touch = touches.first else { state = .failed; return }
+        let point = touch.location(in: view?.window)
+        origin = point
+        onTouch?(.began, point, touch.timestamp)
+    }
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
+        guard let touch = touches.first, let origin else { return }
+        let point = touch.location(in: view?.window)
+        if state == .possible {
+            guard abs(point.y - origin.y) > 8 else { return }
+            guard abs(point.y - origin.y) > abs(point.x - origin.x) else {
+                onTouch?(.cancelled, point, touch.timestamp)
+                state = .failed
+                return
+            }
+            state = .began
+        } else { state = .changed }
+        onTouch?(.changed, point, touch.timestamp)
+    }
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent) {
+        guard let touch = touches.first else { return }
+        onTouch?(.ended, touch.location(in: view?.window), touch.timestamp)
+        state = state == .possible ? .failed : .ended
+    }
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent) {
+        if let touch = touches.first { onTouch?(.cancelled, touch.location(in: view?.window), touch.timestamp) }
+        state = .cancelled
+    }
+    override func reset() { super.reset(); origin = nil }
 }
 
 /// The marker is the background of the actual List/ScrollView, so match its
 /// viewport in the nearest shared ancestor. No window-wide view lookup.
 private struct OrbitHeaderScrollProbe: UIViewRepresentable {
     let handle: OrbitHeaderScrollHandle
+    let motion: OrbitHeaderMotion?
+    let calendar: Bool
+    let reduceMotion: Bool
     final class ProbeView: UIView {
         var resolve: (() -> Void)?
         override func layoutSubviews() { super.layoutSubviews(); resolve?() }
@@ -287,6 +375,9 @@ private struct OrbitHeaderScrollProbe: UIViewRepresentable {
     }
     func makeUIView(context: Context) -> ProbeView { ProbeView() }
     func updateUIView(_ view: ProbeView, context: Context) {
+        handle.motion = motion
+        handle.calendar = calendar
+        handle.reduceMotion = reduceMotion
         view.resolve = { [weak view, weak handle] in
             DispatchQueue.main.async { [weak view, weak handle] in
                 guard let view, let handle, view.window != nil else { return }
@@ -296,7 +387,7 @@ private struct OrbitHeaderScrollProbe: UIViewRepresentable {
                 var root = view.superview
                 while let candidateRoot = root {
                     if let scroll = matchingScroll(in: candidateRoot, frame: frame) {
-                        handle.scroll = scroll
+                        handle.attach(scroll)
                         return
                     }
                     root = candidateRoot.superview
@@ -324,15 +415,10 @@ private struct OrbitHeaderScrollProbe: UIViewRepresentable {
     }
 }
 
-private struct OrbitHeaderProgressKey: EnvironmentKey { static let defaultValue: CGFloat = 0 }
-private struct OrbitHeaderPullDownKey: EnvironmentKey { static let defaultValue: CGFloat = 0 }
+private struct OrbitHeaderMotionKey: EnvironmentKey { static let defaultValue: OrbitHeaderMotion? = nil }
 extension EnvironmentValues {
-    var orbitHeaderPullDown: CGFloat {
-        get { self[OrbitHeaderPullDownKey.self] }
-        set { self[OrbitHeaderPullDownKey.self] = newValue }
-    }
-    var orbitHeaderProgress: CGFloat {
-        get { self[OrbitHeaderProgressKey.self] }
-        set { self[OrbitHeaderProgressKey.self] = newValue }
+    var orbitHeaderMotion: OrbitHeaderMotion? {
+        get { self[OrbitHeaderMotionKey.self] }
+        set { self[OrbitHeaderMotionKey.self] = newValue }
     }
 }

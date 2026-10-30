@@ -206,14 +206,15 @@ private struct OrbitHeaderSurface: ViewModifier {
 private struct OrbitFrostedHeaderBackground: View {
     @Environment(\.orbitAppearance) private var appearance
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @Environment(\.orbitHeaderProgress) private var progress
+    @Environment(\.orbitHeaderMotion) private var motion
+    private var progress: CGFloat { motion?.progress ?? 0 }
     @Environment(\.displayScale) private var displayScale
     var horizontalBleed: CGFloat = 16
     // Match the compact title's crossfade in NativeModeHeader.
-    private var compactProgress: CGFloat { min(max(progress * 2 - 1, 0), 1) }
+    private var compactProgress: CGFloat { OrbitHeaderMotion.fade(progress, from: 0.48, to: 1) }
     var body: some View {
         Group {
-            if reduceTransparency || compactProgress == 0 {
+            if reduceTransparency {
                 appearance.canvas
                     .overlay(appearance.secondaryText.opacity(0.035 * compactProgress))
             } else {
@@ -245,8 +246,9 @@ private struct OrbitFrostedHeaderBackground: View {
 /// Collapsing the title changes rendering, not the scroll view's layout size.
 private struct OrbitWorkspaceHeader<Header: View>: ViewModifier {
     let header: Header
-    @Environment(\.orbitHeaderProgress) private var progress
-    @Environment(\.orbitHeaderPullDown) private var pullDown
+    @Environment(\.orbitHeaderMotion) private var motion
+    private var progress: CGFloat { motion?.progress ?? 0 }
+    private var pullDown: CGFloat { motion?.pullDown ?? 0 }
     @Environment(IOSInboxModel.self) private var model
     @ScaledMetric(relativeTo: .largeTitle) private var titleHeight = 56
     private var collapsedSpace: CGFloat { model.isSelecting ? 0 : titleHeight * progress }
