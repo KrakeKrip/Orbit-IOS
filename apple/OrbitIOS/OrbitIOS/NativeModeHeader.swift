@@ -115,6 +115,7 @@ private struct OrbitMainScrollObserver: ViewModifier {
     @State private var followsTouch = false
     @State private var followsShortContentGesture = false
     @State private var shortGestureOrigin: CGFloat?
+    @State private var settling: Task<Void, Never>?
     @State private var calendarPanOrigin: CGFloat?
     @State private var calendarHeaderOrigin: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -127,20 +128,22 @@ private struct OrbitMainScrollObserver: ViewModifier {
                 if shortGestureOrigin == nil {
                     guard scrollHandle.contentFits,
                           abs(value.translation.height) > abs(value.translation.width) else { return }
+                    settling?.cancel()
                     shortGestureOrigin = offset
                     followsShortContentGesture = true
                 }
                 offset = min(80, max(-80, (shortGestureOrigin ?? 0) - value.translation.height))
             }
-            .onEnded { _ in
+            .onEnded { value in
                 guard shortGestureOrigin != nil else { return }
                 shortGestureOrigin = nil
-                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
-                    offset = offset < 40 ? 0 : 80
-                }
+                let projected = offset - (value.predictedEndTranslation.height - value.translation.height) * 0.2
+                settle(to: projected < 40 ? 0 : 80)
             })
+        .onDisappear { settling?.cancel() }
         .onScrollPhaseChange { old, phase in
             if (phase == .tracking || phase == .interacting), old != .tracking && old != .interacting {
+                settling?.cancel()
                 followsShortContentGesture = !followsCalendarGesture && scrollHandle.contentFits
                 calendarHeaderOrigin = offset
             }
@@ -156,18 +159,21 @@ private struct OrbitMainScrollObserver: ViewModifier {
             }
             // A resting/programmatic calendar offset is never rubber-banding.
             // Clear the visual pull even if UIKit emits no final geometry sample.
-            if !followsTouch, offset < 0 {
+            if !followsTouch, !followsShortContentGesture, offset < 0 {
                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { offset = 0 }
             }
             // Settle only a real touch/deceleration. Programmatic navigation,
             // agenda jumps and timeline auto-scroll must keep their targets.
             guard phase == .idle, old == .interacting || old == .decelerating || old == .tracking else { return }
-            if followsCalendarGesture || followsShortContentGesture {
-                // Short screens have no scroll range; timelines may start at any hour.
+            if followsShortContentGesture {
+                shortGestureOrigin = nil
+                settle(to: offset < 40 ? 0 : 80)
+                return
+            }
+            if followsCalendarGesture {
+                // Timelines may start at any hour.
                 // Settle only the header without moving their content offset.
-                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
-                    offset = offset < 40 ? 0 : 80
-                }
+                settle(to: offset < 40 ? 0 : 80)
             } else {
                 DispatchQueue.main.async { scrollHandle.settleHeader(animated: !reduceMotion) }
             }
@@ -211,6 +217,26 @@ private struct OrbitMainScrollObserver: ViewModifier {
             offset = (resolved * displayScale).rounded() / displayScale
         }
         .preference(key: OrbitMainScrollKey.self, value: offset)
+    }
+
+    // Preference values do not interpolate with withAnimation. Emit the actual
+    // presentation offset so the title, surface and layout share each frame.
+    private func settle(to target: CGFloat) {
+        settling?.cancel()
+        guard !reduceMotion, abs(offset - target) > 0.5 else { offset = target; return }
+        let start = offset
+        settling = Task { @MainActor in
+            let began = ContinuousClock.now
+            while !Task.isCancelled {
+                let elapsed = began.duration(to: .now)
+                let seconds = Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18
+                let t = min(1, seconds / 0.32)
+                let eased = 1 - pow(1 - t, 3)
+                offset = start + (target - start) * eased
+                if t >= 1 { break }
+                do { try await Task.sleep(for: .milliseconds(8)) } catch { return }
+            }
+        }
     }
 }
 extension View {
