@@ -21,14 +21,6 @@ struct UpcomingMonthScreen: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Match the other workspaces: the title fades/scales in a
-                // fixed header instead of travelling under the navigation bar.
-                NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: $showsCalendar, agendaMode: $showsAgenda)) {
-                    Button("Сегодня") {
-                        selectedDay = TaskDaySelection.currentDay()
-                        monthReset += 1
-                    }.frame(minHeight: 44).accessibilityIdentifier("month-return-today")
-                }
                 GeometryReader { geometry in
                     ScrollView {
                         VStack(alignment: .leading, spacing: 8) {
@@ -63,10 +55,19 @@ struct UpcomingMonthScreen: View {
                     .contentMargins(.bottom, 88, for: .scrollContent)
                     .scrollBounceBehavior(.always)
                     .orbitMainScrollObserver()
-                    .clipped()
+                    .safeAreaInset(edge: .top, spacing: 0) {
+                        NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: $showsCalendar, agendaMode: $showsAgenda)) {
+                            Button("Сегодня") {
+                                selectedDay = TaskDaySelection.currentDay()
+                                monthReset += 1
+                            }.frame(minHeight: 44).accessibilityIdentifier("month-return-today")
+                        }
+                    }
                 }
             }
+            .environment(\.orbitGlassHeaders, true)
             .background(appearance.canvas)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar(model.isSelecting ? .hidden : .visible, for: .navigationBar)
             .scrollBounceBehavior(.always)
             .orbitScrollingHeader()

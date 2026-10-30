@@ -35,7 +35,7 @@ struct NativeModeHeader<Switcher: View, Trailing: View>: View {
         }
         .padding(.horizontal, 16).padding(.vertical, 8)
         .fixedSize(horizontal: false, vertical: true)
-        .orbitHeaderSurface().zIndex(10)
+        .orbitHeaderSurface(extendsToTop: true).zIndex(10)
         .navigationTitle(title ?? workspaceTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

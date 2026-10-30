@@ -179,12 +179,50 @@ private struct OrbitEditorSurface: ViewModifier {
             .environment(\.colorScheme, appearance.colorScheme ?? inheritedColorScheme)
     }
 }
-/// Match the screen at rest instead of drawing separate gray material tiles.
-/// Native navigation chrome and controls retain the system glass treatment.
+private struct OrbitGlassHeadersKey: EnvironmentKey { static let defaultValue = false }
+extension EnvironmentValues {
+    var orbitGlassHeaders: Bool {
+        get { self[OrbitGlassHeadersKey.self] }
+        set { self[OrbitGlassHeadersKey.self] = newValue }
+    }
+}
+
+/// Opt-in preview: a continuous full-width surface, with no card border.
 private struct OrbitHeaderSurface: ViewModifier {
     @Environment(\.orbitAppearance) private var appearance
+    @Environment(\.orbitGlassHeaders) private var glassHeaders
+    var extendsToTop = false
     func body(content: Content) -> some View {
-        content.background(appearance.canvas)
+        content.background {
+            if glassHeaders {
+                OrbitFrostedHeaderBackground()
+                    .ignoresSafeArea(.container, edges: extendsToTop ? .top : [])
+            }
+            else { appearance.canvas }
+        }
+    }
+}
+
+private struct OrbitFrostedHeaderBackground: View {
+    @Environment(\.orbitAppearance) private var appearance
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    var body: some View {
+        Group {
+            if reduceTransparency { appearance.canvas }
+            else if #available(iOS 26.0, *) {
+                Color.clear.glassEffect(.regular.tint(appearance.canvas.opacity(0.12)), in: Rectangle())
+            } else { Rectangle().fill(.ultraThinMaterial) }
+        }
+        .padding(.horizontal, -16)
+        .padding(.bottom, -24)
+        .mask(alignment: .top) {
+            VStack(spacing: 0) {
+                Rectangle()
+                LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom).frame(height: 24)
+            }
+            .padding(.horizontal, -16).padding(.bottom, -24)
+        }
+        .allowsHitTesting(false)
     }
 }
 private struct OrbitLongPressFeedback: ViewModifier {
@@ -195,7 +233,7 @@ private struct OrbitLongPressFeedback: ViewModifier {
     }
 }
 extension View {
-    func orbitHeaderSurface() -> some View { modifier(OrbitHeaderSurface()) }
+    func orbitHeaderSurface(extendsToTop: Bool = false) -> some View { modifier(OrbitHeaderSurface(extendsToTop: extendsToTop)) }
     func orbitIconStyle() -> some View { modifier(OrbitIconStyle()) }
     func orbitPrimaryStyle() -> some View { modifier(OrbitPrimaryStyle()) }
     func orbitSecondaryStyle() -> some View { modifier(OrbitSecondaryStyle()) }
