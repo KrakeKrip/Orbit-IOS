@@ -63,7 +63,7 @@ struct UpcomingListScreen: View {
                     select(day, animated: true)
                 })
             }
-            .orbitWorkspaceHeader(stabilizesListInsets: true) {
+            .orbitWorkspaceHeader {
                 VStack(spacing: 0) {
                     NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: $showsCalendar, agendaMode: agendaMode))
                     dateControls

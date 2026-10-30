@@ -36,7 +36,7 @@ struct TodayScreen: View {
                     }
                 }
             }
-            .orbitWorkspaceHeader(stabilizesListInsets: true) {
+            .orbitWorkspaceHeader {
                 VStack(spacing: 0) {
                     if let todayMode {
                         NativeModeHeader(switcher: TodayModeSwitcher(showsCalendar: todayMode)) {

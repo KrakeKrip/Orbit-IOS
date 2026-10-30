@@ -24,7 +24,7 @@ struct NativeModeHeader<Switcher: View, Trailing: View>: View {
                     .scaleEffect(1 - 0.12 * progress, anchor: .leading)
                     .opacity(max(0, 1 - progress * 2))
                     .offset(y: -16 * progress)
-                    .frame(height: expandedTitleHeight * (1 - progress), alignment: .top)
+                    .frame(height: expandedTitleHeight, alignment: .top)
                     .accessibilityHidden(progress > 0.5)
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 12) { trailing; Spacer(minLength: 0); switcher }
@@ -101,11 +101,18 @@ struct OrbitMainScrollKey: PreferenceKey {
         if abs(next) > abs(value) { value = next }
     }
 }
+private struct OrbitHeaderScrollSample: Equatable {
+    let y: CGFloat
+    let top: CGFloat
+    let valid: Bool
+}
 @available(iOS 18.0, *)
 private struct OrbitMainScrollObserver: ViewModifier {
     @State private var offset: CGFloat = 0
     @State private var scrollHandle = OrbitHeaderScrollHandle()
+    @State private var referenceTopInset: CGFloat?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.displayScale) private var displayScale
     func body(content: Content) -> some View {
         content.background(OrbitHeaderScrollProbe(handle: scrollHandle).allowsHitTesting(false))
         .onScrollPhaseChange { old, phase in
@@ -114,9 +121,21 @@ private struct OrbitMainScrollObserver: ViewModifier {
             guard phase == .idle, old == .interacting || old == .decelerating || old == .tracking else { return }
             DispatchQueue.main.async { scrollHandle.settleHeader(animated: !reduceMotion) }
         }
-        .onScrollGeometryChange(for: CGFloat.self) {
-            $0.contentOffset.y + $0.contentInsets.top
-        } action: { _, value in offset = value }
+        .onScrollGeometryChange(for: OrbitHeaderScrollSample.self) {
+            OrbitHeaderScrollSample(y: $0.contentOffset.y, top: $0.contentInsets.top,
+                                    valid: $0.containerSize.height > 0)
+        } action: { old, value in
+            guard value.valid else { return }
+            // Capture the resting origin while the first native layout settles.
+            // Afterwards inset-only changes are paint feedback, not finger motion.
+            if referenceTopInset == nil || (offset == 0 && abs(value.y + value.top) < 0.01) {
+                referenceTopInset = value.top
+                scrollHandle.referenceTopInset = value.top
+            }
+            guard old.y != value.y || !old.valid else { return }
+            let logical = value.y + (referenceTopInset ?? value.top)
+            offset = (logical * displayScale).rounded() / displayScale
+        }
         .preference(key: OrbitMainScrollKey.self, value: offset)
     }
 }
@@ -142,10 +161,11 @@ extension View {
 @MainActor
 private final class OrbitHeaderScrollHandle {
     weak var scroll: UIScrollView?
+    var referenceTopInset: CGFloat?
 
     func settleHeader(animated: Bool) {
         guard let scroll, scroll.isScrollEnabled, !scroll.isTracking, !scroll.isDragging, !scroll.isDecelerating else { return }
-        let inset = scroll.adjustedContentInset.top
+        let inset = referenceTopInset ?? scroll.adjustedContentInset.top
         let offset = scroll.contentOffset.y + inset
         guard offset > 0.5, offset < 79.5 else { return }
         let maximum = max(0, scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom + inset)

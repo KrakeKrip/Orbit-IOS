@@ -79,7 +79,7 @@ struct ProjectWorkspaceScreen: View {
                             .listStyle(.plain).contentMargins(.bottom, 88, for: .scrollContent).scrollContentBackground(.hidden).orbitMainScrollObserver()
                         }
                     }
-                    .orbitWorkspaceHeader(stabilizesListInsets: true) {
+                    .orbitWorkspaceHeader {
                         VStack(spacing: 0) {
                             header
                             OverdueTaskBlock(model: model, projectID: project.id)

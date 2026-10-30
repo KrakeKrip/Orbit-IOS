@@ -37,7 +37,7 @@ struct ProjectsScreen: View {
         NavigationStack {
             OrbitTagsScreen(model: model, projectsContent: AnyView(projectRows))
                 .refreshable { model.reload() }
-                .orbitWorkspaceHeader(stabilizesListInsets: true) {
+                .orbitWorkspaceHeader {
                     NativeModeHeader(title: "Проекты", switcher: EmptyView())
                 }
                 .orbitScrollingHeader()

@@ -57,7 +57,7 @@ struct InboxScreen: View {
                     }
                 }
             }
-            .orbitWorkspaceHeader(stabilizesListInsets: true) {
+            .orbitWorkspaceHeader {
                 VStack(spacing: 0) {
                     NativeModeHeader(title: "Входящие", switcher: EmptyView())
                     OverdueTaskBlock(model: model)
