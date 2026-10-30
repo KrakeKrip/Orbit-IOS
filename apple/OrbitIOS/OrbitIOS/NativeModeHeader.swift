@@ -111,11 +111,18 @@ private struct OrbitMainScrollObserver: ViewModifier {
     @State private var offset: CGFloat = 0
     @State private var scrollHandle = OrbitHeaderScrollHandle()
     @State private var referenceTopInset: CGFloat?
+    @State private var followsTouch = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.displayScale) private var displayScale
     func body(content: Content) -> some View {
         content.background(OrbitHeaderScrollProbe(handle: scrollHandle).allowsHitTesting(false))
         .onScrollPhaseChange { old, phase in
+            followsTouch = phase == .tracking || phase == .interacting || phase == .decelerating
+            // A resting/programmatic calendar offset is never rubber-banding.
+            // Clear the visual pull even if UIKit emits no final geometry sample.
+            if !followsTouch, offset < 0 {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { offset = 0 }
+            }
             // Settle only a real touch/deceleration. Programmatic navigation,
             // agenda jumps and timeline auto-scroll must keep their targets.
             guard phase == .idle, old == .interacting || old == .decelerating || old == .tracking else { return }
@@ -134,7 +141,12 @@ private struct OrbitMainScrollObserver: ViewModifier {
             }
             guard old.y != value.y || !old.valid else { return }
             let logical = value.y + (referenceTopInset ?? value.top)
-            offset = (logical * displayScale).rounded() / displayScale
+            // Use the current native boundary for elastic pull, not the cached
+            // collapse origin: calendar layout/navigation can change its inset.
+            // Only an active user scroll may move the header below its resting edge.
+            let elasticPull = followsTouch ? min(80, max(0, -(value.y + value.top))) : 0
+            let resolved = elasticPull > 0 ? -elasticPull : max(0, logical)
+            offset = (resolved * displayScale).rounded() / displayScale
         }
         .preference(key: OrbitMainScrollKey.self, value: offset)
     }
