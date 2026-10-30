@@ -113,12 +113,23 @@ private struct OrbitMainScrollObserver: ViewModifier {
     @State private var scrollHandle = OrbitHeaderScrollHandle()
     @State private var referenceTopInset: CGFloat?
     @State private var followsTouch = false
+    @State private var calendarPanOrigin: CGFloat?
+    @State private var calendarHeaderOrigin: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.displayScale) private var displayScale
     func body(content: Content) -> some View {
         content.background(OrbitHeaderScrollProbe(handle: scrollHandle).allowsHitTesting(false))
         .onScrollPhaseChange { old, phase in
-            followsTouch = phase == .tracking || phase == .interacting || phase == .decelerating
+            if followsCalendarGesture {
+                if (phase == .tracking || phase == .interacting),
+                   old != .tracking && old != .interacting {
+                    calendarPanOrigin = scrollHandle.panTranslation
+                    calendarHeaderOrigin = offset
+                }
+                followsTouch = phase == .tracking || phase == .interacting
+            } else {
+                followsTouch = phase == .tracking || phase == .interacting || phase == .decelerating
+            }
             // A resting/programmatic calendar offset is never rubber-banding.
             // Clear the visual pull even if UIKit emits no final geometry sample.
             if !followsTouch, offset < 0 {
@@ -143,20 +154,20 @@ private struct OrbitMainScrollObserver: ViewModifier {
         } action: { old, value in
             guard value.valid else { return }
             if followsCalendarGesture {
-                guard followsTouch, old.valid, old.y != value.y else { return }
-                // Collapse from the current visible hour, not from midnight or
-                // an inset captured before the initial scroll-to-hour operation.
-                // Clamp both samples to the real top boundary. The spring
-                // returning from negative overscroll must not collapse the header.
-                let position = max(0, value.y + value.top)
-                let previous = max(0, old.y + old.top)
-                let delta = position - previous
-                if position <= 0.5 {
-                    offset = 0
-                    return
+                guard followsTouch, let translation = scrollHandle.panTranslation else { return }
+                if calendarPanOrigin == nil {
+                    calendarPanOrigin = translation
+                    calendarHeaderOrigin = offset
                 }
-                let next = min(80, max(0, offset + delta))
-                offset = (next * displayScale).rounded() / displayScale
+                // A finger's translation is independent of content insets and
+                // the header's layout. Never accumulate geometry deltas here:
+                // bottom bounce/layout corrections otherwise feed back into
+                // header progress and can keep the main thread updating forever.
+                let travel = (calendarPanOrigin ?? translation) - translation
+                let next = value.y + value.top <= 0.5
+                    ? 0 : min(80, max(0, calendarHeaderOrigin + travel))
+                let rounded = (next * displayScale).rounded() / displayScale
+                if offset != rounded { offset = rounded }
                 return
             }
             // Capture the resting origin while the first native layout settles.
@@ -246,6 +257,11 @@ extension View {
 private final class OrbitHeaderScrollHandle {
     weak var scroll: UIScrollView?
     var referenceTopInset: CGFloat?
+
+    var panTranslation: CGFloat? {
+        guard let scroll else { return nil }
+        return scroll.panGestureRecognizer.translation(in: scroll.window).y
+    }
 
     func settleHeader(animated: Bool) {
         guard let scroll, scroll.isScrollEnabled, !scroll.isTracking, !scroll.isDragging, !scroll.isDecelerating else { return }
