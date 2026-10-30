@@ -91,7 +91,8 @@ struct InboxScreen: View {
     private var taskList: some View {
         List {
             if !currentOpenTasks.isEmpty {
-                Section("Все открытые") {
+                Section {
+                    OrbitTaskSectionHeading(title: "Все открытые")
                     ForEach(currentOpenTasks) { task in
                         InboxRowView(task: task, model: model) {
                             presentation = .date(task)
@@ -103,7 +104,8 @@ struct InboxScreen: View {
                 }
             }
             if !model.completedTasks.isEmpty {
-                Section("Завершённые") {
+                Section {
+                    OrbitTaskSectionHeading(title: "Завершённые")
                     ForEach(model.completedTasks) { task in
                         InboxRowView(task: task, model: model) {
                             presentation = .date(task)

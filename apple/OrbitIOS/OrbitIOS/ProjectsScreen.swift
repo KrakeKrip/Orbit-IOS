@@ -54,6 +54,13 @@ struct ProjectsScreen: View {
     }
     private var projectRows: some View {
         Section {
+            OrbitCollapsibleSectionHeader(title: "Мои проекты", expanded: $projectsExpanded,
+                                          createLabel: "Создать проект", identifier: "project") {
+                editor = ProjectEditorPresentation()
+            }
+            .listRowBackground(appearance.canvas)
+            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            .listRowSeparator(.hidden)
             if projectsExpanded {
                 if let error = model.projectListError {
                     OrbitTaskLoadFailure(message: error, retry: { model.reloadProjects() })
@@ -87,11 +94,6 @@ struct ProjectsScreen: View {
                         .listRowSeparator(project.id == model.projects.last(where: { !$0.isArchived })?.id ? .hidden : .visible, edges: .bottom)
                     }
                 }
-            }
-        } header: {
-            OrbitCollapsibleSectionHeader(title: "Мои проекты", expanded: $projectsExpanded,
-                                          createLabel: "Создать проект", identifier: "project") {
-                editor = ProjectEditorPresentation()
             }
         }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: projectsExpanded)

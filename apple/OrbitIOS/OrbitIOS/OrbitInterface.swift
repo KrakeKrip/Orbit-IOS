@@ -201,42 +201,38 @@ private struct OrbitHeaderSurface: ViewModifier {
     }
 }
 
+/// One frosted surface owns the header. Regular glass obscures scrolling text;
+/// clear glass and blend modes would leave calendar numerals readable beneath it.
 private struct OrbitFrostedHeaderBackground: View {
     @Environment(\.orbitAppearance) private var appearance
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.orbitHeaderProgress) private var progress
     var horizontalBleed: CGFloat = 16
-    private var usesDarkCanvas: Bool { appearance == .dark || appearance == .oled }
+    private var fadeHeight: CGFloat { reduceTransparency ? 0 : 24 }
     var body: some View {
         Group {
             if reduceTransparency { appearance.canvas }
             else if #available(iOS 26.0, *) {
-                if usesDarkCanvas {
-                    // Regular glass adds its own elevated gray even over an
-                    // empty OLED canvas. Clear glass keeps the theme's black;
-                    // a matching backing dims content passing under the title.
-                    Color.clear.glassEffect(.clear, in: Rectangle())
-                        .background(appearance.canvas.opacity(0.72))
-                } else {
-                    Color.clear.glassEffect(.regular.tint(appearance.canvas.opacity(0.12)), in: Rectangle())
-                }
+                Color.clear.glassEffect(.regular.tint(appearance.canvas.opacity(0.18)), in: Rectangle())
             } else {
-                Rectangle().fill(.ultraThinMaterial)
-                    .overlay { if usesDarkCanvas { appearance.canvas.opacity(0.9) } }
+                Rectangle().fill(.regularMaterial)
+                    .overlay(appearance.canvas.opacity(0.18))
             }
         }
+        // A matching translucent veil keeps regular glass close to the canvas
+        // without changing its blur or using a backdrop-dependent blend mode.
+        // It eases back a little in the compact state, revealing more glass.
+        .overlay(appearance.canvas.opacity(reduceTransparency ? 0 : 0.65 - 0.10 * min(max(progress, 0), 1)))
+        .overlay(appearance.secondaryText.opacity(0.018 * min(max(progress, 0), 1)))
         .padding(.horizontal, -horizontalBleed)
-        .padding(.bottom, -24)
+        .padding(.bottom, -fadeHeight)
         .mask(alignment: .top) {
             VStack(spacing: 0) {
                 Rectangle()
-                LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom).frame(height: 24)
+                LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom).frame(height: fadeHeight)
             }
-            .padding(.horizontal, -horizontalBleed).padding(.bottom, -24)
+            .padding(.horizontal, -horizontalBleed).padding(.bottom, -fadeHeight)
         }
-        // The system's dark glass can still lift a clear surface on iOS 27.
-        // Keep its blur while preventing the backdrop from lightening canvas.
-        .compositingGroup()
-        .blendMode(usesDarkCanvas ? .darken : .normal)
         .allowsHitTesting(false)
     }
 }
@@ -254,6 +250,7 @@ private struct OrbitWorkspaceHeader<Header: View>: ViewModifier {
     func body(content: Content) -> some View {
         let translation = -collapsedSpace
         return content
+            .modifier(OrbitHeaderScrollEdge())
             // A constant overflow fills the space revealed by the translating
             // surface. It must never depend on the observed scroll position.
             .padding(.bottom, model.isSelecting ? 0 : -titleHeight)
@@ -263,9 +260,8 @@ private struct OrbitWorkspaceHeader<Header: View>: ViewModifier {
                     .environment(\.orbitHeaderEmbedded, true)
                     .frame(maxWidth: .infinity)
                     .fixedSize(horizontal: false, vertical: true)
-                    // Controls follow the drag; the material stays anchored
-                    // above the navigation/status bars. Moving both exposes
-                    // the glass rectangle's top edge during rubber-banding.
+                    // Controls follow the drag; their backing stays anchored
+                    // above the navigation/status bars during rubber-banding.
                     .offset(y: pullDown - collapsedSpace)
                     .background {
                         OrbitFrostedHeaderBackground(horizontalBleed: 0)
@@ -277,6 +273,30 @@ private struct OrbitWorkspaceHeader<Header: View>: ViewModifier {
             .toolbarBackground(.hidden, for: .navigationBar)
     }
 }
+
+/// Our frosted, feathered surface owns the top edge. A second system scroll-edge
+/// effect would draw another gray panel and soften text above the content twice.
+private struct OrbitHeaderScrollEdge: ViewModifier {
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) { content.scrollEdgeEffectHidden(true, for: .top) }
+        else { content }
+    }
+}
+/// Task group labels scroll as rows instead of becoming a second sticky bar.
+struct OrbitTaskSectionHeading: View {
+    let title: String
+    @Environment(\.orbitAppearance) private var appearance
+    var body: some View {
+        Text(title).font(.subheadline.weight(.semibold))
+            .foregroundStyle(appearance.secondaryText)
+            .padding(.top, 8)
+            .accessibilityAddTraits(.isHeader)
+            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            .listRowBackground(appearance.canvas)
+            .listRowSeparator(.hidden)
+    }
+}
+
 private struct OrbitLongPressFeedback: ViewModifier {
     func body(content: Content) -> some View {
         content.simultaneousGesture(
@@ -285,8 +305,8 @@ private struct OrbitLongPressFeedback: ViewModifier {
     }
 }
 extension View {
-    /// Reserve controls while allowing the native scrolling surface beneath
-    /// them to supply the glass backdrop. The system bar adds no second layer.
+    /// Reserve controls over one frosted surface. The system bar adds no
+    /// second backing layer; content can scroll under the shared glass.
     func orbitWorkspaceHeader<Header: View>(@ViewBuilder content: () -> Header) -> some View {
         modifier(OrbitWorkspaceHeader(header: content()))
     }

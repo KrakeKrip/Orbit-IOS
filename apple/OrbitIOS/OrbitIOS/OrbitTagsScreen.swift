@@ -23,6 +23,18 @@ struct OrbitTagsScreen: View {
                 ContentUnavailableView("Пока нет тегов", systemImage: "tag", description: Text("Например, «Важно», «Дом» или «Работа». Теги доступны во всех проектах."))
             }
             Section {
+                if projectsContent != nil {
+                    VStack(spacing: 12) {
+                        Divider().padding(.top, 8)
+                        OrbitCollapsibleSectionHeader(title: "Теги", expanded: $tagsExpanded,
+                                                      createLabel: "Создать тег", identifier: "tags") {
+                            editor = TagEditorDraft()
+                        }
+                    }
+                    .listRowBackground(appearance.canvas)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                    .listRowSeparator(.hidden)
+                }
                 if projectsContent == nil || tagsExpanded {
                     if model.tags.isEmpty && projectsContent != nil {
                         Text("Пока нет тегов").font(.subheadline).foregroundStyle(.secondary).padding(.vertical, 4)
@@ -76,16 +88,6 @@ struct OrbitTagsScreen: View {
                             editor = TagEditorDraft()
                         }.frame(minHeight: 44)
                             .listRowBackground(appearance.surface)
-                    }
-                }
-            } header: {
-                if projectsContent != nil {
-                    VStack(spacing: 12) {
-                        Divider().padding(.top, 8)
-                        OrbitCollapsibleSectionHeader(title: "Теги", expanded: $tagsExpanded,
-                                                      createLabel: "Создать тег", identifier: "tags") {
-                            editor = TagEditorDraft()
-                        }
                     }
                 }
             }
@@ -147,6 +149,7 @@ struct OrbitTagsScreen: View {
 
 /// Independent disclosure and add targets; the entire title toggles a section.
 struct OrbitCollapsibleSectionHeader: View {
+    @Environment(\.orbitAppearance) private var appearance
     let title: String
     @Binding var expanded: Bool
     let createLabel: String
@@ -162,7 +165,7 @@ struct OrbitCollapsibleSectionHeader: View {
                         .font(.caption.weight(.semibold))
                     Spacer(minLength: 0)
                 }
-                .foregroundStyle(.primary)
+                .foregroundStyle(appearance.secondaryText)
                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 .contentShape(Rectangle())
             }

@@ -67,7 +67,8 @@ struct ProjectWorkspaceScreen: View {
                                 ForEach([false, true], id: \.self) { completed in
                                     let rows = tasks.filter { $0.isCompleted == completed && !TaskDaySelection.isOverdue($0, before: referenceDay) }
                                     if !rows.isEmpty {
-                                        Section(completed ? "Завершённые" : "Открытые") {
+                                        Section {
+                                            OrbitTaskSectionHeading(title: completed ? "Завершённые" : "Открытые")
                                             ForEach(rows) { task in
                                                 InboxRowView(task: task, model: model, showsProjectLabel: false) { editor = .date(task) }
                                                     onEditInterval: { editor = .interval(task) }

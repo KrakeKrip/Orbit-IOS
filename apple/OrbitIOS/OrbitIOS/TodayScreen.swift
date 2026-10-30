@@ -81,7 +81,8 @@ struct TodayScreen: View {
     private var taskList: some View {
         List {
             if !openTasks.isEmpty {
-                Section("Открытые") {
+                Section {
+                    OrbitTaskSectionHeading(title: "Открытые")
                     ForEach(openTasks) { task in
                         // NATIVE-LIST-001: the section header already shows
                         // the day — no repeated date subtitle in the row.
@@ -94,7 +95,8 @@ struct TodayScreen: View {
                 }
             }
             if !completedTasks.isEmpty {
-                Section("Завершённые") {
+                Section {
+                    OrbitTaskSectionHeading(title: "Завершённые")
                     ForEach(completedTasks) { task in
                         InboxRowView(task: task, model: model, showsDateLabel: false) {
                             presentation = .date(task)
