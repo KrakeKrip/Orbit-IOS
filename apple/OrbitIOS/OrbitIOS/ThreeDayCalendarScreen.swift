@@ -39,6 +39,7 @@ struct ThreeDayCalendarScreen: View {
     @ScaledMetric(relativeTo: .caption) private var scaledCalendarFont = 12.0
     private var calendarFont: CGFloat { min(scaledCalendarFont, 20) }
     @ScaledMetric(relativeTo: .subheadline) private var untimedRowHeight = 44.0
+    @ScaledMetric(relativeTo: .headline) private var dayMarkerSize = 32.0
     private let hourHeight: CGFloat = 64
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var availableHeight: CGFloat = 800
@@ -86,9 +87,9 @@ struct ThreeDayCalendarScreen: View {
                     NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: $showsCalendar, agendaMode: $showsAgenda))
                     OrbitPeriodControls(
                         date: MarkedDatePicker(selection: picker, taskDays: Set(model.tasks.compactMap(\.plannedDate))),
-                        previous: Button { page(-3) } label: { Image(systemName: "chevron.left").frame(width: 44, height: 44) }
+                        previous: Button { page(-3) } label: { Image(systemName: "chevron.left").frame(width: 44, height: 44).contentShape(Rectangle()) }
                             .disabled(TaskTimelineWindow.shift(days.first ?? anchorDay, by: -3) == nil).accessibilityLabel("Предыдущие три дня"),
-                        next: Button { page(3) } label: { Image(systemName: "chevron.right").frame(width: 44, height: 44) }
+                        next: Button { page(3) } label: { Image(systemName: "chevron.right").frame(width: 44, height: 44).contentShape(Rectangle()) }
                             .disabled(days.last == "2199-12-31").accessibilityLabel("Следующие три дня"),
                         today: Group { if selectedDay != referenceDay {
                             Button("Сегодня") { selectedDay = referenceDay; anchorDay = referenceDay }.frame(minHeight: 44)
@@ -104,14 +105,14 @@ struct ThreeDayCalendarScreen: View {
                             VStack(spacing: 0) {
                                 OverdueTaskBlock(model: model, onBeginDrag: beginOverdueDrag)
                                 dayHeaders
-                                untimedRows
+                                if untimedCount > 0 { untimedRows }
                             }.environment(\.dynamicTypeSize, .xxxLarge)
                             .fixedSize(horizontal: false, vertical: true)
                         }.frame(height: min(190, max(100, availableHeight * 0.28)))
                     } else {
                         OverdueTaskBlock(model: model, onBeginDrag: beginOverdueDrag)
                         dayHeaders
-                        untimedRows
+                        if untimedCount > 0 { untimedRows }
                     }
                     if let error { OrbitErrorMessage(error).padding(6) }
                 }
@@ -178,20 +179,39 @@ struct ThreeDayCalendarScreen: View {
     }
     private var dayHeaders: some View {
         HStack(spacing: 0) {
-            Color.clear.frame(width: gutter)
+            Group {
+                if untimedCount == 0 {
+                    Text("Без\nвремени").font(.caption2).foregroundStyle(appearance.secondaryText)
+                        .accessibilityLabel("Без времени — нет задач")
+                } else {
+                    Color.clear.frame(height: 0)
+                }
+            }.frame(width: gutter)
             ForEach(days, id: \.self) { day in
                 Button { selectedDay = day } label: {
-                    VStack(spacing: 3) {
-                        Text(TaskPlannedDate.date(fromCivilDateString: day)!.formatted(.dateTime.weekday(.abbreviated).locale(Locale(identifier: "ru_RU"))))
-                            .font(.caption).foregroundStyle(appearance.secondaryText)
-                        Text(String(Int(day.suffix(2))!)).font(.headline)
-                            .frame(minWidth: 44, minHeight: 44)
-                            .foregroundStyle(day == selectedDay ? .white : .primary)
-                            .background(day == selectedDay ? Color.orbitAccentFill : .clear, in: Circle())
-                    }.frame(maxWidth: .infinity).padding(.vertical, 6)
-                }.buttonStyle(.plain).accessibilityLabel(RussianDateCaption.label(day))
+                    // Keep the weekday and date on one line. The marker is
+                    // smaller, while the entire column retains a 44pt target.
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 4) { weekday(day); dayNumber(day) }
+                        VStack(spacing: 2) { weekday(day); dayNumber(day) }
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(Rectangle())
+                }.buttonStyle(.plain)
+                    .accessibilityLabel(RussianDateCaption.label(day))
+                    .accessibilityAddTraits(day == selectedDay ? .isSelected : [])
             }
         }.dynamicTypeSize(...DynamicTypeSize.accessibility1).fixedSize(horizontal: false, vertical: true)
+    }
+    private func weekday(_ day: String) -> some View {
+        Text(TaskPlannedDate.date(fromCivilDateString: day)!.formatted(.dateTime.weekday(.abbreviated).locale(Locale(identifier: "ru_RU"))))
+            .font(.caption).foregroundStyle(appearance.secondaryText)
+    }
+    private func dayNumber(_ day: String) -> some View {
+        Text(String(Int(day.suffix(2))!)).font(.headline)
+            .frame(width: dayMarkerSize, height: dayMarkerSize)
+            .foregroundStyle(day == selectedDay ? .white : .primary)
+            .background(day == selectedDay ? Color.orbitAccentFill : .clear, in: Circle())
     }
     private var untimedCount: Int { days.map { projection($0).untimedTaskIDs.count }.max() ?? 0 }
     private var untimedRows: some View {
