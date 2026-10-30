@@ -115,24 +115,25 @@ private struct OrbitMainScrollObserver: ViewModifier {
     @State private var followsTouch = false
     @State private var followsShortContentGesture = false
     @State private var shortGestureOrigin: CGFloat?
+    @State private var shortTranslationOrigin: CGFloat = 0
     @State private var settling: Task<Void, Never>?
-    @State private var calendarPanOrigin: CGFloat?
-    @State private var calendarHeaderOrigin: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.displayScale) private var displayScale
     func body(content: Content) -> some View {
         content.background(OrbitHeaderScrollProbe(handle: scrollHandle).allowsHitTesting(false))
         .simultaneousGesture(DragGesture(minimumDistance: 8, coordinateSpace: .global)
             .onChanged { value in
-                guard !followsCalendarGesture else { return }
                 if shortGestureOrigin == nil {
-                    guard scrollHandle.contentFits,
+                    guard followsCalendarGesture || scrollHandle.contentFits,
                           abs(value.translation.height) > abs(value.translation.width) else { return }
                     settling?.cancel()
                     shortGestureOrigin = offset
-                    followsShortContentGesture = true
+                    // Recognition starts after the drag threshold. Do not apply
+                    // that accumulated distance as a one-frame title jump.
+                    shortTranslationOrigin = value.translation.height >= 0 ? 8 : -8
+                    followsShortContentGesture = !followsCalendarGesture
                 }
-                offset = min(80, max(-80, (shortGestureOrigin ?? 0) - value.translation.height))
+                offset = min(80, max(followsCalendarGesture ? 0 : -80, (shortGestureOrigin ?? 0) - (value.translation.height - shortTranslationOrigin)))
             }
             .onEnded { value in
                 guard shortGestureOrigin != nil else { return }
@@ -145,14 +146,8 @@ private struct OrbitMainScrollObserver: ViewModifier {
             if (phase == .tracking || phase == .interacting), old != .tracking && old != .interacting {
                 settling?.cancel()
                 followsShortContentGesture = !followsCalendarGesture && scrollHandle.contentFits
-                calendarHeaderOrigin = offset
             }
             if followsCalendarGesture || followsShortContentGesture {
-                if (phase == .tracking || phase == .interacting),
-                   old != .tracking && old != .interacting {
-                    calendarPanOrigin = scrollHandle.panTranslation
-                    calendarHeaderOrigin = offset
-                }
                 followsTouch = phase == .tracking || phase == .interacting
             } else {
                 followsTouch = phase == .tracking || phase == .interacting || phase == .decelerating
@@ -162,21 +157,29 @@ private struct OrbitMainScrollObserver: ViewModifier {
             if !followsTouch, !followsShortContentGesture, offset < 0 {
                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { offset = 0 }
             }
+            // The direct drag owns timeline header movement and release.
+            // Native deceleration must not restart that animation.
+            if followsCalendarGesture {
+                if phase == .decelerating || phase == .idle {
+                    DispatchQueue.main.async {
+                        // A competing native recognizer can cancel SwiftUI's
+                        // drag without delivering onEnded. Finish that drag too.
+                        guard shortGestureOrigin != nil else { return }
+                        shortGestureOrigin = nil
+                        settle(to: offset < 40 ? 0 : 80)
+                    }
+                }
+                return
+            }
             // Settle only a real touch/deceleration. Programmatic navigation,
             // agenda jumps and timeline auto-scroll must keep their targets.
             guard phase == .idle, old == .interacting || old == .decelerating || old == .tracking else { return }
             if followsShortContentGesture {
-                shortGestureOrigin = nil
-                settle(to: offset < 40 ? 0 : 80)
+                // The drag end owns settling, including its velocity target.
+                // Native idle must not restart it with a different target.
                 return
             }
-            if followsCalendarGesture {
-                // Timelines may start at any hour.
-                // Settle only the header without moving their content offset.
-                settle(to: offset < 40 ? 0 : 80)
-            } else {
-                DispatchQueue.main.async { scrollHandle.settleHeader(animated: !reduceMotion) }
-            }
+            DispatchQueue.main.async { scrollHandle.settleHeader(animated: !reduceMotion) }
         }
         .onScrollGeometryChange(for: OrbitHeaderScrollSample.self) {
             OrbitHeaderScrollSample(y: $0.contentOffset.y, top: $0.contentInsets.top,
@@ -184,23 +187,8 @@ private struct OrbitMainScrollObserver: ViewModifier {
         } action: { old, value in
             guard value.valid else { return }
             if followsShortContentGesture { return }
-            if followsCalendarGesture {
-                guard followsTouch, let translation = scrollHandle.panTranslation else { return }
-                if calendarPanOrigin == nil {
-                    calendarPanOrigin = translation
-                    calendarHeaderOrigin = offset
-                }
-                // A finger's translation is independent of content insets and
-                // the header's layout. Never accumulate geometry deltas here:
-                // bottom bounce/layout corrections otherwise feed back into
-                // header progress and can keep the main thread updating forever.
-                let travel = (calendarPanOrigin ?? translation) - translation
-                let next = value.y + value.top <= 0.5
-                    ? 0 : min(80, max(0, calendarHeaderOrigin + travel))
-                let rounded = (next * displayScale).rounded() / displayScale
-                if offset != rounded { offset = rounded }
-                return
-            }
+            // Timeline content offset and header motion are independent.
+            if followsCalendarGesture { return }
             // Capture the resting origin while the first native layout settles.
             // Afterwards inset-only changes are paint feedback, not finger motion.
             if referenceTopInset == nil || (offset == 0 && abs(value.y + value.top) < 0.01) {
