@@ -236,11 +236,12 @@ private struct OrbitWorkspaceHeader<Header: View>: ViewModifier {
     private var collapsedSpace: CGFloat { model.isSelecting ? 0 : titleHeight * progress }
 
     func body(content: Content) -> some View {
-        content
+        let translation = -collapsedSpace
+        return content
             // A constant overflow fills the space revealed by the translating
             // surface. It must never depend on the observed scroll position.
             .padding(.bottom, model.isSelecting ? 0 : -titleHeight)
-            .visualEffect { surface, _ in surface.offset(y: -collapsedSpace) }
+            .visualEffect { surface, _ in surface.offset(y: translation) }
             .safeAreaInset(edge: .top, spacing: 0) {
                 header
                     .environment(\.orbitHeaderEmbedded, true)

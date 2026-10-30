@@ -12,6 +12,7 @@ struct OrbitTagsScreen: View {
     @State private var browsingTag: OrbitTag?
     @State private var deleting: OrbitTag?
     @State private var error: String?
+    @State private var headerScrollFooter: CGFloat = 44
     private var animation: Animation? { reduceMotion ? nil : .easeInOut(duration: 0.2) }
     var body: some View {
         List {
@@ -89,7 +90,15 @@ struct OrbitTagsScreen: View {
                 }
             }
 
+            if projectsContent != nil {
+                Color.clear.frame(height: headerScrollFooter)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .accessibilityHidden(true)
+            }
         }
+        .orbitMinimumHeaderScrollRange(footer: $headerScrollFooter, enabled: projectsContent != nil)
         .listStyle(.plain)
         .listSectionSeparator(.hidden)
         .scrollBounceBehavior(.always)

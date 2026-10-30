@@ -156,6 +156,52 @@ extension View {
         }
     }
 }
+/// A short project index must still be able to collapse its header. List's
+/// rubber band alone springs back because the rows do not fill the viewport.
+@available(iOS 18.0, *)
+private struct OrbitMinimumHeaderScrollRange: ViewModifier {
+    @Binding var footer: CGFloat
+    let enabled: Bool
+    @State private var availableHeight: CGFloat?
+    @Environment(\.displayScale) private var displayScale
+    @Environment(\.orbitHeaderProgress) private var progress
+    @Environment(\.orbitHeaderPullDown) private var pullDown
+    @ScaledMetric(relativeTo: .largeTitle) private var titleHeight = 56
+
+    private struct Sample: Equatable {
+        let viewport: CGFloat
+        let content: CGFloat
+        let top: CGFloat
+        let bottom: CGFloat
+    }
+    func body(content: Content) -> some View {
+        content.onScrollGeometryChange(for: Sample.self) {
+            Sample(viewport: $0.containerSize.height, content: $0.contentSize.height,
+                   top: $0.contentInsets.top, bottom: $0.contentInsets.bottom)
+        } action: { old, value in
+            guard enabled, value.viewport > 0, value.content > 0 else { return }
+            // Ignore the moving header's inset feedback. Only native viewport
+            // or content-size changes may alter the invisible footer.
+            guard availableHeight == nil || old.viewport != value.viewport || old.content != value.content else { return }
+            if availableHeight == nil || old.viewport != value.viewport {
+                let restingTop = value.top + titleHeight * progress - pullDown
+                availableHeight = max(0, value.viewport - restingTop - value.bottom)
+            }
+            guard let availableHeight else { return }
+            let rows = value.content - footer
+            // Two points cover native row/pixel rounding around the 80pt snap.
+            let next = max(44, ((availableHeight + 82 - rows) * displayScale).rounded(.up) / displayScale)
+            if abs(next - footer) > 1 / displayScale { footer = next }
+        }
+    }
+}
+extension View {
+    @ViewBuilder func orbitMinimumHeaderScrollRange(footer: Binding<CGFloat>, enabled: Bool) -> some View {
+        if #available(iOS 18.0, *) { modifier(OrbitMinimumHeaderScrollRange(footer: footer, enabled: enabled)) }
+        else { self }
+    }
+}
+
 /// Uses the existing scroll view without replacing its delegate or gestures.
 /// This also handles List, which does not implement ScrollTargetBehavior.
 @MainActor
