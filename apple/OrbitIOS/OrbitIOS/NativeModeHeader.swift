@@ -113,14 +113,38 @@ private struct OrbitMainScrollObserver: ViewModifier {
     @State private var scrollHandle = OrbitHeaderScrollHandle()
     @State private var referenceTopInset: CGFloat?
     @State private var followsTouch = false
+    @State private var followsShortContentGesture = false
+    @State private var shortGestureOrigin: CGFloat?
     @State private var calendarPanOrigin: CGFloat?
     @State private var calendarHeaderOrigin: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.displayScale) private var displayScale
     func body(content: Content) -> some View {
         content.background(OrbitHeaderScrollProbe(handle: scrollHandle).allowsHitTesting(false))
+        .simultaneousGesture(DragGesture(minimumDistance: 8, coordinateSpace: .global)
+            .onChanged { value in
+                guard !followsCalendarGesture else { return }
+                if shortGestureOrigin == nil {
+                    guard scrollHandle.contentFits,
+                          abs(value.translation.height) > abs(value.translation.width) else { return }
+                    shortGestureOrigin = offset
+                    followsShortContentGesture = true
+                }
+                offset = min(80, max(-80, (shortGestureOrigin ?? 0) - value.translation.height))
+            }
+            .onEnded { _ in
+                guard shortGestureOrigin != nil else { return }
+                shortGestureOrigin = nil
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+                    offset = offset < 40 ? 0 : 80
+                }
+            })
         .onScrollPhaseChange { old, phase in
-            if followsCalendarGesture {
+            if (phase == .tracking || phase == .interacting), old != .tracking && old != .interacting {
+                followsShortContentGesture = !followsCalendarGesture && scrollHandle.contentFits
+                calendarHeaderOrigin = offset
+            }
+            if followsCalendarGesture || followsShortContentGesture {
                 if (phase == .tracking || phase == .interacting),
                    old != .tracking && old != .interacting {
                     calendarPanOrigin = scrollHandle.panTranslation
@@ -138,9 +162,9 @@ private struct OrbitMainScrollObserver: ViewModifier {
             // Settle only a real touch/deceleration. Programmatic navigation,
             // agenda jumps and timeline auto-scroll must keep their targets.
             guard phase == .idle, old == .interacting || old == .decelerating || old == .tracking else { return }
-            if followsCalendarGesture {
-                // The timeline may start at any hour. Settle only the header;
-                // never move the calendar to an absolute content offset.
+            if followsCalendarGesture || followsShortContentGesture {
+                // Short screens have no scroll range; timelines may start at any hour.
+                // Settle only the header without moving their content offset.
                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                     offset = offset < 40 ? 0 : 80
                 }
@@ -153,6 +177,7 @@ private struct OrbitMainScrollObserver: ViewModifier {
                                     valid: $0.containerSize.height > 0)
         } action: { old, value in
             guard value.valid else { return }
+            if followsShortContentGesture { return }
             if followsCalendarGesture {
                 guard followsTouch, let translation = scrollHandle.panTranslation else { return }
                 if calendarPanOrigin == nil {
@@ -212,6 +237,12 @@ extension View {
 private final class OrbitHeaderScrollHandle {
     weak var scroll: UIScrollView?
     var referenceTopInset: CGFloat?
+
+    var contentFits: Bool {
+        guard let scroll else { return false }
+        return scroll.contentSize.height + scroll.adjustedContentInset.top
+            + scroll.adjustedContentInset.bottom <= scroll.bounds.height + 1
+    }
 
     var panTranslation: CGFloat? {
         guard let scroll else { return nil }
