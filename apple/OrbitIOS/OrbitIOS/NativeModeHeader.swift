@@ -146,7 +146,15 @@ private struct OrbitMainScrollObserver: ViewModifier {
                 guard followsTouch, old.valid, old.y != value.y else { return }
                 // Collapse from the current visible hour, not from midnight or
                 // an inset captured before the initial scroll-to-hour operation.
-                let delta = value.y - old.y
+                // Clamp both samples to the real top boundary. The spring
+                // returning from negative overscroll must not collapse the header.
+                let position = max(0, value.y + value.top)
+                let previous = max(0, old.y + old.top)
+                let delta = position - previous
+                if position <= 0.5 {
+                    offset = 0
+                    return
+                }
                 let next = min(80, max(0, offset + delta))
                 offset = (next * displayScale).rounded() / displayScale
                 return

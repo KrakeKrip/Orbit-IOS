@@ -11,3 +11,9 @@ Private build/install logs: /private/tmp/orbit-header-pull-reset-build.log and /
 User reported the remaining absolute-origin error. DayTimelineView now opts into gesture-relative header progress: only user-driven vertical deltas update the bounded 0–80 point collapse range. Initial scroll-to-hour and programmatic positioning no longer determine header progress. At idle the header settles itself without sending the timeline to absolute offsets 0/80. Other list observers retain their existing behavior.
 
 Release build and replacement iPhone installation succeeded. No automated or Simulator tests in this expedited fix; physical gesture confirmation remains with the user.
+
+## Follow-up: midnight bounce and double separator
+
+Calendar header deltas now clamp both geometry samples to the native top boundary; negative overscroll and its spring return no longer count as upward scrolling. At the top the header is expanded. Removed the internal untimed-section divider that duplicated the shared header edge.
+
+Release build and device installation succeeded. No Simulator/automated tests in this continuing expedited correction; user-visible boundary behavior has not been independently verified.

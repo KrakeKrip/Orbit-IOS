@@ -633,7 +633,6 @@ struct CalendarDayScreen: View {
                         .padding(.top, 2)
                 }
             }
-            Divider()
         }
         .frame(minHeight: 44)
         .background(returnHover ? Color.orbitAccent.opacity(0.18) : .clear)
