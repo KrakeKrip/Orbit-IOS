@@ -108,6 +108,7 @@ private struct OrbitHeaderScrollSample: Equatable {
 }
 @available(iOS 18.0, *)
 private struct OrbitMainScrollObserver: ViewModifier {
+    var followsCalendarGesture = false
     @State private var offset: CGFloat = 0
     @State private var scrollHandle = OrbitHeaderScrollHandle()
     @State private var referenceTopInset: CGFloat?
@@ -126,13 +127,30 @@ private struct OrbitMainScrollObserver: ViewModifier {
             // Settle only a real touch/deceleration. Programmatic navigation,
             // agenda jumps and timeline auto-scroll must keep their targets.
             guard phase == .idle, old == .interacting || old == .decelerating || old == .tracking else { return }
-            DispatchQueue.main.async { scrollHandle.settleHeader(animated: !reduceMotion) }
+            if followsCalendarGesture {
+                // The timeline may start at any hour. Settle only the header;
+                // never move the calendar to an absolute content offset.
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+                    offset = offset < 40 ? 0 : 80
+                }
+            } else {
+                DispatchQueue.main.async { scrollHandle.settleHeader(animated: !reduceMotion) }
+            }
         }
         .onScrollGeometryChange(for: OrbitHeaderScrollSample.self) {
             OrbitHeaderScrollSample(y: $0.contentOffset.y, top: $0.contentInsets.top,
                                     valid: $0.containerSize.height > 0)
         } action: { old, value in
             guard value.valid else { return }
+            if followsCalendarGesture {
+                guard followsTouch, old.valid, old.y != value.y else { return }
+                // Collapse from the current visible hour, not from midnight or
+                // an inset captured before the initial scroll-to-hour operation.
+                let delta = value.y - old.y
+                let next = min(80, max(0, offset + delta))
+                offset = (next * displayScale).rounded() / displayScale
+                return
+            }
             // Capture the resting origin while the first native layout settles.
             // Afterwards inset-only changes are paint feedback, not finger motion.
             if referenceTopInset == nil || (offset == 0 && abs(value.y + value.top) < 0.01) {
@@ -152,8 +170,8 @@ private struct OrbitMainScrollObserver: ViewModifier {
     }
 }
 extension View {
-    @ViewBuilder func orbitMainScrollObserver() -> some View {
-        if #available(iOS 18.0, *) { modifier(OrbitMainScrollObserver()) } else { self }
+    @ViewBuilder func orbitMainScrollObserver(followsCalendarGesture: Bool = false) -> some View {
+        if #available(iOS 18.0, *) { modifier(OrbitMainScrollObserver(followsCalendarGesture: followsCalendarGesture)) } else { self }
     }
 
     /// Empty screens still support the same pull and title motion as a full list.

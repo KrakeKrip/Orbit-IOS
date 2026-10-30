@@ -135,7 +135,7 @@ struct DayTimelineView: View {
                     autoScroll(viewport: geometry.frame(in: .global))
                 }
                 .contentMargins(.bottom, 88, for: .scrollContent)
-                .orbitMainScrollObserver()
+                .orbitMainScrollObserver(followsCalendarGesture: true)
                 .scrollDisabled(editing != nil || creationDraft != nil)
                 .overlay(alignment: .top) {
                     if let gestureError {
