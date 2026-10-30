@@ -47,12 +47,11 @@ struct ProjectWorkspaceScreen: View {
             } else {
                 NavigationStack {
                     VStack(spacing: 0) {
-                        header
-                        OverdueTaskBlock(model: model, projectID: project.id)
                         if let error = model.listError {
                             OrbitTaskLoadFailure(message: error, retry: { model.reload() })
                         } else if tasks.isEmpty {
                             ContentUnavailableView("Нет задач", systemImage: "folder", description: Text("Добавьте первую задачу кнопкой «+»."))
+                                .orbitEmptyScroll()
                         } else {
                             List {
                                 if let error = model.writeError { OrbitErrorMessage(error) }
@@ -78,6 +77,12 @@ struct ProjectWorkspaceScreen: View {
                                 }
                             }
                             .listStyle(.plain).contentMargins(.bottom, 88, for: .scrollContent).scrollContentBackground(.hidden).orbitMainScrollObserver()
+                        }
+                    }
+                    .orbitWorkspaceHeader(stabilizesListInsets: true) {
+                        VStack(spacing: 0) {
+                            header
+                            OverdueTaskBlock(model: model, projectID: project.id)
                         }
                     }
                     .background(appearance.canvas)

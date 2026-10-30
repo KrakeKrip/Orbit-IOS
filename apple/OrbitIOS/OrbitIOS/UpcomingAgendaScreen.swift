@@ -66,15 +66,6 @@ struct UpcomingAgendaScreen: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: $showsCalendar, agendaMode: $showsAgenda))
-                weekNavigation
-                if typeSize.isAccessibilitySize {
-                    ScrollView { OverdueTaskBlock(model: model) }.frame(maxHeight: 110)
-                } else { OverdueTaskBlock(model: model) }
-                Divider()
-                if let message = model.writeError ?? model.listError {
-                    OrbitErrorMessage(message).padding(8)
-                }
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: 0) {
@@ -143,6 +134,19 @@ struct UpcomingAgendaScreen: View {
                     }
                 }
 
+            }
+            .orbitWorkspaceHeader {
+                VStack(spacing: 0) {
+                    NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: $showsCalendar, agendaMode: $showsAgenda))
+                    weekNavigation
+                    if typeSize.isAccessibilitySize {
+                        ScrollView { OverdueTaskBlock(model: model) }.frame(maxHeight: 110)
+                    } else { OverdueTaskBlock(model: model) }
+                    Divider()
+                    if let message = model.writeError ?? model.listError {
+                        OrbitErrorMessage(message).padding(8)
+                    }
+                }
             }
             .background(appearance.canvas)
             .toolbar(model.isSelecting ? .hidden : .visible, for: .navigationBar)

@@ -32,6 +32,7 @@ private struct OverdueTaskContent: View {
     @State private var error: String?
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.orbitAppearance) private var appearance
+    @Environment(\.orbitHeaderEmbedded) private var headerEmbedded
     private var tasks: [OrbitTask] {
         model.tasks.filter { (projectID == nil || $0.projectID == projectID)
             && TaskDaySelection.isOverdue($0, before: today) }
@@ -92,7 +93,7 @@ private struct OverdueTaskContent: View {
                 }
             }
             .buttonStyle(.plain)
-            .background(appearance.canvas)
+            .background(appearance.canvas.opacity(headerEmbedded ? 0 : 1))
             .sheet(item: $request) { value in TaskRescheduleSheet(model: model, ids: value.ids) }
             .sheet(item: $editor) { value in
                 switch value {

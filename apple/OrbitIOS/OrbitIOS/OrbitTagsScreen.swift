@@ -95,9 +95,10 @@ struct OrbitTagsScreen: View {
         .scrollBounceBehavior(.always)
         .contentMargins(.top, 8, for: .scrollContent)
         .contentMargins(.bottom, projectsContent == nil ? 0 : 88, for: .scrollContent)
+        .orbitMainScrollObserver()
         .animation(animation, value: model.tags.map(\.id))
         .animation(animation, value: tagsExpanded)
-        .orbitEditorSurface().navigationTitle(projectsContent == nil ? "Теги" : "Проекты").navigationBarTitleDisplayMode(projectsContent == nil ? .inline : .large)
+        .orbitEditorSurface().navigationTitle(projectsContent == nil ? "Теги" : "Проекты").navigationBarTitleDisplayMode(.inline)
         .sheet(item: $editor) { draft in
             OrbitTagEditor(model: model, draft: draft)
         }

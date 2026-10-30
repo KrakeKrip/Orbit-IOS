@@ -113,32 +113,9 @@ struct CalendarDayScreen: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                dayControls
-                if let writeError = model.writeError {
-                    writeErrorBanner(writeError)
-                }
                 if model.listError != nil {
                     listErrorView
                 } else {
-                    if isFixedDayMode && isProjectionEmpty {
-                        emptyProjectionCaption
-                    }
-                    if typeSize.isAccessibilitySize {
-                        Button("Задачи дня", systemImage: "list.bullet") { showsReadableDay = true }
-                            .font(.subheadline).frame(maxWidth: .infinity, minHeight: 44)
-                            .accessibilityIdentifier("calendar-readable-day")
-                            .environment(\.dynamicTypeSize, .xxxLarge)
-                        ScrollView {
-                            VStack(spacing: 0) {
-                                OverdueTaskBlock(model: model, projectID: projectID, onBeginDrag: beginOverdueDrag)
-                                untimedSection
-                            }.environment(\.dynamicTypeSize, .xxxLarge)
-                            .fixedSize(horizontal: false, vertical: true)
-                        }.frame(height: min(190, max(100, contentHeight * 0.28)))
-                    } else {
-                        OverdueTaskBlock(model: model, projectID: projectID, onBeginDrag: beginOverdueDrag)
-                        untimedSection
-                    }
                     DayTimelineView(
                         model: model,
                         day: selectedDay,
@@ -169,6 +146,35 @@ struct CalendarDayScreen: View {
                             model.setPlannedInterval(plannedTime: time, durationMinutes: duration, for: task)
                         }
                     )
+                }
+            }
+            .orbitWorkspaceHeader {
+                VStack(spacing: 0) {
+                    dayControls
+                    if let writeError = model.writeError {
+                        writeErrorBanner(writeError)
+                    }
+                    if model.listError == nil {
+                        if isFixedDayMode && isProjectionEmpty {
+                            emptyProjectionCaption
+                        }
+                        if typeSize.isAccessibilitySize {
+                            Button("Задачи дня", systemImage: "list.bullet") { showsReadableDay = true }
+                                .font(.subheadline).frame(maxWidth: .infinity, minHeight: 44)
+                                .accessibilityIdentifier("calendar-readable-day")
+                                .environment(\.dynamicTypeSize, .xxxLarge)
+                            ScrollView {
+                                VStack(spacing: 0) {
+                                    OverdueTaskBlock(model: model, projectID: projectID, onBeginDrag: beginOverdueDrag)
+                                    untimedSection
+                                }.environment(\.dynamicTypeSize, .xxxLarge)
+                                .fixedSize(horizontal: false, vertical: true)
+                            }.frame(height: min(190, max(100, contentHeight * 0.28)))
+                        } else {
+                            OverdueTaskBlock(model: model, projectID: projectID, onBeginDrag: beginOverdueDrag)
+                            untimedSection
+                        }
+                    }
                 }
             }
             .background(appearance.canvas)
@@ -630,7 +636,7 @@ struct CalendarDayScreen: View {
             Divider()
         }
         .frame(minHeight: 44)
-        .background(returnHover ? Color.orbitAccent.opacity(0.18) : appearance.canvas)
+        .background(returnHover ? Color.orbitAccent.opacity(0.18) : .clear)
         .overlay(RoundedRectangle(cornerRadius: 7).stroke(returnHover ? Color.orbitAccent : .clear, lineWidth: 2))
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { untimedFrame = $0 }
     }

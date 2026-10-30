@@ -37,11 +37,10 @@ struct ProjectsScreen: View {
         NavigationStack {
             OrbitTagsScreen(model: model, projectsContent: AnyView(projectRows))
                 .refreshable { model.reload() }
-                .navigationTitle("Проекты")
-                .navigationBarTitleDisplayMode(.large)
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) { OrbitSettingsButton() }
+                .orbitWorkspaceHeader(stabilizesListInsets: true) {
+                    NativeModeHeader(title: "Проекты", switcher: EmptyView())
                 }
+                .orbitScrollingHeader()
             .sheet(item: $editor) { item in
                 ProjectNameSheet(presentation: item, model: model)
             }

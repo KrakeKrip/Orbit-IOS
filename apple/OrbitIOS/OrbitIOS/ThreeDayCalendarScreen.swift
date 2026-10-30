@@ -79,38 +79,42 @@ struct ThreeDayCalendarScreen: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: $showsCalendar, agendaMode: $showsAgenda))
-                OrbitPeriodControls(
-                    date: MarkedDatePicker(selection: picker, taskDays: Set(model.tasks.compactMap(\.plannedDate))),
-                    previous: Button { page(-3) } label: { Image(systemName: "chevron.left").frame(width: 44, height: 44) }
-                        .disabled(TaskTimelineWindow.shift(days.first ?? anchorDay, by: -3) == nil).accessibilityLabel("Предыдущие три дня"),
-                    next: Button { page(3) } label: { Image(systemName: "chevron.right").frame(width: 44, height: 44) }
-                        .disabled(days.last == "2199-12-31").accessibilityLabel("Следующие три дня"),
-                    today: Group { if selectedDay != referenceDay {
-                        Button("Сегодня") { selectedDay = referenceDay; anchorDay = referenceDay }.frame(minHeight: 44)
-                    } }
-                )
-                if typeSize.isAccessibilitySize {
-                    Button("Задачи дня", systemImage: "list.bullet") { showsReadableDay = true }
-                        .font(.subheadline).frame(maxWidth: .infinity, minHeight: 44)
-                        .accessibilityLabel("Задачи за " + RussianDateCaption.label(selectedDay))
-                        .accessibilityIdentifier("calendar-readable-day")
-                            .environment(\.dynamicTypeSize, .xxxLarge)
-                    ScrollView {
-                        VStack(spacing: 0) {
-                            OverdueTaskBlock(model: model, onBeginDrag: beginOverdueDrag)
-                            dayHeaders
-                            untimedRows
-                        }.environment(\.dynamicTypeSize, .xxxLarge)
-                        .fixedSize(horizontal: false, vertical: true)
-                    }.frame(height: min(190, max(100, availableHeight * 0.28)))
-                } else {
-                    OverdueTaskBlock(model: model, onBeginDrag: beginOverdueDrag)
-                    dayHeaders
-                    untimedRows
-                }
-                if let error { OrbitErrorMessage(error).padding(6) }
                 timeline
+            }
+            .orbitWorkspaceHeader {
+                VStack(spacing: 0) {
+                    NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: $showsCalendar, agendaMode: $showsAgenda))
+                    OrbitPeriodControls(
+                        date: MarkedDatePicker(selection: picker, taskDays: Set(model.tasks.compactMap(\.plannedDate))),
+                        previous: Button { page(-3) } label: { Image(systemName: "chevron.left").frame(width: 44, height: 44) }
+                            .disabled(TaskTimelineWindow.shift(days.first ?? anchorDay, by: -3) == nil).accessibilityLabel("Предыдущие три дня"),
+                        next: Button { page(3) } label: { Image(systemName: "chevron.right").frame(width: 44, height: 44) }
+                            .disabled(days.last == "2199-12-31").accessibilityLabel("Следующие три дня"),
+                        today: Group { if selectedDay != referenceDay {
+                            Button("Сегодня") { selectedDay = referenceDay; anchorDay = referenceDay }.frame(minHeight: 44)
+                        } }
+                    )
+                    if typeSize.isAccessibilitySize {
+                        Button("Задачи дня", systemImage: "list.bullet") { showsReadableDay = true }
+                            .font(.subheadline).frame(maxWidth: .infinity, minHeight: 44)
+                            .accessibilityLabel("Задачи за " + RussianDateCaption.label(selectedDay))
+                            .accessibilityIdentifier("calendar-readable-day")
+                                .environment(\.dynamicTypeSize, .xxxLarge)
+                        ScrollView {
+                            VStack(spacing: 0) {
+                                OverdueTaskBlock(model: model, onBeginDrag: beginOverdueDrag)
+                                dayHeaders
+                                untimedRows
+                            }.environment(\.dynamicTypeSize, .xxxLarge)
+                            .fixedSize(horizontal: false, vertical: true)
+                        }.frame(height: min(190, max(100, availableHeight * 0.28)))
+                    } else {
+                        OverdueTaskBlock(model: model, onBeginDrag: beginOverdueDrag)
+                        dayHeaders
+                        untimedRows
+                    }
+                    if let error { OrbitErrorMessage(error).padding(6) }
+                }
             }
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { availableHeight = $0 }
             .background(appearance.canvas)

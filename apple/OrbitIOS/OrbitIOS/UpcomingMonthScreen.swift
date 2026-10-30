@@ -55,7 +55,7 @@ struct UpcomingMonthScreen: View {
                     .contentMargins(.bottom, 88, for: .scrollContent)
                     .scrollBounceBehavior(.always)
                     .orbitMainScrollObserver()
-                    .safeAreaInset(edge: .top, spacing: 0) {
+                    .orbitWorkspaceHeader {
                         NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: $showsCalendar, agendaMode: $showsAgenda)) {
                             Button("Сегодня") {
                                 selectedDay = TaskDaySelection.currentDay()
@@ -65,9 +65,7 @@ struct UpcomingMonthScreen: View {
                     }
                 }
             }
-            .environment(\.orbitGlassHeaders, true)
             .background(appearance.canvas)
-            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar(model.isSelecting ? .hidden : .visible, for: .navigationBar)
             .scrollBounceBehavior(.always)
             .orbitScrollingHeader()

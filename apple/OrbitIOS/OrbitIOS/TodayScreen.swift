@@ -26,15 +26,6 @@ struct TodayScreen: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                if let todayMode {
-                    NativeModeHeader(switcher: TodayModeSwitcher(showsCalendar: todayMode)) {
-                        Text(dateCaption).font(.subheadline).accessibilityIdentifier("today-date-heading")
-                    }
-                }
-                OverdueTaskBlock(model: model)
-                if let writeError = model.writeError {
-                    writeErrorBanner(writeError)
-                }
                 Group {
                     if model.listError != nil {
                         listErrorView
@@ -43,6 +34,17 @@ struct TodayScreen: View {
                     } else {
                         taskList
                     }
+                }
+            }
+            .orbitWorkspaceHeader(stabilizesListInsets: true) {
+                VStack(spacing: 0) {
+                    if let todayMode {
+                        NativeModeHeader(switcher: TodayModeSwitcher(showsCalendar: todayMode)) {
+                            Text(dateCaption).font(.subheadline).accessibilityIdentifier("today-date-heading")
+                        }
+                    }
+                    OverdueTaskBlock(model: model)
+                    if let writeError = model.writeError { writeErrorBanner(writeError) }
                 }
             }
             // NATIVE-UI-MODE/R1: no navigation title/bar in any section view —

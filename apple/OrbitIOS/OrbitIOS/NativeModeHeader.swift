@@ -85,6 +85,7 @@ private struct OrbitScrollingHeader: ViewModifier {
     @State private var offset: CGFloat = 0
     func body(content: Content) -> some View {
         content.environment(\.orbitHeaderProgress, min(max(offset / 80, 0), 1))
+            .environment(\.orbitHeaderPullDown, max(0, -offset))
             .onPreferenceChange(OrbitMainScrollKey.self) { offset = $0 }
     }
 }
@@ -95,7 +96,10 @@ extension View {
 }
 struct OrbitMainScrollKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        let next = nextValue()
+        if abs(next) > abs(value) { value = next }
+    }
 }
 @available(iOS 18.0, *)
 private struct OrbitMainScrollObserver: ViewModifier {
@@ -111,7 +115,7 @@ private struct OrbitMainScrollObserver: ViewModifier {
             DispatchQueue.main.async { scrollHandle.settleHeader(animated: !reduceMotion) }
         }
         .onScrollGeometryChange(for: CGFloat.self) {
-            max(0, $0.contentOffset.y + $0.contentInsets.top)
+            $0.contentOffset.y + $0.contentInsets.top
         } action: { _, value in offset = value }
         .preference(key: OrbitMainScrollKey.self, value: offset)
     }
@@ -201,7 +205,12 @@ private struct OrbitHeaderScrollProbe: UIViewRepresentable {
 }
 
 private struct OrbitHeaderProgressKey: EnvironmentKey { static let defaultValue: CGFloat = 0 }
+private struct OrbitHeaderPullDownKey: EnvironmentKey { static let defaultValue: CGFloat = 0 }
 extension EnvironmentValues {
+    var orbitHeaderPullDown: CGFloat {
+        get { self[OrbitHeaderPullDownKey.self] }
+        set { self[OrbitHeaderPullDownKey.self] = newValue }
+    }
     var orbitHeaderProgress: CGFloat {
         get { self[OrbitHeaderProgressKey.self] }
         set { self[OrbitHeaderProgressKey.self] = newValue }

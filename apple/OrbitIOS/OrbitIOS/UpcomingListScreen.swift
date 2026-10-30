@@ -33,15 +33,6 @@ struct UpcomingListScreen: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // NATIVE-UI-MODE: the same leading top mode row as in the
-                // calendar presentation and the Today section, directly under
-                // the navigation bar — no toolbar item, no second contour.
-                NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: $showsCalendar, agendaMode: agendaMode))
-                dateControls
-                OverdueTaskBlock(model: model)
-                if let writeError = model.writeError {
-                    writeErrorBanner(writeError)
-                }
                 ZStack {
                     Group {
                         if model.listError != nil {
@@ -71,6 +62,14 @@ struct UpcomingListScreen: View {
                           let day = shiftedDay(dx < 0 ? 1 : -1) else { return }
                     select(day, animated: true)
                 })
+            }
+            .orbitWorkspaceHeader(stabilizesListInsets: true) {
+                VStack(spacing: 0) {
+                    NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: $showsCalendar, agendaMode: agendaMode))
+                    dateControls
+                    OverdueTaskBlock(model: model)
+                    if let writeError = model.writeError { writeErrorBanner(writeError) }
+                }
             }
             // NATIVE-UI-MODE/R1: the same no-title/no-bar policy as the
             // calendar presentation and Today — the common mode row is the

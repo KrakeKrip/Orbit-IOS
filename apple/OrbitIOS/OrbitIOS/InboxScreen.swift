@@ -47,11 +47,6 @@ struct InboxScreen: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                NativeModeHeader(title: "Входящие", switcher: EmptyView())
-                OverdueTaskBlock(model: model)
-                if let writeError = model.writeError {
-                    writeErrorBanner(writeError)
-                }
                 Group {
                     if model.listError != nil {
                         listErrorView
@@ -60,6 +55,13 @@ struct InboxScreen: View {
                     } else {
                         taskList
                     }
+                }
+            }
+            .orbitWorkspaceHeader(stabilizesListInsets: true) {
+                VStack(spacing: 0) {
+                    NativeModeHeader(title: "Входящие", switcher: EmptyView())
+                    OverdueTaskBlock(model: model)
+                    if let writeError = model.writeError { writeErrorBanner(writeError) }
                 }
             }
             .toolbar(model.isSelecting ? .hidden : .visible, for: .navigationBar)

@@ -179,26 +179,24 @@ private struct OrbitEditorSurface: ViewModifier {
             .environment(\.colorScheme, appearance.colorScheme ?? inheritedColorScheme)
     }
 }
-private struct OrbitGlassHeadersKey: EnvironmentKey { static let defaultValue = false }
+private struct OrbitHeaderEmbeddedKey: EnvironmentKey { static let defaultValue = false }
 extension EnvironmentValues {
-    var orbitGlassHeaders: Bool {
-        get { self[OrbitGlassHeadersKey.self] }
-        set { self[OrbitGlassHeadersKey.self] = newValue }
+    var orbitHeaderEmbedded: Bool {
+        get { self[OrbitHeaderEmbeddedKey.self] }
+        set { self[OrbitHeaderEmbeddedKey.self] = newValue }
     }
 }
 
-/// Opt-in preview: a continuous full-width surface, with no card border.
+/// Embedded controls share one backing surface instead of stacking materials.
 private struct OrbitHeaderSurface: ViewModifier {
-    @Environment(\.orbitAppearance) private var appearance
-    @Environment(\.orbitGlassHeaders) private var glassHeaders
+    @Environment(\.orbitHeaderEmbedded) private var embedded
     var extendsToTop = false
     func body(content: Content) -> some View {
         content.background {
-            if glassHeaders {
+            if !embedded {
                 OrbitFrostedHeaderBackground()
                     .ignoresSafeArea(.container, edges: extendsToTop ? .top : [])
             }
-            else { appearance.canvas }
         }
     }
 }
@@ -206,6 +204,7 @@ private struct OrbitHeaderSurface: ViewModifier {
 private struct OrbitFrostedHeaderBackground: View {
     @Environment(\.orbitAppearance) private var appearance
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    var horizontalBleed: CGFloat = 16
     var body: some View {
         Group {
             if reduceTransparency { appearance.canvas }
@@ -213,16 +212,67 @@ private struct OrbitFrostedHeaderBackground: View {
                 Color.clear.glassEffect(.regular.tint(appearance.canvas.opacity(0.12)), in: Rectangle())
             } else { Rectangle().fill(.ultraThinMaterial) }
         }
-        .padding(.horizontal, -16)
+        .padding(.horizontal, -horizontalBleed)
         .padding(.bottom, -24)
         .mask(alignment: .top) {
             VStack(spacing: 0) {
                 Rectangle()
                 LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom).frame(height: 24)
             }
-            .padding(.horizontal, -16).padding(.bottom, -24)
+            .padding(.horizontal, -horizontalBleed).padding(.bottom, -24)
         }
         .allowsHitTesting(false)
+    }
+}
+
+/// Reserve expanded title space synchronously in the layout pass. Measuring
+/// it through State introduces a one-frame lag and can loop List inset updates.
+private struct OrbitHeaderReservationLayout: Layout {
+    let collapsedSpace: CGFloat
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let child = subviews.first else { return .zero }
+        let size = child.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil))
+        return CGSize(width: proposal.width ?? size.width, height: size.height + collapsedSpace)
+    }
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(at: bounds.origin, anchor: .topLeading,
+            proposal: ProposedViewSize(width: bounds.width, height: nil))
+    }
+}
+
+private struct OrbitWorkspaceHeader<Header: View>: ViewModifier {
+    let header: Header
+    let stabilizesListInsets: Bool
+    @Environment(\.orbitHeaderProgress) private var progress
+    @Environment(\.orbitHeaderPullDown) private var pullDown
+    @Environment(IOSInboxModel.self) private var model
+    @ScaledMetric(relativeTo: .largeTitle) private var titleHeight = 56
+    private var collapsedSpace: CGFloat { stabilizesListInsets && !model.isSelecting ? titleHeight * progress : 0 }
+
+    func body(content: Content) -> some View {
+        content
+            // Move the viewport with the visible header while retaining a
+            // stable native inset. List section headers then pin at the actual
+            // glass edge instead of leaving the expanded title's empty space.
+            .padding(.bottom, -collapsedSpace)
+            .offset(y: -collapsedSpace)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                OrbitHeaderReservationLayout(collapsedSpace: collapsedSpace) {
+                    header
+                        .environment(\.orbitHeaderEmbedded, true)
+                        .frame(maxWidth: .infinity)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .background {
+                            OrbitFrostedHeaderBackground(horizontalBleed: 0)
+                                .ignoresSafeArea(.container, edges: .top)
+                        }
+                        // Use the scroll view's own rubber-band displacement;
+                        // no second spring or animation competes with the drag.
+                        .offset(y: pullDown)
+                }
+                .zIndex(10)
+            }
+            .toolbarBackground(.hidden, for: .navigationBar)
     }
 }
 private struct OrbitLongPressFeedback: ViewModifier {
@@ -233,6 +283,11 @@ private struct OrbitLongPressFeedback: ViewModifier {
     }
 }
 extension View {
+    /// Reserve controls while allowing the native scrolling surface beneath
+    /// them to supply the glass backdrop. The system bar adds no second layer.
+    func orbitWorkspaceHeader<Header: View>(stabilizesListInsets: Bool = false, @ViewBuilder content: () -> Header) -> some View {
+        modifier(OrbitWorkspaceHeader(header: content(), stabilizesListInsets: stabilizesListInsets))
+    }
     func orbitHeaderSurface(extendsToTop: Bool = false) -> some View { modifier(OrbitHeaderSurface(extendsToTop: extendsToTop)) }
     func orbitIconStyle() -> some View { modifier(OrbitIconStyle()) }
     func orbitPrimaryStyle() -> some View { modifier(OrbitPrimaryStyle()) }
