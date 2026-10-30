@@ -38,19 +38,24 @@ struct OrbitTagsScreen: View {
                                     OrbitHaptics.selection()
                                 } else { browsingTag = tag }
                             } label: {
-                                HStack(spacing: 12) {
-                                    Circle().fill(tint(tag.colorName ?? "coral")).frame(width: 12, height: 12)
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(tag.name).foregroundStyle(.primary)
+                                HStack(alignment: .top, spacing: 12) {
+                                    Circle().fill(tint(tag.colorName ?? "coral"))
+                                        .frame(width: 22, height: 22)
+                                        .frame(width: 28, height: 28)
+                                        .accessibilityHidden(true)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(tag.name).font(.body.weight(.medium)).foregroundStyle(.primary)
                                         Text("Задач: \(model.tasks.filter { ($0.tagIDs ?? []).contains(tag.id) }.count)")
-                                            .font(.caption).foregroundStyle(.secondary)
+                                            .font(.footnote).foregroundStyle(appearance.secondaryText)
                                     }
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                                     Spacer()
                                     if selection?.wrappedValue.contains(tag.id) == true {
                                         Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.orbitAccent)
                                             .transition(.opacity.combined(with: .scale(scale: 0.85)))
                                     }
-                                }.frame(minHeight: 44).contentShape(Rectangle())
+                                }.padding(.vertical, 4).frame(minHeight: 44, alignment: .leading).contentShape(Rectangle())
                             }.buttonStyle(.plain)
                             Menu {
                                 Button("Изменить", systemImage: "pencil") { edit(tag) }
@@ -59,17 +64,17 @@ struct OrbitTagsScreen: View {
                                 .accessibilityLabel("Действия с тегом \(tag.name)")
                         }
                         .listRowBackground(projectsContent == nil ? appearance.surface : appearance.canvas)
-                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 8))
+                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                         .listRowSeparator(projectsContent != nil && tag.id == model.tags.last?.id ? .hidden : .visible, edges: .bottom)
                         .swipeActions {
                             Button("Удалить", role: .destructive) { deleting = tag }
                         }
                     }
                     if projectsContent == nil {
-                    Button("Создать тег", systemImage: "plus") {
-                        editor = TagEditorDraft()
-                    }.frame(minHeight: 44)
-                        .listRowBackground(projectsContent == nil ? appearance.surface : appearance.canvas)
+                        Button("Создать тег", systemImage: "plus") {
+                            editor = TagEditorDraft()
+                        }.frame(minHeight: 44)
+                            .listRowBackground(appearance.surface)
                     }
                 }
             } header: {

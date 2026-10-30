@@ -20,49 +20,51 @@ struct UpcomingMonthScreen: View {
 
     var body: some View {
         NavigationStack {
-            GeometryReader { geometry in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 8) {
-                        // The large title belongs to this scroll surface. Its
-                        // height never changes the viewport during deceleration.
-                        NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: $showsCalendar, agendaMode: $showsAgenda), scrollsWithContent: true) {
-                            Button("Сегодня") {
-                                selectedDay = TaskDaySelection.currentDay()
-                                monthReset += 1
-                            }.frame(minHeight: 44).accessibilityIdentifier("month-return-today")
-                        }
+            VStack(spacing: 0) {
+                // Match the other workspaces: the title fades/scales in a
+                // fixed header instead of travelling under the navigation bar.
+                NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: $showsCalendar, agendaMode: $showsAgenda)) {
+                    Button("Сегодня") {
+                        selectedDay = TaskDaySelection.currentDay()
+                        monthReset += 1
+                    }.frame(minHeight: 44).accessibilityIdentifier("month-return-today")
+                }
+                GeometryReader { geometry in
+                    ScrollView {
                         VStack(alignment: .leading, spacing: 8) {
-                            MarkedMonthCalendar(selection: selection, taskDays: Set(model.tasks.compactMap(\.plannedDate)), pinsHeader: true, allowsCollapse: true) {}
-                                .id(monthReset)
-                            OverdueTaskBlock(model: model)
-                            Divider()
-                            Text(RussianDateCaption.label(selectedDay)).font(.headline).padding(.vertical, 8)
-                            if let error = model.writeError { OrbitErrorMessage(error) }
-                            if let error = model.listError {
-                                OrbitTaskLoadFailure(message: error, retry: { model.reload() })
-                            } else if tasks.isEmpty {
-                                Text("На этот день задач нет").foregroundStyle(appearance.secondaryText).padding(.vertical, 12)
-                            } else {
-                                ForEach(tasks) { task in
-                                    InboxRowView(task: task, model: model, showsDateLabel: false) {
-                                        presentation = .date(task)
-                                    } onEditInterval: {
-                                        presentation = .interval(task)
+                            VStack(alignment: .leading, spacing: 8) {
+                                MarkedMonthCalendar(selection: selection, taskDays: Set(model.tasks.compactMap(\.plannedDate)), pinsHeader: true, allowsCollapse: true) {}
+                                    .id(monthReset)
+                                OverdueTaskBlock(model: model)
+                                Divider()
+                                Text(RussianDateCaption.label(selectedDay)).font(.headline).padding(.vertical, 8)
+                                if let error = model.writeError { OrbitErrorMessage(error) }
+                                if let error = model.listError {
+                                    OrbitTaskLoadFailure(message: error, retry: { model.reload() })
+                                } else if tasks.isEmpty {
+                                    Text("На этот день задач нет").foregroundStyle(appearance.secondaryText).padding(.vertical, 12)
+                                } else {
+                                    ForEach(tasks) { task in
+                                        InboxRowView(task: task, model: model, showsDateLabel: false) {
+                                            presentation = .date(task)
+                                        } onEditInterval: {
+                                            presentation = .interval(task)
+                                        }
                                     }
                                 }
-                            }
-                        }.padding(.horizontal, 16)
-                        Spacer(minLength: 0)
+                            }.padding(.horizontal, 16)
+                            Spacer(minLength: 0)
+                        }
+                        // A short or collapsed month still has room to collapse
+                        // the title with an upward swipe; no fake task rows.
+                        .frame(minHeight: geometry.size.height + 80, alignment: .top)
+                        .padding(.bottom, 16)
                     }
-                    // A short or collapsed month still has room to collapse
-                    // the title with an upward swipe; no fake task rows.
-                    .frame(minHeight: geometry.size.height + 80, alignment: .top)
-                    .padding(.bottom, 16)
+                    .contentMargins(.bottom, 88, for: .scrollContent)
+                    .scrollBounceBehavior(.always)
+                    .orbitMainScrollObserver()
+                    .clipped()
                 }
-                .contentMargins(.bottom, 88, for: .scrollContent)
-                .scrollBounceBehavior(.always)
-                .orbitMainScrollObserver()
-                .clipped()
             }
             .background(appearance.canvas)
             .toolbar(model.isSelecting ? .hidden : .visible, for: .navigationBar)

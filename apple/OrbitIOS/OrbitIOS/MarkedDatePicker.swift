@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import OrbitCore
 
 /// A bounded month grid with one task-presence marker per planned civil day.
@@ -110,13 +111,7 @@ struct MarkedMonthCalendar: View {
                 }
             }
             .contentShape(Rectangle())
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 25).onEnded { value in
-                    let dx = value.translation.width
-                    guard abs(dx) > 65, abs(dx) > abs(value.translation.height) * 1.6 else { return }
-                    moveMonth(dx < 0 ? 1 : -1)
-                }
-            )
+            .background(OrbitMonthSwipeRecognizer(move: moveMonth).allowsHitTesting(false))
             .transition(.opacity)
         }
         if allowsCollapse {
@@ -236,5 +231,79 @@ struct MarkedMonthCalendar: View {
         }
         .accessibilityLabel(date.formatted(.dateTime.day().month(.wide).year().locale(Locale(identifier: "ru_RU"))) + (calendar.isDateInToday(date) ? ", сегодня" : "") + (marked ? ", есть задачи" : ""))
         .accessibilityAddTraits(selected ? [.isSelected] : [])
+    }
+}
+
+/// Decide direction before a swipe begins. A SwiftUI DragGesture on the grid
+/// can claim vertical pans even when its onEnded handler ignores that axis.
+private struct OrbitMonthSwipeRecognizer: UIViewRepresentable {
+    let move: (Int) -> Void
+    final class ProbeView: UIView {
+        var resolve: (() -> Void)?
+        override func layoutSubviews() { super.layoutSubviews(); resolve?() }
+        override func didMoveToWindow() { super.didMoveToWindow(); resolve?() }
+    }
+    func makeUIView(context: Context) -> ProbeView { ProbeView() }
+    func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
+    func updateUIView(_ view: ProbeView, context: Context) {
+        context.coordinator.parent = self
+        context.coordinator.marker = view
+        let coordinator = context.coordinator
+        view.resolve = { [weak view, weak coordinator] in
+            DispatchQueue.main.async { [weak view, weak coordinator] in
+                guard let view, let coordinator, view.window != nil else { return }
+                var ancestor = view.superview
+                while let parent = ancestor {
+                    if parent is UIScrollView { coordinator.attach(parent); return }
+                    ancestor = parent.superview
+                }
+                if let host = view.superview { coordinator.attach(host) }
+            }
+        }
+        view.resolve?()
+    }
+    static func dismantleUIView(_ view: ProbeView, coordinator: Coordinator) { coordinator.detach() }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var parent: OrbitMonthSwipeRecognizer
+        weak var marker: UIView?
+        weak var host: UIView?
+        var start = CGPoint.zero
+        var furthest = CGPoint.zero
+        lazy var pan: UIPanGestureRecognizer = {
+            let recognizer = UIPanGestureRecognizer(target: self, action: #selector(handle))
+            recognizer.delegate = self
+            recognizer.maximumNumberOfTouches = 1
+            return recognizer
+        }()
+        init(parent: OrbitMonthSwipeRecognizer) { self.parent = parent }
+        func attach(_ host: UIView) {
+            guard self.host !== host else { return }
+            detach()
+            self.host = host
+            host.addGestureRecognizer(pan)
+        }
+        func detach() { host?.removeGestureRecognizer(pan); host = nil }
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            guard let marker, marker.window != nil else { return false }
+            start = touch.location(in: nil)
+            furthest = .zero
+            let inside = marker.convert(marker.bounds, to: nil).contains(start)
+            return inside
+        }
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            let velocity = pan.velocity(in: host)
+            return abs(velocity.x) > abs(velocity.y) * 1.6
+        }
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                               shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool { true }
+        @objc private func handle(_ recognizer: UIPanGestureRecognizer) {
+            let point = recognizer.location(in: nil)
+            let delta = CGPoint(x: point.x - start.x, y: point.y - start.y)
+            if abs(delta.x) > abs(furthest.x) { furthest = delta }
+            guard recognizer.state == .ended else { return }
+            guard abs(furthest.x) > 65, abs(furthest.x) > abs(furthest.y) * 1.6 else { return }
+            parent.move(furthest.x < 0 ? 1 : -1)
+        }
     }
 }

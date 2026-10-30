@@ -84,6 +84,7 @@ struct ProjectsScreen: View {
                             }
                         }
                         .listRowBackground(appearance.canvas)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                         .listRowSeparator(project.id == model.projects.last(where: { !$0.isArchived })?.id ? .hidden : .visible, edges: .bottom)
                     }
                 }
@@ -121,6 +122,7 @@ private struct ProjectIndexRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "folder").font(.title3).foregroundStyle(Color.orbitAccent)
+                .frame(width: 28, height: 28)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 Text(name).font(.body.weight(.medium)).foregroundStyle(.primary)
