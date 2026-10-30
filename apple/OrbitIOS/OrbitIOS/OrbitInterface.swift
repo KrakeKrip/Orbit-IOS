@@ -205,12 +205,24 @@ private struct OrbitFrostedHeaderBackground: View {
     @Environment(\.orbitAppearance) private var appearance
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     var horizontalBleed: CGFloat = 16
+    private var usesDarkCanvas: Bool { appearance == .dark || appearance == .oled }
     var body: some View {
         Group {
             if reduceTransparency { appearance.canvas }
             else if #available(iOS 26.0, *) {
-                Color.clear.glassEffect(.regular.tint(appearance.canvas.opacity(0.12)), in: Rectangle())
-            } else { Rectangle().fill(.ultraThinMaterial) }
+                if usesDarkCanvas {
+                    // Regular glass adds its own elevated gray even over an
+                    // empty OLED canvas. Clear glass keeps the theme's black;
+                    // a matching backing dims content passing under the title.
+                    Color.clear.glassEffect(.clear, in: Rectangle())
+                        .background(appearance.canvas.opacity(0.72))
+                } else {
+                    Color.clear.glassEffect(.regular.tint(appearance.canvas.opacity(0.12)), in: Rectangle())
+                }
+            } else {
+                Rectangle().fill(.ultraThinMaterial)
+                    .overlay { if usesDarkCanvas { appearance.canvas.opacity(0.9) } }
+            }
         }
         .padding(.horizontal, -horizontalBleed)
         .padding(.bottom, -24)
@@ -221,6 +233,10 @@ private struct OrbitFrostedHeaderBackground: View {
             }
             .padding(.horizontal, -horizontalBleed).padding(.bottom, -24)
         }
+        // The system's dark glass can still lift a clear surface on iOS 27.
+        // Keep its blur while preventing the backdrop from lightening canvas.
+        .compositingGroup()
+        .blendMode(usesDarkCanvas ? .darken : .normal)
         .allowsHitTesting(false)
     }
 }
