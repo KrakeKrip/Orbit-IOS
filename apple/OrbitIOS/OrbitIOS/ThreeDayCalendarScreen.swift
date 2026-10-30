@@ -340,7 +340,7 @@ struct ThreeDayCalendarScreen: View {
                     }))
                 .onReceive(edgeTicks) { _ in dropOffset = scroll?.contentOffset.y ?? 0; autoScroll(viewport: viewport) }
                 .contentMargins(.bottom, 88, for: .scrollContent)
-                .orbitMainScrollObserver()
+                .orbitMainScrollObserver(followsCalendarGesture: true)
                 .scrollDisabled(edit != nil || creating != nil)
                 .onAppear { reader.scrollTo(8, anchor: .top) }
             }

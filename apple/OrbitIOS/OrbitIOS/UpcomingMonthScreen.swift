@@ -25,7 +25,7 @@ struct UpcomingMonthScreen: View {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 8) {
                             VStack(alignment: .leading, spacing: 8) {
-                                MarkedMonthCalendar(selection: selection, taskDays: Set(model.tasks.compactMap(\.plannedDate)), pinsHeader: true, allowsCollapse: true) {}
+                                MarkedMonthCalendar(selection: selection, taskDays: Set(model.tasks.compactMap(\.plannedDate)), allowsCollapse: true) {}
                                     .id(monthReset)
                                 OverdueTaskBlock(model: model)
                                 Divider()
@@ -47,22 +47,19 @@ struct UpcomingMonthScreen: View {
                             }.padding(.horizontal, 16)
                             Spacer(minLength: 0)
                         }
-                        // A short or collapsed month still has room to collapse
-                        // the title with an upward swipe; no fake task rows.
-                        .frame(minHeight: geometry.size.height + 80, alignment: .top)
-                        .padding(.bottom, 16)
+                        .frame(minHeight: max(0, geometry.size.height - 88), alignment: .top)
                     }
                     .contentMargins(.bottom, 88, for: .scrollContent)
                     .scrollBounceBehavior(.always)
                     .orbitMainScrollObserver()
-                    .orbitWorkspaceHeader {
-                        NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: $showsCalendar, agendaMode: $showsAgenda)) {
-                            Button("Сегодня") {
-                                selectedDay = TaskDaySelection.currentDay()
-                                monthReset += 1
-                            }.frame(minHeight: 44).accessibilityIdentifier("month-return-today")
-                        }
-                    }
+                }
+            }
+            .orbitWorkspaceHeader {
+                NativeModeHeader(switcher: UpcomingModeSwitcher(showsCalendar: $showsCalendar, agendaMode: $showsAgenda)) {
+                    Button("Сегодня") {
+                        selectedDay = TaskDaySelection.currentDay()
+                        monthReset += 1
+                    }.frame(minHeight: 44).accessibilityIdentifier("month-return-today")
                 }
             }
             .background(appearance.canvas)
